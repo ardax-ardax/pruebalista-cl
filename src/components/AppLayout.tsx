@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { FilePlus2, FileText, Settings } from "lucide-react";
+import { FilePlus2, FileText, Library, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -18,7 +18,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </NavLink>
           <nav className="flex items-center gap-1">
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
-            <NavItem to="/procesar" label="Procesar Word" icon={FileText} />
+            <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             <NavItem to="/configuracion" label="Configuración" icon={Settings} />
           </nav>
         </div>

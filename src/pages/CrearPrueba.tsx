@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Eye, FileDown, FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, FileDown, FileText, Pencil, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
@@ -15,7 +16,13 @@ import {
   emptyAssessment,
   type Assessment,
 } from "@/lib/assessment-schema";
-import { loadDraft, saveDraft, clearDraft } from "@/lib/assessment-storage";
+import {
+  clearDraft,
+  getAssessment,
+  loadDraft,
+  saveDraft,
+  upsertAssessment,
+} from "@/lib/assessment-storage";
 import { loadInstitutionName, loadLogo, loadTemplates, type FormatTemplate } from "@/lib/templates";
 import { loadGrades, loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import type { RenderContext } from "@/lib/assessment-render";
@@ -34,6 +41,9 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editingId = searchParams.get("id");
+
   useEffect(() => {
     const t = loadTemplates();
     setTemplates(t);
@@ -43,18 +53,29 @@ const CrearPrueba = () => {
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName() || "New Little College La Florida");
 
-    const draft = loadDraft();
-    if (draft) {
-      setAssessment(draft);
-    } else if (t.length > 0) {
-      setAssessment(emptyAssessment(t[0].id));
+    // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
+    if (editingId) {
+      const found = getAssessment(editingId);
+      if (found) {
+        setAssessment(found);
+      } else if (t.length > 0) {
+        toast.error("No se encontró la prueba");
+        setAssessment(emptyAssessment(t[0].id));
+      }
+    } else {
+      const draft = loadDraft();
+      if (draft) setAssessment(draft);
+      else if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
     }
-  }, []);
+  }, [editingId]);
 
-  // Auto-guardar borrador
+  // Autosave: si editamos una prueba guardada, actualizamos la biblioteca.
+  // Si es una nueva, guardamos como borrador.
   useEffect(() => {
-    if (assessment) saveDraft(assessment);
-  }, [assessment]);
+    if (!assessment) return;
+    if (editingId) upsertAssessment(assessment);
+    else saveDraft(assessment);
+  }, [assessment, editingId]);
 
   const template = useMemo(
     () => templates.find((t) => t.id === assessment?.meta.templateId) ?? templates[0] ?? null,
@@ -87,10 +108,27 @@ const CrearPrueba = () => {
   }
 
   const handleNew = () => {
-    if (!confirm("¿Empezar una nueva prueba? Se descartará el borrador actual.")) return;
+    const msg = editingId
+      ? "¿Crear una prueba nueva? Se perderán cambios no guardados."
+      : "¿Empezar una nueva prueba? Se descartará el borrador actual.";
+    if (!confirm(msg)) return;
     clearDraft();
     setAssessment(emptyAssessment(templates[0]?.id ?? template.id));
+    if (editingId) setSearchParams({});
     setTab("meta");
+  };
+
+  const handleSave = () => {
+    const err = validate();
+    if (err) { toast.error(err); return; }
+    const saved = upsertAssessment(assessment);
+    setAssessment(saved);
+    if (!editingId) {
+      // Pasamos a "modo edición" para que próximos guardados actualicen este registro
+      setSearchParams({ id: saved.id });
+      clearDraft();
+    }
+    toast.success("Prueba guardada");
   };
 
   const validate = (): string | null => {
@@ -136,7 +174,9 @@ const CrearPrueba = () => {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Crear prueba</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {editingId ? "Editar prueba" : "Crear prueba"}
+            </h1>
             <p className="text-sm text-muted-foreground">
               Construye una evaluación estandarizada. El formato institucional se aplica automáticamente al exportar.
             </p>
@@ -144,6 +184,9 @@ const CrearPrueba = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleNew}>
               <Plus className="h-4 w-4" /> Nueva
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleSave}>
+              <Save className="h-4 w-4" /> Guardar
             </Button>
             <Button variant="outline" size="sm" onClick={handleExportPdf}>
               <FileDown className="h-4 w-4" /> PDF
