@@ -4,6 +4,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Assessment, Question, QuestionImage } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
+import { sanitizeRichText } from "./rich-text";
 
 export interface RenderContext {
   assessment: Assessment;
@@ -64,7 +65,11 @@ export const ASSESSMENT_CSS = `
   .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.4pt dashed #b8b8b8; page-break-inside: avoid; break-inside: avoid; }
   .pa-question:last-child { border-bottom: none; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
-  .pa-question-header { font-weight: bold; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
+  .pa-question-header { font-weight: normal; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
+  .pa-question-header b, .pa-question-header strong { font-weight: bold; }
+  .pa-question-header i, .pa-question-header em { font-style: italic; }
+  .pa-question-header u { text-decoration: underline; }
+  .pa-question-number { font-weight: bold; }
   .pa-question-prompt { text-align: justify; }
   .pa-question-points { float: right; font-weight: normal; font-style: italic; }
   .pa-options { margin: 4pt 0 0 14pt; padding: 0; list-style: none; break-inside: avoid; page-break-inside: avoid; }
@@ -150,7 +155,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         ? `<span class="pa-question-points">(${totalPts} pt${totalPts === 1 ? "" : "s"})</span>`
         : "";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
-      const header = `${titleHtml}<div class="pa-question-header">${pts}${qNum}) ${escape(q.prompt)}</div>`;
+      const header = `${titleHtml}<div class="pa-question-header">${pts}<span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
       const layout = q.imageLayout ?? "block";
       const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";

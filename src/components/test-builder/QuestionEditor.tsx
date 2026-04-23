@@ -14,6 +14,7 @@ import {
   type TfStatement,
 } from "@/lib/assessment-schema";
 import { ImageCropEditor } from "./ImageCropEditor";
+import { RichTextInput } from "./RichTextInput";
 
 interface Props {
   question: Question;
@@ -116,10 +117,11 @@ export const QuestionEditor = ({
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-2">
               <div>
                 <Label className="text-xs">Enunciado</Label>
-                <Textarea
+                <RichTextInput
                   placeholder={isTf ? "Instrucción del ítem (ej: Marca V o F según corresponda)" : "Escribe la pregunta…"}
                   value={question.prompt}
-                  onChange={(e) => update({ prompt: e.target.value })}
+                  onChange={(html) => update({ prompt: html })}
+                  rows={3}
                 />
               </div>
               {!isTf && (
