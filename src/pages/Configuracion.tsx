@@ -47,12 +47,36 @@ const Configuracion = () => {
   const [editing, setEditing] = useState<FormatTemplate | null>(null);
   const [editingName, setEditingName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [grades, setGrades] = useState<GradeOption[]>([]);
 
   useEffect(() => {
     setTemplates(loadTemplates());
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName());
+    setSubjects(loadSubjects());
+    setGrades(loadGrades());
   }, []);
+
+  const updateSubjects = (next: SubjectOption[]) => {
+    setSubjects(next);
+    saveSubjects(next);
+  };
+
+  const updateGrades = (next: GradeOption[]) => {
+    setGrades(next);
+    saveGrades(next);
+  };
+
+  const handleResetSubjects = () => {
+    setSubjects(resetSubjects());
+    toast.success("Asignaturas restauradas");
+  };
+
+  const handleResetGrades = () => {
+    setGrades(resetGrades());
+    toast.success("Cursos restaurados");
+  };
 
   const persist = (next: FormatTemplate[]) => {
     setTemplates(next);
