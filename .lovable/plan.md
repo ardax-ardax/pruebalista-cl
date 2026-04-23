@@ -1,50 +1,50 @@
 
 
-# Imagen MC más grande: ampliar columna y respetar `widthPct`
+# Aplicar layout en columna también a Verdadero/Falso con imagen
 
-## Problema
+## Diagnóstico
 
-En selección múltiple con imagen, la columna de imagen está fija en **20%** del ancho de contenido (texto en 80%). Eso vuelve la imagen muy pequeña, sin importar las dimensiones reales o el `widthPct` configurado por el usuario.
+La captura muestra una pregunta de **Verdadero/Falso**, no de selección múltiple. El layout en 2 columnas (texto izq / imagen der centrada) hoy solo se aplica a `multiple-choice`. Para V/F la imagen sigue cayendo como bloque centrado debajo del enunciado y arriba de las afirmaciones.
 
-Además, en el render dentro de la columna, el `widthPct` se ignora (se fuerza a 100% de la celda en DOCX y la columna manda en HTML), así que el usuario no tiene control sobre el tamaño.
+Además, en V/F con imagen el editor sigue mostrando los controles de ancho y alineación, que el usuario no quiere.
 
 ## Solución
 
-### 1) Ampliar la columna de imagen al 40% (texto 60%)
+Extender el comportamiento de "imagen en columna derecha, centrada, sin controles" a Verdadero/Falso, replicando exactamente la lógica que ya tiene multiple-choice. La altura de la columna de imagen se iguala automáticamente a la altura del bloque de afirmaciones (mismo mecanismo de tabla con `height:1px` que ya usa MC).
 
-`src/lib/assessment-render.tsx` — CSS `.pa-mc-split`:
-- `.pa-mc-text { width: 60%; }`
-- `.pa-mc-image { width: 40%; }`
+### 1) `src/lib/assessment-render.tsx`
 
-`src/lib/assessment-docx.ts` — en la rama `isSplit`:
-- Cambiar `textColCm = contentWidthCm * 0.6` y `imgColCm = contentWidthCm * 0.4`.
-- Ajustar `columnWidths` y `width` de las celdas a `0.6` / `0.4`.
-- Recalcular `charsPerLine` con la nueva `textColCm` (la fórmula ya es proporcional, solo cambia el insumo).
+- Cambiar `isSplit` para incluir V/F:
+  ```
+  const isSplit = (q.type === "multiple-choice" || q.type === "true-false") && !!q.image;
+  ```
+- En la rama `q.type === "true-false"`, si `isSplit`, envolver la lista `<ol class="pa-statements">` en la misma tabla `pa-mc-split` (celda izquierda con las afirmaciones, celda derecha con `renderContainedImageHtml(q.image)`).
+- Reutilizar el mismo CSS `.pa-mc-split` / `.pa-mc-text` / `.pa-mc-image` (60% / 40%) que ya existe — sirve igual para V/F.
 
-### 2) Respetar `widthPct` dentro de la columna
+### 2) `src/lib/assessment-docx.ts`
 
-El `widthPct` del usuario se interpretará como **porcentaje del ancho de la columna de imagen**, no del ancho de página. Default 100%.
+- Aplicar el mismo cambio en `isSplit` (MC o V/F con imagen).
+- Extender la rama de generación de tabla split para que, cuando `q.type === "true-false"`, la celda izquierda contenga los párrafos de las afirmaciones (en lugar de las opciones MC) y la celda derecha la imagen centrada con `widthPct` clampeado a 10–100.
+- Reutilizar el mismo cálculo 60/40 ya existente.
 
-`src/lib/assessment-render.tsx` — `renderContainedImageHtml`:
-- Aplicar `width: ${img.widthPct}%` (clamp 10–100) al wrapper / al `.pa-image-crop` / `.pa-image-plain`, en lugar de `max-width: 100%` puro.
+### 3) `src/components/test-builder/QuestionEditor.tsx`
 
-`src/lib/assessment-docx.ts` — rama `isSplit`:
-- Pasar `widthPct: clamp(10, 100, q.image.widthPct)` en lugar de forzar `100`.
+- Cambiar la condición que pasa `allowFullWidth` y muestra el mensaje informativo: aplicar tanto a `multiple-choice` como a `true-false`.
+- Cuando se sube imagen en una pregunta V/F, asignar también `imageLayout: "side-right"` automáticamente (paralelo a lo que ya se hace para MC).
+- Texto informativo actualizado: "La imagen se ubica en una columna a la derecha de las afirmaciones, centrada. Usá el control de ancho para ajustar su tamaño dentro de la columna."
 
-### 3) Quitar el clamp restrictivo de `widthPct` para MC con imagen
+### 4) `src/components/test-builder/ImageCropEditor.tsx`
 
-En `ImageCropEditor` el slider hoy clampa a 20% para `left/right` y 50% para `center`. Para una imagen MC el slider debe permitir 10–100% (ya que se aplica sobre la columna, no sobre la página).
+- Cuando `allowFullWidth` está activo, **ocultar el selector de alineación** (la imagen siempre va centrada en su columna en este modo). Mantener visible solo el slider de ancho y el editor de recorte.
+- Al activarse `allowFullWidth`, forzar internamente `alignment: "center"` en el `onChange` para que el valor quede consistente en el schema.
 
-`src/components/test-builder/ImageCropEditor.tsx`:
-- Aceptar un prop opcional `allowFullWidth` (boolean). Cuando es `true`, usar `MAX_IMAGE_WIDTH_PCT` (100) sin importar la alineación.
+## Sin cambios de schema
 
-`src/components/test-builder/QuestionEditor.tsx`:
-- En la imagen del enunciado de una pregunta `multiple-choice`, pasar `allowFullWidth={true}` al `ImageCropEditor`.
-- Actualizar el texto informativo: "En selección múltiple la imagen ocupa una columna a la derecha de las opciones; usá el control de ancho para ajustar su tamaño dentro de la columna".
+`imageLayout` y `alignment` siguen existiendo. En V/F y MC con imagen se ignoran (siempre side-right + center). Otros tipos de pregunta no se ven afectados.
 
 ## Resultado esperado
 
-- La columna de imagen pasa de 20% a 40% del ancho de contenido — la imagen se ve significativamente más grande por defecto.
-- El usuario puede ajustar el `widthPct` (10–100) para reducirla dentro de su columna si lo desea.
-- Sin cambios de schema. DOCX, PDF y preview quedan consistentes.
+- En V/F con imagen: afirmaciones a la izquierda (60%), imagen centrada en columna derecha (40%), altura de la columna igual a la del bloque de afirmaciones — idéntico al comportamiento de MC.
+- El editor ya no muestra alineación en MC ni en V/F con imagen; solo el ancho dentro de la columna.
+- Preview, PDF y Word consistentes.
 
