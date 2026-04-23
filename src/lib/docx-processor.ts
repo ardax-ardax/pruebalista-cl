@@ -438,9 +438,16 @@ export async function applyTemplate(
         category: "Numeración",
         description: `Preguntas uniformadas a formato \`1)\` (${total} ítem(s)).`,
       });
+    if (normRes.duplicateNumberingStripped > 0) {
+      autoFixesApplied.push(
+        `Se eliminó numeración manual duplicada en ${normRes.duplicateNumberingStripped} párrafo(s) (Word ya pintaba la numeración nativa).`,
+      );
+      changes.push({
+        category: "Numeración",
+        description: `Numeración manual duplicada removida en ${normRes.duplicateNumberingStripped} párrafo(s).`,
+      });
     }
 
-    // Warnings estructurales
     const addedPageBreaks = Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks);
     // El banner añade un párrafo, no un page break duro; cualquier salto extra es notable
     if (addedPageBreaks > 0) {
