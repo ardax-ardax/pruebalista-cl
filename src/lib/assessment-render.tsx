@@ -61,12 +61,12 @@ export const ASSESSMENT_CSS = `
   .pa-title { font-size: 12pt; font-weight: bold; text-align: center; margin: 6pt 0 4pt; text-transform: uppercase; }
   .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
   .pa-instructions strong { font-weight: bold; }
-  .pa-question { margin: 0 0 10pt; page-break-inside: avoid; }
-  .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; }
-  .pa-question-header { font-weight: bold; font-size: 10pt; margin-bottom: 3pt; }
+  .pa-question { margin: 0 0 10pt; page-break-inside: avoid; break-inside: avoid; }
+  .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
+  .pa-question-header { font-weight: bold; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-prompt { text-align: justify; }
   .pa-question-points { float: right; font-weight: normal; font-style: italic; }
-  .pa-options { margin: 4pt 0 0 14pt; padding: 0; list-style: none; }
+  .pa-options { margin: 4pt 0 0 14pt; padding: 0; list-style: none; break-inside: avoid; page-break-inside: avoid; }
   .pa-options li { margin: 2pt 0; }
   .pa-option-letter { font-weight: bold; margin-right: 4pt; }
   .pa-statements { margin: 4pt 0 0 0; padding: 0; list-style: none; }
@@ -74,16 +74,17 @@ export const ASSESSMENT_CSS = `
   .pa-statement-vf { display: inline-block; font-weight: bold; margin-right: 6pt; letter-spacing: 1pt; }
   .pa-statement-num { font-weight: bold; margin-right: 4pt; }
   .pa-answer-line { border-bottom: 0.5pt solid #000; height: 14pt; margin: 4pt 0; }
-  .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; }
-  .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; }
-  .pa-image-wrap { margin: 6pt 0; }
+  .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+  .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; break-after: avoid; page-break-after: avoid; }
+  .pa-image-wrap { margin: 6pt 0; break-inside: avoid; page-break-inside: avoid; }
   .pa-image-wrap.pa-align-left { text-align: left; }
   .pa-image-wrap.pa-align-center { text-align: center; }
   .pa-image-wrap.pa-align-right { text-align: right; }
   .pa-image-crop { display: inline-block; overflow: hidden; vertical-align: top; position: relative; }
   .pa-image-crop img { display: block; max-width: none; height: auto; }
   .pa-image-plain { display: inline-block; height: auto; }
-  .pa-mc-split { width: 100%; border-collapse: collapse; margin-top: 4pt; table-layout: fixed; }
+  .pa-mc-split { width: 100%; border-collapse: collapse; margin-top: 4pt; table-layout: fixed; break-inside: avoid; page-break-inside: avoid; }
+  .pa-statements { break-inside: avoid; page-break-inside: avoid; }
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
   .pa-mc-split .pa-mc-text { width: 80%; padding-right: 8pt; }
   .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; }
