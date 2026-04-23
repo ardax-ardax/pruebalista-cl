@@ -95,7 +95,12 @@ function buildImageRun(
   });
 }
 
-function imageParagraph(img: QuestionImage, contentWidthCm: number, indentLeft = 0): Paragraph {
+function imageParagraph(
+  img: QuestionImage,
+  contentWidthCm: number,
+  imageCache: Map<string, ProcessedImage>,
+  indentLeft = 0,
+): Paragraph {
   const align =
     img.alignment === "left"
       ? AlignmentType.LEFT
@@ -106,7 +111,7 @@ function imageParagraph(img: QuestionImage, contentWidthCm: number, indentLeft =
     alignment: align,
     indent: indentLeft ? { left: indentLeft } : undefined,
     spacing: { before: 60, after: 60 },
-    children: [buildImageRun(img, contentWidthCm)],
+    children: [buildImageRun(img, contentWidthCm, imageCache)],
   });
 }
 
@@ -220,7 +225,7 @@ function studentRow(ctx: BuildContext): Table {
   });
 }
 
-function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext): Array<Paragraph | Table> {
+function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext, imageCache: Map<string, ProcessedImage>): Array<Paragraph | Table> {
   // Acumulamos descriptores y al final aplicamos keepLines/keepNext.
   // Para mantener cada pregunta como bloque indivisible: todos los párrafos llevan keepLines+keepNext,
   // excepto el último que solo lleva keepLines (para no pegarse a la siguiente pregunta).
@@ -303,7 +308,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     pushP({
       alignment: align,
       spacing: { before: 60, after: 60 },
-      children: [buildImageRun(q.image, contentWidthCm)],
+      children: [buildImageRun(q.image, contentWidthCm, imageCache)],
     });
   }
 
@@ -325,7 +330,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
           }),
         );
         if (o.image) {
-          ps.push(imageParagraph(o.image, colWidthCm, indent));
+          ps.push(imageParagraph(o.image, colWidthCm, imageCache, indent));
         }
       });
       return ps;
@@ -362,7 +367,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
             // En layout split siempre centramos la imagen dentro de la columna.
             alignment: AlignmentType.CENTER,
             spacing: { before: 60, after: 60 },
-            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm, true)],
+            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, imageCache, maxImgHeightCm, true)],
           }),
         ],
       });
@@ -405,7 +410,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
           alignment: align,
           indent: { left: 720 },
           spacing: { before: 60, after: 60 },
-          children: [buildImageRun(st.image, contentWidthCm)],
+          children: [buildImageRun(st.image, contentWidthCm, imageCache)],
         });
       }
     });
