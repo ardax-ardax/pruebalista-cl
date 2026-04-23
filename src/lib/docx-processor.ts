@@ -10,6 +10,55 @@ export interface ChangeReport {
   description: string;
 }
 
+/**
+ * Información de recorte de una imagen (orden de aparición en el documento).
+ * Mammoth ignora `<a:srcRect>`, así que extraemos los crops nosotros y los
+ * aplicamos vía CSS sobre el HTML del preview/PDF.
+ *
+ * Valores en porcentaje (0–100), uno por cada lado.
+ */
+export interface ImageCropInfo {
+  index: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * Recorre `<w:drawing>` en orden de aparición y extrae el recorte
+ * (`<a:srcRect l t r b />`) de cada uno. Los valores OOXML están en
+ * milésimas de porcentaje (`l="10000"` = 10%).
+ *
+ * Devuelve un array indexado por orden de aparición, con `{0,0,0,0}`
+ * cuando la imagen no tiene recorte.
+ */
+export function extractImageCrops(documentXml: string): ImageCropInfo[] {
+  const crops: ImageCropInfo[] = [];
+  const drawingRe = /<w:drawing\b[\s\S]*?<\/w:drawing>/g;
+  let match: RegExpExecArray | null;
+  let index = 0;
+  while ((match = drawingRe.exec(documentXml)) !== null) {
+    const drawing = match[0];
+    const srcRectMatch = drawing.match(/<a:srcRect\b([^/]*)\/>/);
+    let left = 0, right = 0, top = 0, bottom = 0;
+    if (srcRectMatch) {
+      const attrs = srcRectMatch[1] || "";
+      const parseAttr = (name: string) => {
+        const m = attrs.match(new RegExp(`\\b${name}="(-?\\d+)"`));
+        return m ? Math.max(0, parseInt(m[1], 10) / 1000) : 0;
+      };
+      left = parseAttr("l");
+      right = parseAttr("r");
+      top = parseAttr("t");
+      bottom = parseAttr("b");
+    }
+    crops.push({ index, left, right, top, bottom });
+    index++;
+  }
+  return crops;
+}
+
 export interface BannerData {
   teacherLabel?: string;
   subjectLabel?: string;
