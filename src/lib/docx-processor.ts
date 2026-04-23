@@ -104,15 +104,26 @@ export async function applyTemplate(
 
   // 2. document.xml — márgenes, tamaño de hoja, alineación e interlineado vía regex
   const documentFile = zip.file("word/document.xml");
+  let tableOptimizations = 0;
+  let imageRescales = 0;
+  let sectionCreated = false;
   if (documentFile) {
     let docContent = await documentFile.async("string");
-    docContent = applyMarginsString(docContent, template);
+    const marginsRes = applyMarginsString(docContent, template);
+    docContent = marginsRes.xml;
+    sectionCreated = marginsRes.created;
     docContent = applyParagraphFormattingString(docContent, template);
+    const tablesRes = optimizeTablesString(docContent);
+    docContent = tablesRes.xml;
+    tableOptimizations = tablesRes.count;
+    const imagesRes = fitOversizedImagesString(docContent, template);
+    docContent = imagesRes.xml;
+    imageRescales = imagesRes.count;
     zip.file("word/document.xml", docContent);
 
     changes.push({
       category: "Tamaño de hoja",
-      description: `Hoja ${template.pageSize.widthCm} × ${template.pageSize.heightCm} cm`,
+      description: `Hoja ${template.pageSize.widthCm} × ${template.pageSize.heightCm} cm${sectionCreated ? " (sección creada)" : ""}`,
     });
     changes.push({
       category: "Márgenes",
@@ -126,6 +137,18 @@ export async function applyTemplate(
         template.body.alignment === "right" ? "a la derecha" : "a la izquierda"
       }, interlineado ${template.spacing.lineSpacing.toFixed(2)}`,
     });
+    if (tableOptimizations > 0) {
+      changes.push({
+        category: "Tablas",
+        description: `Se optimizaron ${tableOptimizations} ajuste(s) en tablas para permitir división entre páginas y aprovechar mejor el espacio.`,
+      });
+    }
+    if (imageRescales > 0) {
+      changes.push({
+        category: "Imágenes",
+        description: `Se redimensionaron ${imageRescales} imagen(es) que excedían el área imprimible.`,
+      });
+    }
   }
 
   // 3. Encabezado y pie de página
@@ -330,7 +353,7 @@ function forceHeadingStyle(
 
 // ===================== document.xml (regex puro) =====================
 
-function applyMarginsString(xml: string, t: FormatTemplate): string {
+function applyMarginsString(xml: string, t: FormatTemplate): { xml: string; created: boolean } {
   const top = cmToTwips(t.spacing.marginTop).toString();
   const bottom = cmToTwips(t.spacing.marginBottom).toString();
   const left = cmToTwips(t.spacing.marginLeft).toString();
@@ -341,7 +364,16 @@ function applyMarginsString(xml: string, t: FormatTemplate): string {
   const newPgMar = `<w:pgMar w:top="${top}" w:right="${right}" w:bottom="${bottom}" w:left="${left}" w:header="720" w:footer="720" w:gutter="0"/>`;
   const newPgSz = `<w:pgSz w:w="${w}" w:h="${h}"/>`;
 
-  return xml.replace(/<w:sectPr\b[^>]*>([\s\S]*?)<\/w:sectPr>/g, (full, inner) => {
+  let created = false;
+  if (!/<w:sectPr\b/.test(xml)) {
+    // Crear sectPr mínimo justo antes de </w:body>
+    const sectPr = `<w:sectPr>${newPgSz}${newPgMar}</w:sectPr>`;
+    xml = xml.replace(/<\/w:body>/, `${sectPr}</w:body>`);
+    created = true;
+    return { xml, created };
+  }
+
+  const out = xml.replace(/<w:sectPr\b[^>]*>([\s\S]*?)<\/w:sectPr>/g, (full, inner) => {
     let updated = inner as string;
 
     // pgSz
@@ -359,7 +391,6 @@ function applyMarginsString(xml: string, t: FormatTemplate): string {
     } else if (/<w:pgMar\b[^>]*>[\s\S]*?<\/w:pgMar>/.test(updated)) {
       updated = updated.replace(/<w:pgMar\b[^>]*>[\s\S]*?<\/w:pgMar>/, newPgMar);
     } else {
-      // Insertar pgMar después de pgSz
       updated = updated.replace(
         new RegExp(escapeRegex(newPgSz)),
         newPgSz + newPgMar,
@@ -368,6 +399,134 @@ function applyMarginsString(xml: string, t: FormatTemplate): string {
 
     return full.replace(inner, updated);
   });
+  return { xml: out, created };
+}
+
+/**
+ * Optimiza tablas para permitir división entre páginas:
+ * - Quita <w:cantSplit/> en filas
+ * - Convierte hRule="exact" a "atLeast"
+ * - Quita <w:keepNext/> en tblPr
+ * - Aplana tablas "marco" (tabla con una sola celda que sólo contiene otra tabla)
+ */
+function optimizeTablesString(xml: string): { xml: string; count: number } {
+  let count = 0;
+  let out = xml;
+
+  // 1. Quitar w:cantSplit
+  out = out.replace(/<w:cantSplit\s*\/>/g, () => {
+    count++;
+    return "";
+  });
+
+  // 2. hRule="exact" -> "atLeast"
+  out = out.replace(/(<w:trHeight\b[^>]*?w:hRule=")exact(")/g, (_m, a, b) => {
+    count++;
+    return `${a}atLeast${b}`;
+  });
+
+  // 3. Quitar keepNext dentro de tblPr
+  out = out.replace(/<w:tblPr\b[^>]*>([\s\S]*?)<\/w:tblPr>/g, (full, inner) => {
+    if (/<w:keepNext\s*\/>/.test(inner)) {
+      count++;
+      const cleaned = (inner as string).replace(/<w:keepNext\s*\/>/g, "");
+      return full.replace(inner, cleaned);
+    }
+    return full;
+  });
+
+  // 4. Aplanar tablas-marco: <w:tbl> con UNA <w:tr> y UNA <w:tc> cuyo contenido
+  //    significativo es solo otra <w:tbl> (con quizá un párrafo vacío alrededor).
+  //    Repetir hasta no encontrar más (anidamiento múltiple).
+  let safety = 5;
+  while (safety-- > 0) {
+    let changed = false;
+    out = out.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/g, (tableMatch) => {
+      // contar trs y tcs de primer nivel (regex aproximado, suficiente para detectar marco)
+      const trs = tableMatch.match(/<w:tr\b/g) || [];
+      const innerTbls = tableMatch.match(/<w:tbl\b/g) || [];
+      // Marco: 1 tabla externa + al menos 1 interna; 1 fila externa, 1 celda externa
+      if (trs.length === 1 && innerTbls.length >= 2) {
+        const tcs = tableMatch.match(/<w:tc\b/g) || [];
+        if (tcs.length === 1) {
+          // Extraer el contenido de la celda
+          const tcMatch = tableMatch.match(/<w:tc\b[^>]*>([\s\S]*?)<\/w:tc>/);
+          if (tcMatch) {
+            const cellInner = tcMatch[1];
+            // Verificar que el contenido relevante sea (párrafos vacíos +) tabla
+            const stripped = cellInner
+              .replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, "")
+              .replace(/<w:p\b[^>]*\/>/g, "")
+              .replace(/<w:p\b[^>]*>(?:\s|<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>)*<\/w:p>/g, "")
+              .trim();
+            // Si lo que queda empieza con <w:tbl, es marco
+            if (/^<w:tbl\b/.test(stripped)) {
+              changed = true;
+              count++;
+              // Devolver el contenido de la celda sin el envoltorio tcPr
+              return cellInner.replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, "");
+            }
+          }
+        }
+      }
+      return tableMatch;
+    });
+    if (!changed) break;
+  }
+
+  return { xml: out, count };
+}
+
+/**
+ * Escala proporcionalmente imágenes que excedan el área imprimible
+ * para evitar recortes en Word. Usa unidades EMU (1 cm = 360 000 EMU).
+ */
+function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string; count: number } {
+  const usableWcm = t.pageSize.widthCm - t.spacing.marginLeft - t.spacing.marginRight;
+  const usableHcm = t.pageSize.heightCm - t.spacing.marginTop - t.spacing.marginBottom;
+  const usableW = Math.round(usableWcm * 360000);
+  const usableH = Math.round(usableHcm * 360000);
+  const limitH = Math.round(usableH * 0.95);
+
+  let count = 0;
+  // Iterar cada wp:extent y reescalar si excede; replicar el cambio en el a:ext más cercano dentro del mismo drawing.
+  const out = xml.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/g, (drawingXml) => {
+    const extentMatch = drawingXml.match(/<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"\s*\/>/);
+    if (!extentMatch) return drawingXml;
+    const cx = parseInt(extentMatch[1], 10);
+    const cy = parseInt(extentMatch[2], 10);
+    if (cx <= usableW && cy <= limitH) return drawingXml;
+
+    const ratioW = cx > usableW ? usableW / cx : 1;
+    const ratioH = cy > limitH ? limitH / cy : 1;
+    const ratio = Math.min(ratioW, ratioH);
+    const newCx = Math.round(cx * ratio);
+    const newCy = Math.round(cy * ratio);
+
+    count++;
+    let updated = drawingXml.replace(
+      /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
+      `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
+    );
+    // Actualizar también el a:ext interno (transform de la imagen)
+    updated = updated.replace(
+      /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
+      `<a:ext cx="${newCx}" cy="${newCy}"/>`,
+    );
+    // Si está dentro de un anchor flotante, asegurar layoutInCell=1 y behindDoc=0
+    updated = updated.replace(
+      /<wp:anchor\b([^>]*)>/,
+      (m, attrs) => {
+        let a = attrs as string;
+        a = a.replace(/\sbehindDoc="\d"/g, "");
+        a = a.replace(/\slayoutInCell="\d"/g, "");
+        return `<wp:anchor${a} behindDoc="0" layoutInCell="1">`;
+      },
+    );
+    return updated;
+  });
+
+  return { xml: out, count };
 }
 
 function applyParagraphFormattingString(xml: string, t: FormatTemplate): string {
