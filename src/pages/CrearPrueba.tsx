@@ -69,9 +69,12 @@ const CrearPrueba = () => {
     }
   }, [editingId]);
 
-  // Auto-guardar borrador (solo si NO estamos editando una prueba guardada)
+  // Autosave: si editamos una prueba guardada, actualizamos la biblioteca.
+  // Si es una nueva, guardamos como borrador.
   useEffect(() => {
-    if (assessment && !editingId) saveDraft(assessment);
+    if (!assessment) return;
+    if (editingId) upsertAssessment(assessment);
+    else saveDraft(assessment);
   }, [assessment, editingId]);
 
   const template = useMemo(
