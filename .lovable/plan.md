@@ -1,75 +1,85 @@
 
 
-# Fix línea separadora inconsistente + recorte de imagen en Word
+# Saltos de página en preview + imagen MC ocupa toda su columna
 
-## Problema 1: Separador entre preguntas inconsistente
+## Problema 1: Mostrar saltos de página en el preview
 
-La regla actual:
-```css
-.pa-question { border-bottom: 0.4pt dashed #b8b8b8; }
-.pa-question:last-child { border-bottom: none; }
+Hoy el preview renderiza una sola "hoja" continua con `minHeight = pageSize.heightCm`. Si el contenido excede el alto, se hace scroll dentro de la misma hoja — no hay indicación visual de dónde Word/PDF haría el corte de página.
+
+## Problema 2: Imagen en columna (split MC) limitada al ancho de la imagen
+
+En layout `side-right` / `side-left`, la columna de imagen ocupa el 20% de la fila pero la imagen solo se dibuja al ancho relativo `widthPct` (10–50% del **ancho de página**, no de la columna). Resultado: la imagen casi siempre se ve mucho más chica que la columna que la contiene. Lo que se quiere es que en este layout la imagen rellene **el 100% del ancho de su columna**, manteniendo proporción y sin exceder verticalmente el alto del bloque de opciones.
+
+---
+
+## Solución 1: Paginado visual en preview
+
+Implementar un componente `PaginatedPreview` que reemplaza el contenedor único actual por una secuencia de "hojas" estilo Word.
+
+### Estrategia: medir y partir tras render
+
+Renderizar primero todo el HTML invisible para medirlo, luego repartir los nodos hijos en páginas según altura útil disponible.
+
+1. **Componente nuevo** `src/components/test-builder/PaginatedAssessmentPreview.tsx`:
+   - Hace un primer render off-screen (`visibility:hidden; position:absolute`) del HTML completo dentro de un contenedor con el ancho exacto de la página (`widthCm` − márgenes).
+   - Mide cada bloque hijo de primer nivel (banner, student-row, title, instructions, cada `.pa-question`, `.pa-section-title`, `.pa-info-block`) usando `offsetHeight`.
+   - Distribuye los bloques en páginas: acumula altura hasta alcanzar el `usableHeightPx` (alto de página menos márgenes superior/inferior). Cuando el siguiente bloque no entra, abre nueva página.
+   - Bloques marcados `page-break-inside: avoid` se mueven enteros a la siguiente página si no entran.
+   - Renderiza N divs `.pa-page` (uno por página) con `width: widthCm`, `height: heightCm`, `padding: márgenes`, `box-shadow`, separados por `gap` visible, mostrando dentro de cada uno los nodos correspondientes.
+
+2. **Reuso del HTML actual**: usamos el HTML producido por `renderAssessmentHtml` (parseado a un fragmento DOM), partimos los hijos del `.pa-page` interno y los re-distribuimos en las hojas paginadas. Sin duplicar lógica de render.
+
+3. **Indicador visual**: gap de 24px con fondo gris entre hojas + número de página (`Página X de N`) en pie discreto.
+
+4. **Recálculo**: `useLayoutEffect` con dependencias en `ctx` (re-pagina cuando cambia el contenido) y `ResizeObserver` por si cambia el zoom del navegador.
+
+5. **`AssessmentPreview.tsx`** (componente envoltorio actual) pasa a usar `PaginatedAssessmentPreview` en vez de `AssessmentPreviewRender` directo.
+
+### Notas
+- Solo afecta el **preview**. PDF/DOCX no cambian (Word ya hace su propio paginado nativo).
+- Como usamos las mismas reglas CSS `page-break-inside: avoid`, las páginas del preview coinciden razonablemente con las del PDF.
+
+---
+
+## Solución 2: Imagen ocupa el 100% del ancho de su columna en MC split
+
+### Cambios
+
+**`src/lib/assessment-render.tsx` → `renderContainedImageHtml`:**
+- El wrapper `.pa-mc-image .pa-image-wrap` ya tiene `width: 100%`. Modificar la `<img>` o el `<span class="pa-image-crop">` para que ocupe `width: 100%` (no el `widthPct` global de la imagen).
+- Mantener el `aspect-ratio` calculado a partir del crop para no deformar.
+- Mantener `max-height: 100%` del wrapper (ya existe vía `.pa-mc-image` con `height: 1px` que iguala con la celda de opciones), de modo que si la imagen escalada a 100% de ancho excede el alto del bloque de opciones, se reduce manteniendo proporción (object-fit equivalente).
+- Para el caso **sin crop**, mantener `<img class="pa-image-plain">` pero con `width: 100%; height: auto; max-height: 100%; object-fit: contain;` para que escale al máximo posible respetando el alto.
+- Para el caso **con crop**, el `<span class="pa-image-crop">` queda con `width: 100%` (ya estaba). Pero para que también respete el `max-height`, usar el truco: si `aspect-ratio * columnWidth > columnHeight`, el navegador con `aspect-ratio` no recorta solo. Solución: envolver con `display:flex; align-items:flex-start; justify-content:center` (ya está) y agregar al `.pa-image-crop` `max-width: 100%` y un `min(100%, calc(100% * ratio))` no es trivial en CSS. La regla más sencilla es: dejar `width: 100%`, `aspect-ratio: ratio`, y dentro `max-height: 100%; max-width: 100%; aspect-ratio: ratio;` — el CSS moderno lo respeta y la imagen se reduce manteniendo la proporción.
+
+**Resumen CSS afinado** (en `.pa-mc-image`):
+```
+.pa-mc-image .pa-image-wrap { width: 100%; height: 100%; max-height: 100%; }
+.pa-mc-image .pa-image-crop { width: 100%; max-width: 100%; max-height: 100%; }
+.pa-mc-image .pa-image-plain { width: 100%; max-width: 100%; max-height: 100%; height: auto; object-fit: contain; }
 ```
 
-Causas de la inconsistencia visual:
-1. **`section-title` e `info-block` NO están dentro de `.pa-question`** — son divs hermanos. Cuando una pregunta va seguida de un `section-title` (que ya tiene su propio `border-bottom: 0.75pt solid`) o un `info-block` (con fondo gris y borde izquierdo), visualmente el separador dashed o se duplica o se pierde junto a esos elementos.
-2. **`0.4pt` es sub-pixel en muchos motores de impresión** → desaparece en algunas posiciones según el zoom/redondeo.
-3. **`page-break-inside: avoid`** puede dejar el `border-bottom` justo en el límite inferior de la página, donde el motor lo recorta.
+Eliminar el `width: ${wrapperWidth}` (que usaba `img.widthPct`) en `renderContainedImageHtml`, ya que el ancho lo determina la columna.
 
-### Solución
-- Subir el grosor a `0.75pt` (igual que el banner) para garantizar render consistente en print.
-- Cambiar a línea continua `solid` color `#d0d0d0` (mejor que dashed para grosores delgados; dashed con 0.4pt se renderiza como puntos irregulares).
-- Reemplazar `:last-child` por una clase explícita `.pa-question.pa-no-sep` aplicada cuando la **siguiente pregunta** sea `section-title` o `info-block` (porque esos ya aportan su propia separación visual fuerte) o cuando sea la última pregunta del documento. Así nunca aparece doble separador.
+**`src/lib/assessment-docx.ts` (rama `isSplit`):**
+- El `buildImageRun` para split actualmente usa `q.image.widthPct` clamped. Cambiar para que en split use el ancho de la celda (ya disponible vía `splitImageCellWidthPct` o constante interna). Calcular `widthPx` = ancho de celda en px, y `heightPx` = `widthPx * (cropH / cropW)` con tope = `optionsHeightEstimatePx` (que ya existe en la rama isSplit por el fix anterior).
+- Si el alto resultante excede el tope, recalcular `widthPx = topePx * (cropW / cropH)` para reducir manteniendo proporción.
 
-Cambios en `src/lib/assessment-render.tsx`:
-- En el CSS: `.pa-question { ... border-bottom: 0.5pt solid #d0d0d0; }` y eliminar la regla `:last-child`.
-- En el bucle de render (`assessment.questions.map`): mirar `assessment.questions[i+1]`. Si no existe, o su `type` es `section-title` o `info-block`, agregar `pa-no-sep` a la clase del wrapper. Definir `.pa-no-sep { border-bottom: none; padding-bottom: 0; }`.
+---
 
-## Problema 2: Imágenes deformadas / sin crop visible al descargar el .docx
+## Archivos a crear/modificar
 
-Causa raíz: `buildImageRun` calcula `widthPx`/`heightPx` con la proporción del **área visible** del crop, pero embebe la imagen **completa, sin recortar**. Word recibe la imagen original y la escala a esas dimensiones — resultado: la imagen entera se aplasta dentro del rectángulo del crop, deformándose y mostrando todo el contenido (no el recorte).
-
-`docx-js` genera `<a:srcRect/>` vacío y **no expone API pública** para configurar el recorte nativo de Word, así que no podemos delegar el crop al motor de Word vía la librería.
-
-### Solución
-Pre-recortar la imagen con un `<canvas>` antes de embedirla. Función nueva `cropImageDataUrl(img: QuestionImage): Promise<{ data: Uint8Array; type; naturalW; naturalH }>`:
-1. Cargar el `dataURL` en un `Image`.
-2. Crear un canvas con dimensiones `natW * visibleW/100` × `natH * visibleH/100`.
-3. `ctx.drawImage(img, -L%*natW, -T%*natH, natW, natH)` para volcar solo el área visible.
-4. Exportar a PNG (`canvas.toDataURL("image/png")`) y devolver bytes + nuevas dimensiones naturales (las del recorte).
-5. Cachear por `(src + crop)` para no re-procesar la misma imagen.
-
-Refactor en `src/lib/assessment-docx.ts`:
-- `buildImageRun` pasa a ser `async` (o se hace el pre-crop antes y se le pasa el resultado ya recortado).
-- Como `Document`/`ImageRun` se construyen sincrónicamente, la solución limpia es: **antes** de armar `children`, recorrer todas las imágenes del assessment (pregunta principal, opciones, statements V/F, logo) y pre-procesar las que tengan crop, almacenando el resultado en un `Map<imgRef, ProcessedImage>`. Luego `buildImageRun` lee del map en vez de `dataUrlToUint8Array(img.src)` directo.
-- Las imágenes sin crop (`L=R=T=B=0`) se mantienen tal cual, usando `naturalW/H` originales — sin pasar por canvas (más rápido).
-- El cálculo de `heightPx` queda simple: `widthPx * (naturalH / naturalW)` con las dimensiones del recorte ya aplicado.
-
-### Helper a crear
-`src/lib/image-crop.ts` con:
-- `cropImageDataUrl(img: QuestionImage): Promise<{ data: Uint8Array; type: "png"; width: number; height: number }>`
-- `processAssessmentImages(assessment): Promise<Map<string, ProcessedImage>>` — recorre y procesa todas las imágenes con crop, key = `img.src + JSON.stringify(crop)`.
-
-### Flujo nuevo en `exportAssessmentToDocx`
-```
-1. const imageCache = await processAssessmentImages(assessment)
-2. (resto del armado igual, pero buildImageRun consulta imageCache)
-```
-
-## Archivos a modificar/crear
-
+- **Crear** `src/components/test-builder/PaginatedAssessmentPreview.tsx` — paginado visual estilo Word.
+- **Modificar** `src/components/test-builder/AssessmentPreview.tsx` — usar el componente paginado.
 - **Modificar** `src/lib/assessment-render.tsx`:
-  - CSS: separador `0.5pt solid #d0d0d0`, nueva clase `.pa-no-sep`.
-  - Loop de render: detectar siguiente pregunta y aplicar `pa-no-sep` cuando corresponda.
-- **Crear** `src/lib/image-crop.ts`:
-  - `cropImageDataUrl` y `processAssessmentImages`.
+  - `renderContainedImageHtml`: quitar dependencia de `widthPct`, usar 100% de la columna.
+  - CSS `.pa-mc-image`: ajustar `max-width`/`max-height` para garantizar que la imagen no exceda el alto del bloque de opciones.
 - **Modificar** `src/lib/assessment-docx.ts`:
-  - `exportAssessmentToDocx` arma `imageCache` con `await processAssessmentImages(assessment)` antes de construir el documento.
-  - `buildImageRun` recibe el `imageCache` (o el `ProcessedImage` ya resuelto) y usa esos bytes/dimensiones cuando hay crop. Para imágenes sin crop, comportamiento actual.
-  - El cálculo de `heightPx` se simplifica al usar las dimensiones reales post-crop.
+  - En la rama `isSplit` de `buildImageRun`/`imageParagraph`, calcular el ancho usando el ancho de la celda de imagen (no `widthPct` del usuario) y aplicar el tope vertical de `optionsHeightEstimatePx`.
 
 ## Resultado esperado
 
-- Todas las preguntas muestran una línea separadora consistente y visible. Cuando la siguiente pregunta es un título de sección o bloque informativo (que ya aporta separación visual fuerte), no se duplica.
-- En el .docx descargado, las imágenes aparecen efectivamente recortadas (no deformadas), idénticas al preview/PDF.
+- El preview muestra hojas separadas con gap visible y numeración, igual que Word.
+- Cuando agregás una imagen a una pregunta de selección múltiple en columna (`side-right`/`side-left`), la imagen ocupa todo el ancho disponible de su columna, alineada según el layout, y se reduce automáticamente si excede el alto del bloque de opciones.
 - Sin cambios de schema; borradores existentes siguen funcionando.
 
