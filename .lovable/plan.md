@@ -1,63 +1,71 @@
 
 
-# Agregar namespaces `w14`, `w15`, `w16` y autoreparar prefijos faltantes
+# Detectar banner/títulos existentes y colapsar espacios entre preguntas
 
-## Causa exacta del error
+## Problema 1 — La app duplica el banner
 
-El archivo de Marilín Martínez usa atributos `w14:paraId` / `w14:textId` en sus `<w:p>` (Word los agrega automáticamente a partir de Word 2010). Mi función `ensureDocumentRootNamespaces` solo declara `w`, `r`, `wp`, `a`, `pic`, `mc` — no incluye los prefijos `w14`, `w15`, `w16se`, `w16cid`. El validador final detecta correctamente que el prefijo no está declarado y bloquea la descarga.
+Hoy `insertInstitutionBanner` (línea 1704 de `src/lib/docx-processor.ts`) **siempre** inyecta su tabla institucional justo después de `<w:body>`, sin revisar si el documento original ya tenía un encabezado equivalente. Si el archivo ya traía:
 
-## Fix
+- Una tabla con logo + Profesor/Asignatura/Curso, o
+- Un título tipo "EVALUACIÓN SUMATIVA Nº1 — CIENCIAS NATURALES — 2° BÁSICO"
 
-### 1. Ampliar la lista de namespaces obligatorios
+el resultado queda con **dos versiones**: la del colegio recién insertada y la que ya tenía el archivo.
 
-En `ensureDocumentRootNamespaces` (línea 411), agregar:
+### Fix
 
-- `xmlns:w14` → `http://schemas.microsoft.com/office/word/2010/wordml` (paraId, textId, conditional formatting)
-- `xmlns:w15` → `http://schemas.microsoft.com/office/word/2012/wordml` (Word 2013)
-- `xmlns:w16se` → `http://schemas.microsoft.com/office/word/2015/wordml/symex` (Word 2016)
-- `xmlns:w16cid` → `http://schemas.microsoft.com/office/word/2016/wordml/cid` (comment IDs)
-- `xmlns:wpg`, `xmlns:wps`, `xmlns:wpi` → grupos/formas/tinta (Word 2010+)
-- `xmlns:v` → `urn:schemas-microsoft-com:vml` (formas legacy, frecuente en encabezados)
-- `xmlns:o` → `urn:schemas-microsoft-com:office:office`
+Nueva función `detectExistingBanner(docContent)` que se ejecuta al inicio de `insertInstitutionBanner` y revisa solo los **primeros ~6 elementos** del `<w:body>` (suficiente para abarcar tabla + título de portada, sin tocar el resto del documento). Devuelve uno de tres veredictos:
 
-También agregar `mc:Ignorable="w14 w15 w16se w16cid wp14"` si no existe — esto le dice a versiones viejas de Word que ignoren esos prefijos sin romperse.
+| Veredicto | Heurística | Acción |
+|---|---|---|
+| `none` | No hay tabla en los primeros elementos y no hay texto con palabras clave de banner | Inyectar banner como hoy |
+| `table-banner` | Hay un `<w:tbl>` en los primeros 3 elementos del body **y** su texto contiene 2 de estos: "profesor", "asignatura", "curso", "calificación", "puntaje", "fecha", "nombre" | **Reemplazar** esa tabla por la del colegio (preservando el logo si el original tenía un `<w:drawing>` y la plantilla no aporta uno propio) |
+| `title-only` | Hay 1–4 párrafos al inicio cuyo texto contiene "evaluación", "guía", "prueba" + nombre de asignatura/curso, sin tabla previa | **Eliminar** esos párrafos de portada y poner el banner del colegio en su lugar |
 
-### 2. Autoreparación: detectar prefijos huérfanos en el XML
+Adicionalmente, después de insertar el banner, ejecutar una pasada `dedupeAdjacentTitles`: si los siguientes 3 párrafos al banner contienen texto que **ya aparece dentro del banner** (asignatura, curso, profesor, "EVALUACIÓN SUMATIVA"), eliminarlos. Esto cubre el caso en que el título flotante esté después de una tabla pre-existente.
 
-Antes de validar, escanear el XML procesado en busca de **cualquier prefijo** usado en atributos o tags (`w14:`, `w15:`, `m:`, `wne:`, etc.) y comparar con los declarados en el root. Para cada prefijo huérfano que conozcamos (lista blanca de namespaces oficiales de Microsoft Word), agregar la declaración correspondiente al root automáticamente.
+Reportar la acción tomada en el `changes[]` del resultado: "Banner institucional reemplazó la portada existente del documento" o "Se eliminaron 3 párrafos de portada duplicada".
 
-Lista blanca a mantener en una constante `KNOWN_WORD_NAMESPACES`:
-```
-w14, w15, w16se, w16cid, w16, wp, wp14, wpg, wps, wpi,
-a, pic, mc, m (math), v, o, r, w, ve, wne (legacy)
-```
+## Problema 2 — Demasiado espacio vertical entre preguntas
 
-Si aparece un prefijo desconocido, registrar warning (no fatal) con el detalle, en lugar de bloquear.
+### Causa
 
-### 3. Aplicar lo mismo a `header*.xml` y `footer*.xml`
+`applyParagraphFormattingString` (línea 1473) aplica el mismo `<w:spacing w:before="..." w:after="..." w:line="..."/>` a **todos** los párrafos, incluyendo los **párrafos vacíos** (saltos de línea que el autor usó como separadores manuales). El archivo original tenía probablemente 1–2 párrafos vacíos entre cada pregunta. Después de la pasada cada uno mide:
+- altura de línea (interlineado 1.15 × 10pt) +
+- 6pt de spacing-after.
 
-El error puede aparecer también en encabezados/pies de página si Word los marcó con `w14:paraId`. Hoy `ensureDocumentRootNamespaces` solo se llama sobre `document.xml`. Crear `ensurePartRootNamespaces(xml, rootTag)` genérica y llamarla para cada `word/header*.xml` y `word/footer*.xml` que exista en el ZIP, justo antes de la validación final.
+Multiplicado por 2 saltos × 20 preguntas = espacio enorme.
 
-### 4. Mejor mensaje de error si la validación final aún falla
+### Fix — pasada `collapseBlankParagraphs`
 
-Si después de autorreparar todavía hay un `<parsererror>`, el toast debe incluir:
-- Nombre del prefijo problemático extraído del mensaje (regex sobre `Namespace prefix (\w+) for`).
-- Sugerencia: "Reportar a soporte con este detalle: prefijo `<X>` no soportado".
+Nueva pasada que se ejecuta **después** de `applyParagraphFormattingString` y **antes** de `forceDirectFontFormatting`:
+
+1. Identifica párrafos vacíos: aquellos cuyo `extractParagraphText(p).trim() === ""` y que **no** contienen `<w:drawing>`, `<w:tbl>`, `<w:pict>`, ni `<w:sectPr>` (estos no se tocan).
+2. **Colapsa secuencias**: si hay N párrafos vacíos consecutivos, deja solo **uno** (preserva el primero, elimina el resto).
+3. **Reduce su spacing**: al párrafo vacío sobreviviente le aplica `<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>` (sencillo, sin extra). Así un salto en blanco mide solo el alto natural de una línea, sin sumar paragraphSpacing.
+4. Excluir de la pasada los párrafos vacíos que estén dentro de regiones protegidas (`mc:AlternateContent`, text boxes) usando `withProtectedRegions`.
+
+Reportar en `changes[]`: "Se colapsaron N líneas en blanco entre preguntas para mejorar la densidad."
+
+### Fix complementario — espaciado por defecto del cuerpo
+
+Para evitar que un futuro archivo "muy aireado" siga viéndose espaciado aunque no tenga párrafos vacíos: revisar las plantillas `Ev_Sumativa` / `Ev_Formativa_Formal` / `Guia_Portafolio` en `src/lib/templates.ts`. Hoy `paragraphSpacingAfter: 6`. Lo dejamos en 6 (útil para separar preguntas), pero `paragraphSpacingBefore: 0` (ya está). Sin cambios aquí — el problema real son los párrafos vacíos.
+
+### Fix opcional para preguntas numeradas
+
+Detectar párrafos cuyo texto empieza con `^\s*\d+[\)\.]` (es una pregunta) y aplicar `<w:spacing w:before="120" w:after="60"/>` (6pt antes, 3pt después) en lugar del genérico. Las opciones (a/b/c/d) reciben `<w:spacing w:before="0" w:after="0"/>`. Esto da un ritmo visual: pregunta separada del bloque anterior, opciones pegadas a su pregunta. Activarlo solo si la plantilla tiene `fileNaming.prefix` que comience con `Ev_` (es una evaluación).
 
 ## Archivos a modificar
 
-- `src/lib/docx-processor.ts`:
-  - `ensureDocumentRootNamespaces`: ampliar `REQUIRED` con los namespaces de Word 2010+, y agregar `mc:Ignorable`.
-  - Nueva utilidad `repairOrphanNamespaces(xml)` que escanea prefijos usados vs declarados.
-  - Nueva utilidad `ensurePartRootNamespaces(xml, rootElementName)` para reusar la lógica en headers/footers.
-  - En el bucle de sanitización final (línea ~867), llamar la nueva función sobre cada `word/header*.xml` y `word/footer*.xml`.
-
-- `src/pages/Index.tsx`:
-  - En el toast de error fatal de validación, extraer el prefijo del mensaje y mostrarlo destacado.
+- **`src/lib/docx-processor.ts`**:
+  - Nueva `detectExistingBanner(docContent): "none" | "table-banner" | "title-only"` y nuevas utilidades `removeFirstBodyTable`, `removeCoverParagraphs`, `dedupeAdjacentTitles`.
+  - `insertInstitutionBanner`: invocar la detección y elegir entre insertar / reemplazar / limpiar antes de inyectar.
+  - Nueva pasada `collapseBlankParagraphs(xml, t)` invocada en el pipeline de `applyTemplate` después de `applyParagraphFormattingString`.
+  - Nueva pasada `applyQuestionRhythm(xml, t)` (opcional, activa solo para evaluaciones) invocada después de `collapseBlankParagraphs`.
+  - Reportar las acciones en `changes[]`.
 
 ## Resultado esperado
 
-- El archivo de Marilín Martínez procesa, valida y descarga sin error.
-- Cualquier `.docx` futuro que use prefijos `w14`/`w15`/`w16` (la mayoría de los Word modernos) pasa la validación final automáticamente.
-- Si aparece un prefijo realmente desconocido, en lugar de bloquear muestra un warning útil y permite la descarga.
+- Si subes un archivo que ya tenía banner/portada, el de la app **lo reemplaza** en lugar de agregarse encima. Si solo tenía un título tipo "EVALUACIÓN SUMATIVA…", se elimina y queda solo el banner institucional.
+- Las líneas en blanco entre preguntas se colapsan a una sola y sin spacingAfter, recuperando varias líneas de espacio por página.
+- Si la plantilla es de evaluación, las preguntas reciben un ritmo visual propio (pregunta separada, opciones pegadas).
 
