@@ -1,87 +1,63 @@
 
 
-# El .docx descargado no abre en Word: validar el ZIP final y arreglar el banner
+# Agregar namespaces `w14`, `w15`, `w16` y autoreparar prefijos faltantes
 
-## Por qué Word lo rechaza (y mammoth a veces sí lo abría)
+## Causa exacta del error
 
-Word es **mucho más estricto** que mammoth al leer un `.docx`. Mammoth tolera XML algo malformado mientras encuentre `<w:body>`; Word, en cambio, valida el OOXML contra el esquema y aborta con "El archivo está dañado y no se puede abrir" cuando encuentra cualquiera de estas:
+El archivo de Marilín Martínez usa atributos `w14:paraId` / `w14:textId` en sus `<w:p>` (Word los agrega automáticamente a partir de Word 2010). Mi función `ensureDocumentRootNamespaces` solo declara `w`, `r`, `wp`, `a`, `pic`, `mc` — no incluye los prefijos `w14`, `w15`, `w16se`, `w16cid`. El validador final detecta correctamente que el prefijo no está declarado y bloquea la descarga.
 
-1. **Tabla en el body sin `xmlns` heredado correcto**. `insertInstitutionBanner` (línea 1392) inyecta una `<w:tbl>` con `<w:drawing>` y `<a:graphic>` justo después de `<w:body>`. El namespace `a:` (DrawingML) **no se redeclara** en el `<a:graphic>` cuando ese drawing se crea desde cero — sí en `<wp:inline>` pero no en `<a:graphic>`. Si el `<w:document>` raíz no incluye `xmlns:a` ni `xmlns:pic`, el archivo abre en algunos Word y no en otros. Es la primera causa probable.
+## Fix
 
-2. **Tabla sin `<w:p>` previo**. OOXML exige que el primer hijo del `<w:body>` sea un `<w:p>` o que las tablas estén separadas por `<w:p>`. El banner viola eso al inyectarse como **primer elemento** del body.
+### 1. Ampliar la lista de namespaces obligatorios
 
-3. **`linkPartToSections` (línea 1314–1326)** inserta `<w:headerReference>`/`<w:footerReference>` al inicio del `<w:sectPr>`. El esquema de Word **exige un orden estricto** dentro de `<w:sectPr>`: las `headerReference`/`footerReference` van primero (correcto) pero **antes** debe ir el `<w:type>` solo si existe. Cuando inyectamos el ref **delante de un `<w:sectPr>` ya poblado** estamos asumiendo el orden, pero si el .docx original tiene un elemento que no esperamos (`<w:formProt>`, `<w:bidi>`), queda fuera de orden y Word lo rechaza.
+En `ensureDocumentRootNamespaces` (línea 411), agregar:
 
-4. **`applyMarginsString` crea un `<w:sectPr>` mínimo** (línea 886) si no existe, con solo `<w:pgSz>` y `<w:pgMar>`, **sin `<w:cols>`**. Word a veces tolera esto y a veces no.
+- `xmlns:w14` → `http://schemas.microsoft.com/office/word/2010/wordml` (paraId, textId, conditional formatting)
+- `xmlns:w15` → `http://schemas.microsoft.com/office/word/2012/wordml` (Word 2013)
+- `xmlns:w16se` → `http://schemas.microsoft.com/office/word/2015/wordml/symex` (Word 2016)
+- `xmlns:w16cid` → `http://schemas.microsoft.com/office/word/2016/wordml/cid` (comment IDs)
+- `xmlns:wpg`, `xmlns:wps`, `xmlns:wpi` → grupos/formas/tinta (Word 2010+)
+- `xmlns:v` → `urn:schemas-microsoft-com:vml` (formas legacy, frecuente en encabezados)
+- `xmlns:o` → `urn:schemas-microsoft-com:office:office`
 
-5. **Auto-QA falsos positivos**: `runXmlPass` solo cuenta `<w:p>`, `<w:r>`, `<w:body>`. No detecta:
-   - Atributos duplicados en un mismo tag.
-   - Caracteres de control inválidos (`\x00`–`\x08`) que el XML 1.0 prohíbe.
-   - Un `<wp:inline>` huérfano sin namespace `wp:` declarado.
-   - `<w:sectPr>` con elementos en mal orden.
+También agregar `mc:Ignorable="w14 w15 w16se w16cid wp14"` si no existe — esto le dice a versiones viejas de Word que ignoren esos prefijos sin romperse.
 
-## Plan de arreglo
+### 2. Autoreparación: detectar prefijos huérfanos en el XML
 
-### Parte A — Validar el ZIP final antes de entregarlo al usuario
+Antes de validar, escanear el XML procesado en busca de **cualquier prefijo** usado en atributos o tags (`w14:`, `w15:`, `m:`, `wne:`, etc.) y comparar con los declarados en el root. Para cada prefijo huérfano que conozcamos (lista blanca de namespaces oficiales de Microsoft Word), agregar la declaración correspondiente al root automáticamente.
 
-Nueva función `validateProcessedDocx(zip)` que se ejecuta **al final de `applyTemplate`**, justo antes de `zip.generateAsync`:
+Lista blanca a mantener en una constante `KNOWN_WORD_NAMESPACES`:
+```
+w14, w15, w16se, w16cid, w16, wp, wp14, wpg, wps, wpi,
+a, pic, mc, m (math), v, o, r, w, ve, wne (legacy)
+```
 
-- Parsear `word/document.xml` con `DOMParser` del navegador (`text/xml`). Si devuelve `<parsererror>`, es XML inválido → aborta con mensaje claro: "El archivo procesado quedó con XML inválido en `<X>`. Reportar a soporte."
-- Lo mismo para `word/header1.xml`, `word/footer1.xml`, `word/styles.xml`, `word/numbering.xml` y `[Content_Types].xml`.
-- Verificar que cada `r:id` referenciado en `document.xml` (ej. `r:embed="rId7"`) **exista** en `word/_rels/document.xml.rels`. Si falta, registrar warning crítico.
-- Verificar que cada part listada en `[Content_Types].xml` exista en el ZIP.
-- Si el documento tiene **`<w:tbl>` como primer hijo de `<w:body>`**, insertar un `<w:p/>` vacío antes (lo exige el esquema OOXML).
+Si aparece un prefijo desconocido, registrar warning (no fatal) con el detalle, en lugar de bloquear.
 
-Si la validación encuentra un problema **fatal**, no entregamos el blob: lanzamos `DocxProcessingError("validación final", ...)` para que el toast del frontend explique qué pasó.
+### 3. Aplicar lo mismo a `header*.xml` y `footer*.xml`
 
-### Parte B — Arreglar el banner para que sea XML válido garantizado
+El error puede aparecer también en encabezados/pies de página si Word los marcó con `w14:paraId`. Hoy `ensureDocumentRootNamespaces` solo se llama sobre `document.xml`. Crear `ensurePartRootNamespaces(xml, rootTag)` genérica y llamarla para cada `word/header*.xml` y `word/footer*.xml` que exista en el ZIP, justo antes de la validación final.
 
-`insertInstitutionBanner` y `buildLogoCell`:
+### 4. Mejor mensaje de error si la validación final aún falla
 
-- **Asegurar namespaces en el `<w:document>` root**: antes de inyectar el banner, verificar que el elemento raíz `<w:document>` declare `xmlns:wp`, `xmlns:a`, `xmlns:pic`, `xmlns:r`. Si falta alguno, agregarlo (sin tocar los existentes). Esto garantiza que el drawing del logo sea válido independientemente del Word que lo abra.
-- **Inyectar un `<w:p/>` separador antes de la tabla** y otro después (ya existe el de después en línea 1409). Esto cumple la regla de OOXML de que `<w:tbl>` no puede ser el primer ni último hijo del body.
-- **Escapar el contenido del banner**: el campo `teacher`/`subject`/`grade` ya pasa por `escapeXml`, verificar que no haya rutas que se salten (ej. el label fijo "Profesor/a:" no se escapa pero no tiene caracteres especiales — OK).
-
-### Parte C — Arreglar `linkPartToSections` para respetar orden de `<w:sectPr>`
-
-El esquema OOXML define que dentro de `<w:sectPr>` las `headerReference`/`footerReference` van **al principio**, antes de `<w:footnotePr>`, `<w:pgSz>`, etc. La función ya las pone al inicio (línea 1324: `refTag + updated`), pero **no remueve referencias duplicadas correctamente** si hay varias del mismo tipo con distinto `w:type` ("first", "even", "default"). Cambiar la regex para que solo elimine la de `w:type="default"` (la que estamos por agregar), no todas.
-
-### Parte D — Sanitizar caracteres de control inválidos en el XML final
-
-XML 1.0 no permite `\x00`–`\x08`, `\x0B`–`\x0C`, `\x0E`–`\x1F`. Si el documento original los tiene (a veces vienen de copias-pega desde PDFs), Word los rechaza. Nueva pasada `stripInvalidXmlChars` que se ejecuta al final, sobre `document.xml`, `header1.xml`, `footer1.xml`. Reemplaza esos chars por string vacío.
-
-### Parte E — Mensaje al usuario más útil cuando el archivo no abra
-
-Hoy el toast dice "Documento estandarizado correctamente" aunque el ZIP esté roto. Cambiar a:
-
-- Si `validateProcessedDocx` encuentra issues no fatales (warnings), mostrar toast **amarillo** con "Documento procesado, pero con N advertencias. Si Word lo rechaza, abre la consola para ver el detalle."
-- Si encuentra issues **fatales**, mostrar toast **rojo** con "El procesamiento generó un .docx inválido. Detalle técnico: [tag/elemento problemático]". No descargar.
-
-## Cómo voy a confirmar la causa exacta en tu archivo
-
-Cuando se apruebe este plan y pase a default mode:
-
-1. Copio tu archivo subido a `/tmp/`.
-2. Descomprimo con `unzip` y leo `word/document.xml`.
-3. Reproduzco la pasada localmente (con un script Node que importa `docx-processor.ts`).
-4. Comparo el ZIP de salida contra el de entrada y reporto exactamente qué tag rompió Word.
-
-Si la causa real resulta ser distinta a las hipótesis A–D, ajusto el plan antes de tocar el procesador.
+Si después de autorreparar todavía hay un `<parsererror>`, el toast debe incluir:
+- Nombre del prefijo problemático extraído del mensaje (regex sobre `Namespace prefix (\w+) for`).
+- Sugerencia: "Reportar a soporte con este detalle: prefijo `<X>` no soportado".
 
 ## Archivos a modificar
 
 - `src/lib/docx-processor.ts`:
-  - Nueva función `validateProcessedDocx(zip)`, llamada al final de `applyTemplate`.
-  - Nueva función `stripInvalidXmlChars(xml)`.
-  - `insertInstitutionBanner`: inyectar `<w:p/>` antes y asegurar namespaces en `<w:document>`.
-  - `linkPartToSections`: solo remover refs `w:type="default"`.
+  - `ensureDocumentRootNamespaces`: ampliar `REQUIRED` con los namespaces de Word 2010+, y agregar `mc:Ignorable`.
+  - Nueva utilidad `repairOrphanNamespaces(xml)` que escanea prefijos usados vs declarados.
+  - Nueva utilidad `ensurePartRootNamespaces(xml, rootElementName)` para reusar la lógica en headers/footers.
+  - En el bucle de sanitización final (línea ~867), llamar la nueva función sobre cada `word/header*.xml` y `word/footer*.xml`.
 
 - `src/pages/Index.tsx`:
-  - Diferenciar toast según severidad de los warnings de validación final.
+  - En el toast de error fatal de validación, extraer el prefijo del mensaje y mostrarlo destacado.
 
 ## Resultado esperado
 
-- El `.docx` descargado abre en Word sin error de "archivo dañado".
-- Si por alguna razón la pasada genera XML inválido, te lo decimos **antes** de descargar, con el detalle del tag problemático, en lugar de dejarte descargar un archivo roto.
-- El banner queda con namespaces y separadores correctos para Word, LibreOffice y Google Docs.
+- El archivo de Marilín Martínez procesa, valida y descarga sin error.
+- Cualquier `.docx` futuro que use prefijos `w14`/`w15`/`w16` (la mayoría de los Word modernos) pasa la validación final automáticamente.
+- Si aparece un prefijo realmente desconocido, en lugar de bloquear muestra un warning útil y permite la descarga.
 
