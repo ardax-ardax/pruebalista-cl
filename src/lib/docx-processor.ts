@@ -1481,10 +1481,14 @@ async function linkPartToSections(zip: JSZip, refName: "headerReference" | "foot
   let content = await documentFile.async("string");
 
   const refTag = `<w:${refName} w:type="default" r:id="${relId}"/>`;
-  const removeRegex = new RegExp(`<w:${refName}\\b[^/]*/>`, "g");
+  // Solo eliminar la referencia "default" existente (preservar "first" y "even").
+  const removeDefaultRegex = new RegExp(
+    `<w:${refName}\\b[^/]*\\bw:type="default"[^/]*/>`,
+    "g",
+  );
 
   content = content.replace(/<w:sectPr\b[^>]*>([\s\S]*?)<\/w:sectPr>/g, (full, inner) => {
-    let updated = (inner as string).replace(removeRegex, "");
+    let updated = (inner as string).replace(removeDefaultRegex, "");
     updated = refTag + updated;
     return full.replace(inner, updated);
   });
