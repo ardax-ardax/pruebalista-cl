@@ -1934,12 +1934,33 @@ async function insertInstitutionBanner(
   docContent = ensureDocumentRootNamespaces(docContent);
 
   // 5) Inyectar justo después de <w:body ...> (apertura)
+  let bodyOpen = "";
   docContent = docContent.replace(
     /<w:body\b[^>]*>/,
-    (match) => `${match}${tableXml}`,
+    (match) => {
+      bodyOpen = match;
+      return `${match}${tableXml}`;
+    },
   );
 
+  // 6) Eliminar títulos sueltos inmediatamente después del banner que dupliquen
+  //    contenido (asignatura, curso, etc).
+  const dedupeKeywords = [
+    teacherLabel,
+    subjectLabel,
+    gradeLabel,
+    "evaluación sumativa",
+    "evaluación formativa",
+    "evaluacion sumativa",
+    "evaluacion formativa",
+    "guía de portafolio",
+    "guia de portafolio",
+  ].filter((s) => s && s.trim().length >= 4);
+  const dedupeRes = dedupeAdjacentTitles(docContent, bodyOpen + tableXml, dedupeKeywords);
+  docContent = dedupeRes.xml;
+
   zip.file("word/document.xml", docContent);
+  return { replaced, coverRemoved, titlesRemoved: dedupeRes.removed };
 }
 
 function buildLogoCell(width: number, relId: string | null, cx: number, cy: number): string {
