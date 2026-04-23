@@ -873,15 +873,19 @@ function buildLogoCell(width: number, relId: string | null, cx: number, cy: numb
 
 function buildDataLine(label: string, value: string, fontName: string, sz: string): string {
   const safeValue = escapeXml(value || "");
-  const fillerLen = Math.max(8, 50 - (value?.length ?? 0) - label.length);
+  // El label termina con ":" — añadimos un espacio después para separar del valor.
+  // El valor termina con un espacio extra antes del filler para que la línea de
+  // guiones bajos no quede pegada al texto en negrita.
+  const labelText = `${label} `;
+  const fillerLen = Math.max(10, 55 - (value?.length ?? 0) - label.length);
   const filler = "_".repeat(fillerLen);
   const valueRun = value
-    ? `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${safeValue} </w:t></w:r>`
+    ? `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${safeValue}  </w:t></w:r>`
     : "";
   return (
     `<w:p>` +
-    `<w:pPr><w:spacing w:before="20" w:after="20"/><w:jc w:val="left"/></w:pPr>` +
-    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${escapeXml(label)} </w:t></w:r>` +
+    `<w:pPr><w:spacing w:before="40" w:after="40" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${escapeXml(labelText)}</w:t></w:r>` +
     valueRun +
     `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${filler}</w:t></w:r>` +
     `</w:p>`
