@@ -87,7 +87,11 @@ export const ASSESSMENT_CSS = `
   .pa-statements { break-inside: avoid; page-break-inside: avoid; }
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
   .pa-mc-split .pa-mc-text { width: 80%; padding-right: 8pt; }
-  .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; }
+  .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; height: 1px; }
+  .pa-mc-image .pa-image-wrap { height: 100%; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; margin: 0; }
+  .pa-mc-image .pa-image-crop { max-height: 100%; max-width: 100%; }
+  .pa-mc-image .pa-image-crop-inner { width: 100%; height: 100%; overflow: hidden; position: relative; }
+  .pa-mc-image .pa-image-plain { max-height: 100%; max-width: 100%; height: auto; width: auto; object-fit: contain; }
 `;
 
 const escape = (s: string) =>
@@ -159,7 +163,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           })
           .join("")}</ol>`;
         if (isSplit && q.image) {
-          const imgCell = `<td class="pa-mc-image">${renderImageHtml({ ...q.image, widthPct: 100 })}</td>`;
+          const imgCell = `<td class="pa-mc-image">${renderContainedImageHtml(q.image)}</td>`;
           const txtCell = `<td class="pa-mc-text">${optionsList}</td>`;
           body = `<table class="pa-mc-split"><tr>${layout === "side-left" ? imgCell + txtCell : txtCell + imgCell}</tr></table>`;
         } else {
@@ -241,6 +245,28 @@ export function renderQuestionNumber(questions: Question[], index: number): numb
   const cur = questions[index].type;
   if (cur === "section-title" || cur === "info-block") return null;
   return n;
+}
+
+// Variante de imagen para layout split: limita altura al alto de la celda
+// (que se iguala con la celda de opciones gracias a height:1px en CSS).
+// Mantiene proporción del crop usando aspect-ratio inline.
+function renderContainedImageHtml(img: QuestionImage): string {
+  const { left: L, right: R, top: T, bottom: B } = img.crop;
+  const visibleW = Math.max(1, 100 - L - R);
+  const visibleH = Math.max(1, 100 - T - B);
+  const natW = img.naturalW ?? 4;
+  const natH = img.naturalH ?? 3;
+  const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
+
+  if (!hasCrop) {
+    return `<div class="pa-image-wrap pa-align-${img.alignment}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
+  }
+
+  const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
+  // Para crop con object-fit no funciona; usamos wrapper con aspect-ratio + overflow hidden
+  // y la <img> escalada con margenes negativos relativos al wrapper.
+  const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
+  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:auto;">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };

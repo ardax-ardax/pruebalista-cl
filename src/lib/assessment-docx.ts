@@ -49,12 +49,12 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
 
 // ImageRun manteniendo proporción real: usa naturalW/H y porcentajes de crop
 // para calcular height a partir de width preservando aspect ratio.
-function buildImageRun(img: QuestionImage, contentWidthCm: number): ImageRun {
+function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?: number): ImageRun {
   const { data, type } = dataUrlToUint8Array(img.src);
   // Clamp a 20% (compat con borradores antiguos).
   const safeWidthPct = Math.max(10, Math.min(20, img.widthPct));
   const targetWidthCm = contentWidthCm * (safeWidthPct / 100);
-  const widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
+  let widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
 
   const { left: L, right: R, top: T, bottom: B } = img.crop;
   const visibleW = Math.max(1, 100 - L - R) / 100;
@@ -63,7 +63,16 @@ function buildImageRun(img: QuestionImage, contentWidthCm: number): ImageRun {
   const natH = img.naturalH ?? 3;
   // Aspect ratio del área visible post-crop
   const ratio = (natH * visibleH) / Math.max(1, natW * visibleW);
-  const heightPx = Math.max(1, Math.round(widthPx * ratio));
+  let heightPx = Math.max(1, Math.round(widthPx * ratio));
+
+  if (maxHeightCm && maxHeightCm > 0) {
+    const maxHeightPx = Math.round(maxHeightCm * 37.8);
+    if (heightPx > maxHeightPx) {
+      const scale = maxHeightPx / heightPx;
+      widthPx = Math.max(1, Math.round(widthPx * scale));
+      heightPx = maxHeightPx;
+    }
+  }
 
   return new ImageRun({
     type,
@@ -313,6 +322,16 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       const contentWidthTwip = cmToTwip(contentWidthCm);
       const textColCm = contentWidthCm * 0.8;
       const imgColCm = contentWidthCm * 0.2;
+      // Estimar altura del bloque de opciones para limitar la altura de la imagen.
+      // optionLineCm ≈ bodySize(pt) * 0.0353 cm/pt * 1.35 (line-height)
+      const optionLineCm = ctx.template.typography.bodySize * 0.0353 * 1.35;
+      // chars por línea aprox para columna 80% en bodySize pt (heurística)
+      const charsPerLine = Math.max(20, Math.floor((textColCm * 10) / (ctx.template.typography.bodySize * 0.05)));
+      const totalLines = (q.options ?? []).reduce((sum, o) => {
+        const text = `a) ${o.text}`;
+        return sum + Math.max(1, Math.ceil(text.length / charsPerLine));
+      }, 0);
+      const maxImgHeightCm = Math.max(1, totalLines * optionLineCm + 0.2);
       const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
       const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
       const textCell = new TableCell({
@@ -325,7 +344,18 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         borders,
         width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
-        children: [imageParagraph({ ...q.image, widthPct: 100 }, imgColCm)],
+        children: [
+          new Paragraph({
+            alignment:
+              q.image.alignment === "left"
+                ? AlignmentType.LEFT
+                : q.image.alignment === "right"
+                  ? AlignmentType.RIGHT
+                  : AlignmentType.CENTER,
+            spacing: { before: 60, after: 60 },
+            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm)],
+          }),
+        ],
       });
       pushT(
         new Table({
