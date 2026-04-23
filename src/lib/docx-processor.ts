@@ -42,6 +42,176 @@ export interface ProcessResult {
   diagnostics: DocDiagnostics;
 }
 
+/**
+ * Error con contexto técnico de qué pasada falló y por qué.
+ * Permite mostrar al usuario el detalle exacto en lugar del mensaje genérico
+ * "elementos avanzados".
+ */
+export class DocxProcessingError extends Error {
+  stage: string;
+  detail: string;
+  constructor(stage: string, detail: string, original?: unknown) {
+    super(`[${stage}] ${detail}`);
+    this.name = "DocxProcessingError";
+    this.stage = stage;
+    this.detail = detail;
+    if (original instanceof Error && original.stack) {
+      this.stack = `${this.stack}\nCaused by: ${original.stack}`;
+    }
+  }
+}
+
+export interface PreflightFinding {
+  kind: "sdt" | "smartart" | "vml" | "ole" | "altchunk";
+  count: number;
+  label: string;
+}
+
+export interface PreflightResult {
+  ok: boolean;
+  fatal?: { code: "not-docx" | "missing-document" | "missing-content-types"; message: string };
+  findings: PreflightFinding[];
+}
+
+/**
+ * Valida estructura mínima del .docx antes de procesar.
+ * Detecta:
+ *  - Archivos .doc renombrados (firma binaria D0CF11E0).
+ *  - ZIP sin word/document.xml o [Content_Types].xml.
+ *  - Elementos riesgosos: <w:sdt>, SmartArt, VML legacy, OLE, altChunk.
+ */
+export async function validateDocxStructure(
+  fileBuffer: ArrayBuffer,
+): Promise<PreflightResult> {
+  const findings: PreflightFinding[] = [];
+
+  // Firma de OLE Compound File (.doc legacy): D0 CF 11 E0 A1 B1 1A E1
+  const head = new Uint8Array(fileBuffer.slice(0, 8));
+  if (
+    head[0] === 0xd0 &&
+    head[1] === 0xcf &&
+    head[2] === 0x11 &&
+    head[3] === 0xe0
+  ) {
+    return {
+      ok: false,
+      fatal: {
+        code: "not-docx",
+        message:
+          "El archivo parece ser un .doc antiguo (formato binario de Word 97-2003). Ábrelo en Word y guárdalo como .docx.",
+      },
+      findings: [],
+    };
+  }
+
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(fileBuffer);
+  } catch (e) {
+    return {
+      ok: false,
+      fatal: {
+        code: "not-docx",
+        message: "El archivo no es un .docx válido (no se pudo abrir como ZIP).",
+      },
+      findings: [],
+    };
+  }
+
+  if (!zip.file("[Content_Types].xml")) {
+    return {
+      ok: false,
+      fatal: {
+        code: "missing-content-types",
+        message: "Falta [Content_Types].xml — el .docx está corrupto o incompleto.",
+      },
+      findings: [],
+    };
+  }
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) {
+    return {
+      ok: false,
+      fatal: {
+        code: "missing-document",
+        message: "Falta word/document.xml — el .docx está corrupto o incompleto.",
+      },
+      findings: [],
+    };
+  }
+
+  const docXml = await docFile.async("string");
+
+  const sdtCount = countOccurrences(docXml, /<w:sdt\b/g);
+  if (sdtCount > 0) {
+    findings.push({
+      kind: "sdt",
+      count: sdtCount,
+      label: `${sdtCount} control(es) de contenido (casillas, fechas, listas desplegables)`,
+    });
+  }
+  const smartArtCount = countOccurrences(
+    docXml,
+    /<a:graphicData\b[^>]*uri="[^"]*diagram[^"]*"/g,
+  );
+  if (smartArtCount > 0) {
+    findings.push({
+      kind: "smartart",
+      count: smartArtCount,
+      label: `${smartArtCount} diagrama(s) SmartArt`,
+    });
+  }
+  const vmlCount = countOccurrences(docXml, /<v:shape\b|<v:rect\b|<v:oval\b/g);
+  if (vmlCount > 0) {
+    findings.push({
+      kind: "vml",
+      count: vmlCount,
+      label: `${vmlCount} forma(s) en formato VML legacy (Word 2003 o anterior)`,
+    });
+  }
+  const oleCount = countOccurrences(docXml, /<w:object\b/g);
+  if (oleCount > 0) {
+    findings.push({
+      kind: "ole",
+      count: oleCount,
+      label: `${oleCount} objeto(s) embebido(s) (Excel, ecuaciones, etc.)`,
+    });
+  }
+  const altChunkCount = countOccurrences(docXml, /<w:altChunk\b/g);
+  if (altChunkCount > 0) {
+    findings.push({
+      kind: "altChunk",
+      count: altChunkCount,
+      label: `${altChunkCount} fragmento(s) externos (HTML/RTF embebido)`,
+    });
+  }
+
+  return { ok: true, findings };
+}
+
+/**
+ * Ejecuta una pasada de procesamiento atrapando errores. Si falla, devuelve
+ * el XML original y registra un warning legible en lugar de abortar.
+ */
+function runPass<T>(
+  stage: string,
+  warnings: string[],
+  fn: () => T,
+  fallback: T,
+): T {
+  try {
+    return fn();
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    // Intentar extraer el primer tag XML mencionado (útil para debugging)
+    const tagHint = detail.match(/<\/?[\w:]+/)?.[0];
+    const suffix = tagHint ? ` (cerca de \`${tagHint}\`)` : "";
+    warnings.push(`No se pudo aplicar "${stage}"${suffix}. Se mantuvo el contenido original de esa pasada.`);
+    console.warn(`[docx-processor] Pasada "${stage}" falló:`, e);
+    return fallback;
+  }
+}
+
 function countOccurrences(xml: string, regex: RegExp): number {
   const matches = xml.match(regex);
   return matches ? matches.length : 0;
