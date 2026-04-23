@@ -1370,6 +1370,111 @@ function optimizeTablesString(xml: string): { xml: string; count: number } {
 }
 
 /**
+ * Convierte imágenes flotantes (`<wp:anchor>`) con wrapping cuadrado/estrecho
+ * a imágenes en línea (`<wp:inline>`), para que el texto NO se acomode al
+ * costado de la imagen. La intención casi siempre es "imagen debajo de la
+ * pregunta, opciones debajo de la imagen" — el wrapping flotante viene de
+ * pegar imágenes desde Internet/otros docs y rompe el layout.
+ *
+ * Excepción: imágenes con `behindDoc="1"` (marca de agua) se preservan.
+ *
+ * Además, si el `<w:p>` que contiene el `<w:drawing>` también tiene texto,
+ * se divide el párrafo para que la imagen quede sola en su propia línea.
+ */
+function unfloatImagesForLinearLayout(xml: string): { xml: string; converted: number } {
+  let converted = 0;
+
+  // Paso 1: convertir cada <wp:anchor> a <wp:inline>, removiendo wrapping y posicionamiento.
+  let out = xml.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/g, (drawingXml) => {
+    const anchorMatch = drawingXml.match(/<wp:anchor\b([^>]*)>([\s\S]*?)<\/wp:anchor>/);
+    if (!anchorMatch) return drawingXml;
+
+    const anchorAttrs = anchorMatch[1] || "";
+    const anchorInner = anchorMatch[2] || "";
+
+    // Excepción: marca de agua / fondo (behindDoc="1")
+    if (/\bbehindDoc="1"/.test(anchorAttrs)) return drawingXml;
+
+    // Limpiar elementos de posicionamiento y wrapping
+    let cleanedInner = anchorInner;
+    cleanedInner = cleanedInner.replace(/<wp:positionH\b[\s\S]*?<\/wp:positionH>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:positionV\b[\s\S]*?<\/wp:positionV>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:simplePos\b[^/]*\/>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapNone\b[^/]*\/>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapSquare\b[\s\S]*?<\/wp:wrapSquare>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapSquare\b[^/]*\/>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapTight\b[\s\S]*?<\/wp:wrapTight>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapThrough\b[\s\S]*?<\/wp:wrapThrough>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapTopAndBottom\b[\s\S]*?<\/wp:wrapTopAndBottom>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapTopAndBottom\b[^/]*\/>/g, "");
+
+    converted++;
+    return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">${cleanedInner}</wp:inline></w:drawing>`;
+  });
+
+  // Paso 2: aislar drawings en su propio <w:p> si comparten párrafo con texto.
+  out = out.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, pAttrs, pInner) => {
+    const inner = pInner as string;
+    if (!/<w:drawing\b/.test(inner)) return full;
+
+    // Extraer pPr (se replica en cada párrafo dividido)
+    const pPrMatch = inner.match(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/);
+    const pPr = pPrMatch?.[0] ?? "";
+    const afterPPr = pPrMatch ? inner.slice(pPrMatch.index! + pPr.length) : inner;
+
+    // Tokenizar runs y otros elementos top-level
+    const runRe = /<w:r\b[^>]*\/>|<w:r\b[^>]*>[\s\S]*?<\/w:r>|<w:hyperlink\b[\s\S]*?<\/w:hyperlink>|<w:bookmarkStart\b[^/]*\/>|<w:bookmarkEnd\b[^/]*\/>|<w:proofErr\b[^/]*\/>/g;
+    const tokens: { full: string; hasDrawing: boolean; hasText: boolean }[] = [];
+    let lastIdx = 0;
+    let m: RegExpExecArray | null;
+    while ((m = runRe.exec(afterPPr))) {
+      if (m.index > lastIdx) {
+        const interstitial = afterPPr.slice(lastIdx, m.index);
+        if (interstitial.trim()) tokens.push({ full: interstitial, hasDrawing: false, hasText: false });
+      }
+      const tk = m[0];
+      tokens.push({
+        full: tk,
+        hasDrawing: /<w:drawing\b/.test(tk),
+        hasText: /<w:t\b[^>]*>[\s\S]*?<\/w:t>/.test(tk) && !!extractParagraphText(`<w:p>${tk}</w:p>`).trim(),
+      });
+      lastIdx = m.index + tk.length;
+    }
+    if (lastIdx < afterPPr.length) {
+      const tail = afterPPr.slice(lastIdx);
+      if (tail.trim()) tokens.push({ full: tail, hasDrawing: false, hasText: false });
+    }
+
+    const hasAnyText = tokens.some((t) => t.hasText);
+    const drawingTokens = tokens.filter((t) => t.hasDrawing);
+    if (!hasAnyText || drawingTokens.length === 0) return full;
+
+    // Agrupar runs consecutivos por categoría (texto vs drawing)
+    const groups: { tokens: typeof tokens; isDrawing: boolean }[] = [];
+    for (const t of tokens) {
+      const last = groups[groups.length - 1];
+      if (last && last.isDrawing === t.hasDrawing) {
+        last.tokens.push(t);
+      } else {
+        groups.push({ tokens: [t], isDrawing: t.hasDrawing });
+      }
+    }
+
+    const paragraphs = groups
+      .map((g) => {
+        const body = g.tokens.map((t) => t.full).join("");
+        if (!body.trim()) return "";
+        return `<w:p${pAttrs}>${pPr}${body}</w:p>`;
+      })
+      .filter((p) => p);
+
+    return paragraphs.join("");
+  });
+
+  return { xml: out, converted };
+}
+
+/**
  * Escala proporcionalmente imágenes que excedan el área imprimible
  * para evitar recortes en Word. Usa unidades EMU (1 cm = 360 000 EMU).
  *
