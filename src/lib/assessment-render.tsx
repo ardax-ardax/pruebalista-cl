@@ -284,14 +284,18 @@ export function AssessmentPreviewRender({ ctx }: { ctx: RenderContext }) {
 }
 
 export function renderQuestionNumber(questions: Question[], index: number): number | null {
+  const cur = questions[index].type;
+  if (cur === "section-title" || cur === "info-block") return null;
   let n = 0;
   for (let i = 0; i <= index; i++) {
     const t = questions[i].type;
-    if (t === "section-title" || t === "info-block") continue;
+    if (t === "section-title") {
+      n = 0;
+      continue;
+    }
+    if (t === "info-block") continue;
     n += 1;
   }
-  const cur = questions[index].type;
-  if (cur === "section-title" || cur === "info-block") return null;
   return n;
 }
 
