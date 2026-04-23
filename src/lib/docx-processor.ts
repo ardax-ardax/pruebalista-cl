@@ -1618,5 +1618,6 @@ function normalizeNumbering(
     questionsTextFixed,
     optionsListFixed,
     questionsListFixed,
+    duplicateNumberingStripped,
   };
 }
