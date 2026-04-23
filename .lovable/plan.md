@@ -1,79 +1,73 @@
 
 
-# Auto-QA en el servidor: comparar original vs. procesado y normalizar inconsistencias antes de entregar
+# Diagnóstico del archivo + endurecer el procesador para tolerar este caso
 
-El usuario no quiere revisar visualmente el comparador — quiere que **la herramienta misma detecte y corrija** las inconsistencias antes de descargar. El caso reportado: la numeración de opciones (`a)`, `b)`, `c)`) en algunas preguntas no se uniformiza porque en el .docx original conviven dos representaciones distintas:
+## Lo que muestra tu archivo
 
-- **Texto plano**: `a)`, `b)`, `c)` escritos directamente en `<w:t>`.
-- **Lista numerada nativa de Word**: `<w:numPr>` con `numFmt="lowerLetter"` y un separador (`%1)` o `%1.`) definido en `numbering.xml`.
+Inspeccioné el `.docx` que subiste (Ciencias Naturales 2° Básico). El documento es válido — no tiene elementos exóticos como SmartArt, controles de formulario ni text boxes flotantes. Pero sí tiene tres patrones que hoy hacen al procesador frágil:
 
-Lo mismo pasa con la numeración de preguntas (`1)` vs `1.`) y con las viñetas de indicadores. El procesador actual aplica fuente y márgenes pero **no toca la lógica de numeración**, así que esas diferencias visuales se mantienen.
+1. **Imágenes reutilizadas en varias celdas**: las imágenes de animales (mosca/perro/murciélago, etc.) usan la misma referencia interna (`r:embed` repetido). Cuando una pasada toca `<w:drawing>` y ya pasó por uno, el siguiente puede quedar sin contexto válido.
+2. **Listas con doble numeración**: hay párrafos con `<w:numPr>` nativo Y además texto plano `1)`, `2)` al inicio (se ve en el parse como `* 1) Identifica...`). La pasada `normalizeNumbering` actual asume uno u otro, no los dos juntos.
+3. **Tablas pegadas entre sí sin párrafo separador**: `</w:tbl>` seguido directamente de `<w:p>` con texto `2) ¿Cuál...` — Word lo permite, pero algunas regex de normalización de párrafos esperan separación.
 
-## Plan en 3 capas
+Cuando el procesador falla por cualquiera de estos casos, el mensaje genérico **"El documento contiene elementos avanzados…"** se dispara desde `src/pages/Index.tsx` (línea 165) porque el filtro de error solo distingue entre dos categorías muy amplias (`/body element|docx/i`). No te dice realmente qué elemento falló.
 
-### 1. Pasada de normalización de numeración en `docx-processor.ts`
+## Plan en 2 partes
 
-Nueva función `normalizeNumbering(documentXml, numberingXml, template)` que se ejecuta dentro de `applyTemplate`, después de `applyParagraphFormattingString`:
+### Parte A — Mensaje de error útil (no más "elementos avanzados" genérico)
 
-- **Detectar contexto** por el contenido textual del párrafo:
-  - Opciones de respuesta: párrafo que empieza con `a)`, `b)`, `c)`, `d)` (texto plano) **o** párrafo con `<w:numPr>` cuya definición en `numbering.xml` use `numFmt="lowerLetter"`.
-  - Preguntas: párrafo que empieza con `^\d+\)` o cuyo `numId` apunta a `decimal` con sufijo `)`.
-  - Indicadores / habilidades: listas con `decimal` + `.`.
-- **Unificar formato** según convención del colegio (la más usada en los ejemplos oficiales):
-  - Opciones → `a)`, `b)`, `c)` con paréntesis y sangría consistente.
-  - Preguntas → `1)`, `2)`, `3)` con paréntesis, negrita opcional.
-  - Listas de indicadores/habilidades → `1.`, `2.`, `3.` con punto.
-- **Cómo unificar sin romper Word**:
-  - Para los párrafos que ya tienen `<w:numPr>`: editar la definición correspondiente en `word/numbering.xml` (`<w:lvlText w:val="%1)"/>`) en lugar de tocar cada párrafo.
-  - Para los párrafos con texto plano (`a) opción`): normalizar el separador con regex (`a.` → `a)`, `a-` → `a)`, espacios extra), conservando el texto.
-  - No convertir entre los dos modos (no migrar texto plano a lista nativa ni al revés) — eso refluye el documento. Solo normalizar dentro de cada modo.
-- Acumular en `changes` un reporte por tipo: "Se uniformaron X opciones de respuesta a formato `a)`".
+`src/pages/Index.tsx`:
+- Reemplazar el toast genérico por uno que muestre **qué pasada falló** y **qué elemento la rompió** (nombre de la función + tag XML problemático).
+- Agregar un botón "Copiar detalle técnico" en el toast para que puedas pegármelo si vuelve a fallar.
 
-### 2. Auto-comparador interno (no visible al usuario) en `applyTemplate`
+`src/lib/docx-processor.ts`:
+- Envolver cada pasada (`normalizeNumbering`, `forceDirectFontFormatting`, `fitOversizedImagesString`, `optimizeTablesString`, banner, etc.) en `try/catch` individual.
+- Si una pasada falla, registrar el error en `diagnostics.warnings` con el nombre de la pasada y **continuar con el resto en lugar de abortar todo el documento**.
+- Solo abortar si falla algo crítico (lectura del ZIP, escritura del blob).
 
-Antes de devolver el blob, comparar `originalXml` vs `processedXml` y detectar discrepancias **automáticamente corregibles** o **bloqueantes**:
+### Parte B — Tolerancia para los 3 patrones detectados
 
-- **Inconsistencias de numeración residuales**: contar cuántos párrafos de opciones siguen con formato distinto al canónico (`a.` vs `a)` vs `A)`). Si quedan > 0 después de la normalización, intentar una segunda pasada más agresiva sobre texto plano.
-- **Pérdida de tablas, imágenes o filas**: si los conteos bajan, aplicar rollback de la optimización que las haya tocado (hoy `optimizeTablesString` ya es conservador, pero verificar).
-- **Aumento de páginas inesperado** (> +1 sobre el original, descontando el banner): registrar warning en `diagnostics.warnings: string[]` para mostrarlo al usuario como aviso post-descarga.
-- Extender `DocDiagnostics` con:
-  - `optionFormatInconsistencies: { before: number; after: number }`
-  - `questionFormatInconsistencies: { before: number; after: number }`
-  - `warnings: string[]` (mensajes legibles)
-  - `autoFixesApplied: string[]` (qué corrigió automáticamente la pasada de QA)
+`src/lib/docx-processor.ts`:
 
-### 3. UI: reporte de auto-QA en lugar de comparador visual
+1. **Imágenes con `r:embed` repetido**:
+   - En `fitOversizedImagesString`, dejar de procesar cada `<w:drawing>` de forma independiente. En su lugar, agrupar por `r:embed` y aplicar el ajuste una sola vez por imagen única.
+   - Si un drawing no tiene transform completo, saltarlo en silencio (warning, no error).
 
-Reemplazar el énfasis en `DocumentPreview` (lado a lado) por una **tarjeta de "Auto-QA del servidor"** sobre la previsualización:
+2. **Listas con doble numeración (numPr nativo + texto plano "1)")**:
+   - Detectar el patrón: párrafo con `<w:numPr>` cuyo primer `<w:t>` empieza con `\d+\)` o `[a-z]\)`.
+   - Resolución segura: **eliminar la numeración manual del texto**, dejar solo la nativa (porque ésa Word ya la pinta visualmente). Esto evita ver `1) 1) Identifica…` después de la normalización.
+   - Reportar en `autoFixesApplied`: "Se eliminó numeración manual duplicada en N párrafos".
 
-- Verde "Documento estandarizado y verificado" si no hubo warnings.
-- Amarilla con lista expandible de:
-  - Correcciones automáticas aplicadas ("Se uniformó la numeración de 14 opciones a `a)`, `b)`, `c)`").
-  - Avisos no bloqueantes ("Página adicional añadida porque el banner ocupa espacio").
-- Mantener el comparador lado a lado, pero **colapsado por defecto** ("Ver comparación detallada" como acordeón). Ya no es la herramienta principal — es una verificación opcional.
+3. **Tablas adyacentes sin separador**:
+   - En la pasada de banner / formato de párrafos, no asumir que cada `<w:tbl>` está rodeado de `<w:p>`. Usar selector que tolere `<w:tbl>` consecutivos.
+
+### Parte C — Validación previa del .docx (al subir)
+
+Antes de invocar `applyTemplate`, hacer un check rápido:
+- Verificar que el ZIP contiene `word/document.xml` y `[Content_Types].xml`.
+- Detectar si es un `.doc` renombrado (firma binaria `D0CF11E0` en lugar de `PK`).
+- Detectar elementos no soportados explícitamente: `<w:sdt>` (controles de contenido), `<mc:AlternateContent>` con fallback de SmartArt, `<v:shape>` (VML legacy).
+- Mostrar un diálogo previo **antes de procesar** con la lista exacta de elementos riesgosos: "Tu documento contiene 3 controles de contenido y 2 SmartArt. La estandarización puede dejarlos sin formato. ¿Continuar?"
 
 ## Cambios técnicos resumidos
 
-`src/lib/docx-processor.ts`:
-- Nueva función `normalizeNumbering(docXml, numberingXml, template)` invocada desde `applyTemplate`.
-- Nueva función `runAutoQA(originalXml, processedXml, numberingXml)` que devuelve `{ warnings, autoFixesApplied, inconsistencyCounts }`.
-- Extender `DocDiagnostics` con los campos nuevos.
-- Leer y reescribir `word/numbering.xml` cuando exista (hoy no se toca).
+- `src/lib/docx-processor.ts`:
+  - Nueva función `validateDocxStructure(zip)` que se ejecuta primero.
+  - Cada pasada envuelta en `try/catch` con registro en `diagnostics.warnings`.
+  - `fitOversizedImagesString`: agrupar por `r:embed`.
+  - `normalizeNumbering`: detectar y limpiar numeración manual duplicada en párrafos con `<w:numPr>`.
 
-`src/components/DiscrepancyAlert.tsx`:
-- Renderizar también `autoFixesApplied` y `warnings` (no solo conteos crudos).
-- Cambiar el copy: "Verificación automática" en lugar de "Discrepancias estructurales".
+- `src/pages/Index.tsx`:
+  - Mostrar el detalle real del error (no mensaje genérico).
+  - Si `validateDocxStructure` reporta elementos riesgosos, abrir un `AlertDialog` de confirmación antes de procesar.
 
-`src/pages/Index.tsx`:
-- Mover `<DocumentPreview>` dentro de un `<Collapsible>` cerrado por defecto, con título "Ver comparación detallada (opcional)".
-- Resaltar la tarjeta de Auto-QA como elemento principal del paso 4.
+- `src/components/PreflightDialog.tsx` (nuevo):
+  - Diálogo modal que lista los elementos detectados en el .docx y pregunta si seguir.
 
-## Resultado esperado
+## Resultado esperado con tu archivo
 
-Cuando subas el mismo `.docx` de Historia 2º Básico:
-
-- Las opciones `a)`, `b)`, `c)` quedan en formato uniforme en todas las preguntas, sin importar si Word las tenía como texto plano o como lista nativa.
-- La numeración de preguntas (`1)`, `2)`, `3)`) queda consistente.
-- La tarjeta verde te confirma "14 opciones uniformadas a `a)`, `b)`, `c)`. Sin discrepancias bloqueantes." — sin que tú tengas que abrir el comparador.
-- Si quedó alguna inconsistencia que el procesador no pudo arreglar sola, aparece en amarillo con el detalle exacto, y el comparador visual sigue disponible si quieres confirmar.
+- El archivo de Ciencias Naturales 2° Básico se procesará completo, sin caer al fallback genérico.
+- Las imágenes reutilizadas en las tablas de la página 2 se mantendrán visibles sin reescalado erróneo.
+- Los párrafos `* 1) Identifica…` saldrán como `1) Identifica…` (una sola numeración).
+- Si otro archivo tuyo trae algo realmente no soportado, el toast te dirá exactamente qué pasada falló y en qué elemento, en lugar de "elementos avanzados".
 
