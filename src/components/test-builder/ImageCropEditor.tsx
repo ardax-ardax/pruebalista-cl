@@ -76,6 +76,15 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     setLocalCrop(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
   }, [value?.src, value?.crop]);
 
+  // En modo columna (MC/VF), forzar 100% de ancho y centrado para que ocupe toda la columna.
+  useEffect(() => {
+    if (!allowFullWidth || !value) return;
+    if (value.widthPct !== MAX_IMAGE_WIDTH_PCT || value.alignment !== "center") {
+      onChange({ ...value, widthPct: MAX_IMAGE_WIDTH_PCT, alignment: "center" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowFullWidth, value?.src]);
+
   const onPick = async (f: File) => {
     const src = await fileToDataUrl(f);
     const { w, h } = await measureImage(src);
@@ -116,26 +125,24 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
       <div className="flex items-start gap-3">
         <CroppedThumb img={value} maxW={compact ? 120 : 160} />
         <div className="flex-1 space-y-2">
-          <div className={allowFullWidth ? "" : "grid grid-cols-2 gap-2"}>
-            <div>
-              <Label className="text-xs">Ancho (%)</Label>
-              <Input
-                type="number"
-                min={MIN_IMAGE_WIDTH_PCT}
-                max={maxWidthPct(value.alignment)}
-                value={Math.min(maxWidthPct(value.alignment), value.widthPct)}
-                onChange={(e) => {
-                  const next = clampWidth(Number(e.target.value), value.alignment);
-                  onChange({ ...value, widthPct: next, ...(allowFullWidth ? { alignment: "center" as const } : {}) });
-                }}
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">
-                {allowFullWidth
-                  ? `Máx. ${MAX_IMAGE_WIDTH_PCT}% del ancho de la columna`
-                  : `Máx. ${maxWidthPct(value.alignment)}% del ancho disponible`}
-              </p>
-            </div>
-            {!allowFullWidth && (
+          {!allowFullWidth && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Ancho (%)</Label>
+                <Input
+                  type="number"
+                  min={MIN_IMAGE_WIDTH_PCT}
+                  max={maxWidthPct(value.alignment)}
+                  value={Math.min(maxWidthPct(value.alignment), value.widthPct)}
+                  onChange={(e) => {
+                    const next = clampWidth(Number(e.target.value), value.alignment);
+                    onChange({ ...value, widthPct: next });
+                  }}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Máx. {maxWidthPct(value.alignment)}% del ancho disponible
+                </p>
+              </div>
               <div>
                 <Label className="text-xs">Alineación</Label>
                 <Select
@@ -157,8 +164,8 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
                   </SelectContent>
                 </Select>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setShowCropDialog(true)}>
               <CropIcon className="h-4 w-4" /> Recortar
