@@ -1,50 +1,29 @@
 
 
-# Aplicar layout en columna también a Verdadero/Falso con imagen
+# Ocultar control de ancho en imágenes de columna (MC y V/F)
 
 ## Diagnóstico
 
-La captura muestra una pregunta de **Verdadero/Falso**, no de selección múltiple. El layout en 2 columnas (texto izq / imagen der centrada) hoy solo se aplica a `multiple-choice`. Para V/F la imagen sigue cayendo como bloque centrado debajo del enunciado y arriba de las afirmaciones.
+Cuando una imagen está en modo columna (MC o V/F con `allowFullWidth`), el editor sigue mostrando el control de "Ancho (%)". El usuario quiere que en ese modo la imagen se asuma siempre al 100% de la columna y el editor solo muestre el botón de **Recortar** (más Quitar).
 
-Además, en V/F con imagen el editor sigue mostrando los controles de ancho y alineación, que el usuario no quiere.
+Hoy `ImageCropEditor` con `allowFullWidth=true` ya oculta el selector de alineación, pero sigue mostrando el input numérico de ancho.
 
-## Solución
+## Cambios
 
-Extender el comportamiento de "imagen en columna derecha, centrada, sin controles" a Verdadero/Falso, replicando exactamente la lógica que ya tiene multiple-choice. La altura de la columna de imagen se iguala automáticamente a la altura del bloque de afirmaciones (mismo mecanismo de tabla con `height:1px` que ya usa MC).
+### `src/components/test-builder/ImageCropEditor.tsx`
 
-### 1) `src/lib/assessment-render.tsx`
+- Cuando `allowFullWidth` está activo:
+  - **Ocultar** el bloque "Ancho (%)" (input + texto auxiliar) además del selector de alineación.
+  - Al recibir/cargar una imagen en este modo, forzar `widthPct = 100` y `alignment = "center"` para que el render use toda la columna.
+- Mantener visibles únicamente: la miniatura recortada, el botón **Recortar** y el botón **Quitar**.
+- En el modo normal (otros tipos de pregunta) nada cambia: siguen apareciendo ancho y alineación.
 
-- Cambiar `isSplit` para incluir V/F:
-  ```
-  const isSplit = (q.type === "multiple-choice" || q.type === "true-false") && !!q.image;
-  ```
-- En la rama `q.type === "true-false"`, si `isSplit`, envolver la lista `<ol class="pa-statements">` en la misma tabla `pa-mc-split` (celda izquierda con las afirmaciones, celda derecha con `renderContainedImageHtml(q.image)`).
-- Reutilizar el mismo CSS `.pa-mc-split` / `.pa-mc-text` / `.pa-mc-image` (60% / 40%) que ya existe — sirve igual para V/F.
+### Sin cambios en otros archivos
 
-### 2) `src/lib/assessment-docx.ts`
+- `assessment-render.tsx` y `assessment-docx.ts` ya respetan `widthPct`; al forzarse a 100 desde el editor, la imagen ocupa toda la columna automáticamente.
+- `QuestionEditor.tsx` no requiere cambios: ya pasa `allowFullWidth` para MC y V/F.
 
-- Aplicar el mismo cambio en `isSplit` (MC o V/F con imagen).
-- Extender la rama de generación de tabla split para que, cuando `q.type === "true-false"`, la celda izquierda contenga los párrafos de las afirmaciones (en lugar de las opciones MC) y la celda derecha la imagen centrada con `widthPct` clampeado a 10–100.
-- Reutilizar el mismo cálculo 60/40 ya existente.
+## Resultado
 
-### 3) `src/components/test-builder/QuestionEditor.tsx`
-
-- Cambiar la condición que pasa `allowFullWidth` y muestra el mensaje informativo: aplicar tanto a `multiple-choice` como a `true-false`.
-- Cuando se sube imagen en una pregunta V/F, asignar también `imageLayout: "side-right"` automáticamente (paralelo a lo que ya se hace para MC).
-- Texto informativo actualizado: "La imagen se ubica en una columna a la derecha de las afirmaciones, centrada. Usá el control de ancho para ajustar su tamaño dentro de la columna."
-
-### 4) `src/components/test-builder/ImageCropEditor.tsx`
-
-- Cuando `allowFullWidth` está activo, **ocultar el selector de alineación** (la imagen siempre va centrada en su columna en este modo). Mantener visible solo el slider de ancho y el editor de recorte.
-- Al activarse `allowFullWidth`, forzar internamente `alignment: "center"` en el `onChange` para que el valor quede consistente en el schema.
-
-## Sin cambios de schema
-
-`imageLayout` y `alignment` siguen existiendo. En V/F y MC con imagen se ignoran (siempre side-right + center). Otros tipos de pregunta no se ven afectados.
-
-## Resultado esperado
-
-- En V/F con imagen: afirmaciones a la izquierda (60%), imagen centrada en columna derecha (40%), altura de la columna igual a la del bloque de afirmaciones — idéntico al comportamiento de MC.
-- El editor ya no muestra alineación en MC ni en V/F con imagen; solo el ancho dentro de la columna.
-- Preview, PDF y Word consistentes.
+En preguntas MC o V/F con imagen, el editor del enunciado muestra solo: miniatura, **Recortar** y **Quitar**. La imagen siempre ocupa el 100% de su columna (40% del ancho de contenido), centrada.
 
