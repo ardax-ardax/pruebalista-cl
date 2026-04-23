@@ -256,10 +256,10 @@ const Configuracion = () => {
         </CardContent>
       </Card>
 
-      {/* Asignaturas y cursos */}
+      {/* Asignaturas, cursos y docentes */}
       <Card className="shadow-card mb-8">
         <CardHeader>
-          <CardTitle className="text-lg">Asignaturas y cursos</CardTitle>
+          <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
           <CardDescription>
             Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo"
             es lo que aparece en el nombre final (sin espacios ni símbolos).
@@ -283,6 +283,15 @@ const Configuracion = () => {
             onReset={handleResetGrades}
             labelPlaceholder="7° Básico"
             valuePlaceholder="7Básico"
+          />
+          <CatalogManager
+            title="Docentes"
+            description="Quien crea el documento. Se agrega al final del nombre del archivo."
+            items={teachers}
+            onChange={updateTeachers}
+            onReset={handleResetTeachers}
+            labelPlaceholder="Jorge Villablanca"
+            valuePlaceholder="JorgeVillablanca"
           />
         </CardContent>
       </Card>
