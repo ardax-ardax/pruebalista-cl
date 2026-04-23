@@ -105,10 +105,27 @@ const CrearPrueba = () => {
   }
 
   const handleNew = () => {
-    if (!confirm("¿Empezar una nueva prueba? Se descartará el borrador actual.")) return;
+    const msg = editingId
+      ? "¿Crear una prueba nueva? Se perderán cambios no guardados."
+      : "¿Empezar una nueva prueba? Se descartará el borrador actual.";
+    if (!confirm(msg)) return;
     clearDraft();
     setAssessment(emptyAssessment(templates[0]?.id ?? template.id));
+    if (editingId) setSearchParams({});
     setTab("meta");
+  };
+
+  const handleSave = () => {
+    const err = validate();
+    if (err) { toast.error(err); return; }
+    const saved = upsertAssessment(assessment);
+    setAssessment(saved);
+    if (!editingId) {
+      // Pasamos a "modo edición" para que próximos guardados actualicen este registro
+      setSearchParams({ id: saved.id });
+      clearDraft();
+    }
+    toast.success("Prueba guardada");
   };
 
   const validate = (): string | null => {
@@ -154,7 +171,9 @@ const CrearPrueba = () => {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Crear prueba</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {editingId ? "Editar prueba" : "Crear prueba"}
+            </h1>
             <p className="text-sm text-muted-foreground">
               Construye una evaluación estandarizada. El formato institucional se aplica automáticamente al exportar.
             </p>
@@ -162,6 +181,9 @@ const CrearPrueba = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleNew}>
               <Plus className="h-4 w-4" /> Nueva
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleSave}>
+              <Save className="h-4 w-4" /> Guardar
             </Button>
             <Button variant="outline" size="sm" onClick={handleExportPdf}>
               <FileDown className="h-4 w-4" /> PDF
