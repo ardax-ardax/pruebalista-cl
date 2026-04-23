@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import DOMPurify from "dompurify";
 import { Minus, Plus, Maximize2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,9 @@ function PreviewPanel({
                 fontFamily: template.typography.bodyFont,
                 textAlign: template.body.alignment,
               }}
-              dangerouslySetInnerHTML={{ __html: html }}
+              // HTML proviene de mammoth.convertToHtml sobre archivos subidos
+              // por el usuario; sanitizamos para evitar XSS.
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
             />
           </div>
         ) : (
