@@ -62,7 +62,7 @@ export class DocxProcessingError extends Error {
 }
 
 export interface PreflightFinding {
-  kind: "sdt" | "smartart" | "vml" | "ole" | "altchunk";
+  kind: "sdt" | "smartart" | "vml" | "ole" | "altchunk" | "textbox" | "altcontent";
   count: number;
   label: string;
 }
