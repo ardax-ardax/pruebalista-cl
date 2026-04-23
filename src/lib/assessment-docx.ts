@@ -296,9 +296,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     children: headerRuns,
   });
 
-  // MC con imagen → siempre split (opciones izquierda, imagen derecha centrada).
-  const isSplit = q.type === "multiple-choice" && !!q.image;
-  const layout: "side-left" | "side-right" | "block" = isSplit ? "side-right" : (q.imageLayout ?? "block");
+  // MC o V/F con imagen → siempre split (texto izquierda, imagen derecha centrada).
+  const isSplit = (q.type === "multiple-choice" || q.type === "true-false") && !!q.image;
 
   if (q.image && !isSplit) {
     const align =
@@ -313,6 +312,47 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       children: [buildImageRun(q.image, contentWidthCm, imageCache)],
     });
   }
+
+  // Helper: construye la tabla split (texto 60% / imagen 40% centrada).
+  const buildSplitTable = (textParagraphs: Paragraph[], totalLines: number): Table => {
+    const contentWidthTwip = cmToTwip(contentWidthCm);
+    const textColCm = contentWidthCm * 0.6;
+    const imgColCm = contentWidthCm * 0.4;
+    const optionLineCm = ctx.template.typography.bodySize * 0.0353 * 1.35;
+    const maxImgHeightCm = Math.max(1, totalLines * optionLineCm + 0.2);
+    const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+    const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+    const textCell = new TableCell({
+      borders,
+      width: { size: Math.round(contentWidthTwip * 0.6), type: WidthType.DXA },
+      margins: { top: 0, bottom: 0, left: 0, right: 120 },
+      children: textParagraphs,
+    });
+    const safeImgPct = Math.max(10, Math.min(100, q.image!.widthPct || 100));
+    const imgCell = new TableCell({
+      borders,
+      width: { size: Math.round(contentWidthTwip * 0.4), type: WidthType.DXA },
+      margins: { top: 0, bottom: 0, left: 120, right: 0 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 60, after: 60 },
+          children: [buildImageRun({ ...q.image!, widthPct: safeImgPct }, imgColCm, imageCache, maxImgHeightCm, true)],
+        }),
+      ],
+    });
+    return new Table({
+      width: { size: contentWidthTwip, type: WidthType.DXA },
+      columnWidths: [Math.round(contentWidthTwip * 0.6), Math.round(contentWidthTwip * 0.4)],
+      rows: [
+        new TableRow({
+          cantSplit: true,
+          children: [textCell, imgCell],
+        }),
+      ],
+    });
+  };
 
   if (q.type === "multiple-choice") {
     const letters = ["a", "b", "c", "d", "e", "f"];
@@ -339,85 +379,68 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     };
 
     if (isSplit && q.image) {
-      const contentWidthTwip = cmToTwip(contentWidthCm);
       const textColCm = contentWidthCm * 0.6;
-      const imgColCm = contentWidthCm * 0.4;
-      // Estimar altura del bloque de opciones para limitar la altura de la imagen.
-      // optionLineCm ≈ bodySize(pt) * 0.0353 cm/pt * 1.35 (line-height)
-      const optionLineCm = ctx.template.typography.bodySize * 0.0353 * 1.35;
-      // chars por línea aprox para columna 80% en bodySize pt (heurística)
       const charsPerLine = Math.max(20, Math.floor((textColCm * 10) / (ctx.template.typography.bodySize * 0.05)));
       const totalLines = (q.options ?? []).reduce((sum, o) => {
         const text = `a) ${o.text}`;
         return sum + Math.max(1, Math.ceil(text.length / charsPerLine));
       }, 0);
-      const maxImgHeightCm = Math.max(1, totalLines * optionLineCm + 0.2);
-      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-      const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
-      const textCell = new TableCell({
-        borders,
-        width: { size: Math.round(contentWidthTwip * 0.6), type: WidthType.DXA },
-        margins: { top: 0, bottom: 0, left: 0, right: 120 },
-        children: buildOptionParagraphs(textColCm, 0),
-      });
-      // En MC split la imagen siempre se centra en su columna.
-      const splitImgAlign = AlignmentType.CENTER;
-      const safeImgPct = Math.max(10, Math.min(100, q.image.widthPct || 100));
-      const imgCell = new TableCell({
-        borders,
-        width: { size: Math.round(contentWidthTwip * 0.4), type: WidthType.DXA },
-        margins: { top: 0, bottom: 0, left: 120, right: 0 },
-        children: [
-          new Paragraph({
-            alignment: splitImgAlign,
-            spacing: { before: 60, after: 60 },
-            children: [buildImageRun({ ...q.image, widthPct: safeImgPct }, imgColCm, imageCache, maxImgHeightCm, true)],
-          }),
-        ],
-      });
-      pushT(
-        new Table({
-          width: { size: contentWidthTwip, type: WidthType.DXA },
-          columnWidths: [Math.round(contentWidthTwip * 0.6), Math.round(contentWidthTwip * 0.4)],
-          rows: [
-            new TableRow({
-              cantSplit: true,
-              children: layout === "side-left" ? [imgCell, textCell] : [textCell, imgCell],
-            }),
-          ],
-        }),
-      );
+      pushT(buildSplitTable(buildOptionParagraphs(textColCm, 0), totalLines));
     } else {
       for (const p of buildOptionParagraphs(contentWidthCm, 360)) {
         pushPre(p);
       }
     }
   } else if (q.type === "true-false") {
-    (q.statements ?? []).forEach((st, i) => {
-      pushP({
-        indent: { left: 360 },
-        spacing: { before: 60, after: 40 },
-        children: [
-          new TextRun({ text: "( V ) ( F )   ", bold: true, size: baseSize }),
-          new TextRun({ text: `${qNumber}.${i + 1} `, bold: true, size: baseSize }),
-          new TextRun({ text: st.text, size: baseSize }),
-        ],
+    const buildStatementParagraphs = (indent: number): Paragraph[] => {
+      const ps: Paragraph[] = [];
+      (q.statements ?? []).forEach((st, i) => {
+        ps.push(
+          new Paragraph({
+            indent: indent ? { left: indent } : undefined,
+            spacing: { before: 60, after: 40 },
+            keepLines: true,
+            keepNext: true,
+            children: [
+              new TextRun({ text: "( V ) ( F )   ", bold: true, size: baseSize }),
+              new TextRun({ text: `${qNumber}.${i + 1} `, bold: true, size: baseSize }),
+              new TextRun({ text: st.text, size: baseSize }),
+            ],
+          }),
+        );
+        if (st.image) {
+          const align =
+            st.image.alignment === "left"
+              ? AlignmentType.LEFT
+              : st.image.alignment === "right"
+                ? AlignmentType.RIGHT
+                : AlignmentType.CENTER;
+          ps.push(
+            new Paragraph({
+              alignment: align,
+              indent: { left: indent + 360 },
+              spacing: { before: 60, after: 60 },
+              children: [buildImageRun(st.image, contentWidthCm, imageCache)],
+            }),
+          );
+        }
       });
-      if (st.image) {
-        const align =
-          st.image.alignment === "left"
-            ? AlignmentType.LEFT
-            : st.image.alignment === "right"
-              ? AlignmentType.RIGHT
-              : AlignmentType.CENTER;
-        pushP({
-          alignment: align,
-          indent: { left: 720 },
-          spacing: { before: 60, after: 60 },
-          children: [buildImageRun(st.image, contentWidthCm, imageCache)],
-        });
+      return ps;
+    };
+
+    if (isSplit && q.image) {
+      const textColCm = contentWidthCm * 0.6;
+      const charsPerLine = Math.max(20, Math.floor((textColCm * 10) / (ctx.template.typography.bodySize * 0.05)));
+      const totalLines = (q.statements ?? []).reduce((sum, st) => {
+        const text = `( V ) ( F )   ${qNumber}.x ${st.text}`;
+        return sum + Math.max(1, Math.ceil(text.length / charsPerLine));
+      }, 0);
+      pushT(buildSplitTable(buildStatementParagraphs(0), totalLines));
+    } else {
+      for (const p of buildStatementParagraphs(360)) {
+        pushPre(p);
       }
-    });
+    }
   } else if (q.type === "short-answer") {
     const lines = Math.max(1, q.answerLines ?? 3);
     for (let i = 0; i < lines; i++) {
