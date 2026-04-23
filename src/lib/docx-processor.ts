@@ -447,9 +447,10 @@ function optimizeTablesString(xml: string): { xml: string; count: number } {
  * Escala proporcionalmente imágenes que excedan el área imprimible
  * para evitar recortes en Word. Usa unidades EMU (1 cm = 360 000 EMU).
  *
- * Respeta los recortes (<a:srcRect>) que ya tenga la imagen: el escalado se
- * calcula sobre el tamaño VISIBLE (después del recorte), no sobre el tamaño
- * total del archivo embebido.
+ * IMPORTANTE: NO toca imágenes con recorte (`<a:srcRect>` con valores) ni
+ * imágenes ancladas/flotantes (`<wp:anchor>`), porque ahí el layout está
+ * cuidadosamente diseñado por el autor en Word y reescalar provoca que el
+ * documento refluya (típicamente empuja la imagen a una página nueva).
  */
 function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string; count: number } {
   const usableWcm = t.pageSize.widthCm - t.spacing.marginLeft - t.spacing.marginRight;
@@ -459,38 +460,31 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
   const limitH = Math.round(usableH * 0.95);
 
   let count = 0;
-  // Iterar cada wp:extent y reescalar si excede; replicar el cambio en el a:ext más cercano dentro del mismo drawing.
   const out = xml.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/g, (drawingXml) => {
+    // 1) Imágenes ancladas/flotantes: preservar tal cual.
+    if (/<wp:anchor\b/.test(drawingXml)) return drawingXml;
+
+    // 2) Imágenes con recorte real: preservar tal cual.
+    //    Un srcRect "vacío" (`<a:srcRect/>`) NO cuenta como recorte.
+    const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
+    if (srcRectMatch) {
+      const attrs = srcRectMatch[1] || "";
+      const hasCropValue = /\b[lrtb]="(-?\d+)"/.test(attrs)
+        && !/^\s*$/.test(attrs)
+        && /[1-9]/.test(attrs); // al menos un dígito distinto de 0
+      if (hasCropValue) return drawingXml;
+    }
+
+    // 3) Imagen inline simple: solo reescalar si excede el área imprimible.
     const extentMatch = drawingXml.match(/<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"\s*\/>/);
     if (!extentMatch) return drawingXml;
     const cx = parseInt(extentMatch[1], 10);
     const cy = parseInt(extentMatch[2], 10);
 
-    // Detectar srcRect (recorte aplicado en Word). Valores en milésimas de %.
-    // Si la imagen está recortada, las dimensiones que el usuario realmente ve
-    // son menores que cx/cy: visible = total * (1 - l/100000 - r/100000).
-    const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
-    let cropL = 0, cropR = 0, cropT = 0, cropB = 0;
-    if (srcRectMatch) {
-      const attrs = srcRectMatch[1];
-      const lm = attrs.match(/\bl="(-?\d+)"/);
-      const rm = attrs.match(/\br="(-?\d+)"/);
-      const tm = attrs.match(/\bt="(-?\d+)"/);
-      const bm = attrs.match(/\bb="(-?\d+)"/);
-      cropL = lm ? parseInt(lm[1], 10) : 0;
-      cropR = rm ? parseInt(rm[1], 10) : 0;
-      cropT = tm ? parseInt(tm[1], 10) : 0;
-      cropB = bm ? parseInt(bm[1], 10) : 0;
-    }
-    const visibleFracW = Math.max(0.01, 1 - cropL / 100000 - cropR / 100000);
-    const visibleFracH = Math.max(0.01, 1 - cropT / 100000 - cropB / 100000);
-    const visibleW = Math.round(cx * visibleFracW);
-    const visibleH = Math.round(cy * visibleFracH);
+    if (cx <= usableW && cy <= limitH) return drawingXml;
 
-    if (visibleW <= usableW && visibleH <= limitH) return drawingXml;
-
-    const ratioW = visibleW > usableW ? usableW / visibleW : 1;
-    const ratioH = visibleH > limitH ? limitH / visibleH : 1;
+    const ratioW = cx > usableW ? usableW / cx : 1;
+    const ratioH = cy > limitH ? limitH / cy : 1;
     const ratio = Math.min(ratioW, ratioH);
     const newCx = Math.round(cx * ratio);
     const newCy = Math.round(cy * ratio);
@@ -500,27 +494,85 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
       /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
       `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
     );
-    // Actualizar también el a:ext interno (transform de la imagen).
-    // El srcRect se mantiene tal cual: como es porcentual, el recorte
-    // sigue siendo proporcional al nuevo tamaño.
+    // Actualizar el a:ext del transform principal del mismo drawing.
     updated = updated.replace(
       /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
       `<a:ext cx="${newCx}" cy="${newCy}"/>`,
-    );
-    // Si está dentro de un anchor flotante, asegurar layoutInCell=1 y behindDoc=0
-    updated = updated.replace(
-      /<wp:anchor\b([^>]*)>/,
-      (m, attrs) => {
-        let a = attrs as string;
-        a = a.replace(/\sbehindDoc="\d"/g, "");
-        a = a.replace(/\slayoutInCell="\d"/g, "");
-        return `<wp:anchor${a} behindDoc="0" layoutInCell="1">`;
-      },
     );
     return updated;
   });
 
   return { xml: out, count };
+}
+
+/**
+ * Normaliza formato directo de runs en `word/document.xml` para forzar la
+ * tipografía y el tamaño del cuerpo. Word prioriza el formato directo
+ * (`<w:rPr>` dentro de cada `<w:r>`) sobre `styles.xml`/`docDefaults`, así
+ * que sin esta pasada el archivo descargado puede seguir mostrando la fuente
+ * original.
+ *
+ * Conserva: negritas, cursivas, subrayados, color directo, vertAlign, etc.
+ * Reemplaza/inserta: <w:rFonts>, <w:sz>, <w:szCs>.
+ *
+ * No toca runs que contengan campos especiales, símbolos, drawings o saltos
+ * (esos viven en sus propios <w:r> y no necesitan normalización tipográfica).
+ */
+function forceDirectFontFormatting(xml: string, t: FormatTemplate): string {
+  const font = t.typography.bodyFont;
+  const sz = ptToHalfPoints(t.typography.bodySize).toString();
+  const rFontsTag = `<w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}" w:eastAsia="${font}"/>`;
+  const szTag = `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`;
+
+  // Solo procesamos runs del cuerpo del documento.
+  const bodyMatch = xml.match(/<w:body\b[^>]*>([\s\S]*)<\/w:body>/);
+  if (!bodyMatch) return xml;
+  const body = bodyMatch[1];
+
+  const newBody = body.replace(/<w:r\b([^>]*)>([\s\S]*?)<\/w:r>/g, (full, attrs, inner) => {
+    // Saltar runs que contienen drawings, símbolos especiales o instrucciones de campo.
+    if (/<w:drawing\b|<w:sym\b|<w:pict\b|<w:object\b|<w:fldChar\b|<w:instrText\b/.test(inner)) {
+      return full;
+    }
+    // Si no contiene texto, saltar (evita normalizar runs estructurales).
+    if (!/<w:t\b|<w:tab\b|<w:br\b/.test(inner)) return full;
+
+    const rPrMatch = (inner as string).match(/^<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/);
+    if (rPrMatch) {
+      let rPrInner = rPrMatch[1];
+      // Reemplazar/insertar rFonts
+      if (/<w:rFonts\b[^/]*\/>/.test(rPrInner)) {
+        rPrInner = rPrInner.replace(/<w:rFonts\b[^/]*\/>/, rFontsTag);
+      } else {
+        rPrInner = rFontsTag + rPrInner;
+      }
+      // Reemplazar/insertar sz y szCs
+      if (/<w:sz\b[^/]*\/>/.test(rPrInner)) {
+        rPrInner = rPrInner.replace(/<w:sz\b[^/]*\/>/, `<w:sz w:val="${sz}"/>`);
+      } else {
+        rPrInner = rPrInner + `<w:sz w:val="${sz}"/>`;
+      }
+      if (/<w:szCs\b[^/]*\/>/.test(rPrInner)) {
+        rPrInner = rPrInner.replace(/<w:szCs\b[^/]*\/>/, `<w:szCs w:val="${sz}"/>`);
+      } else {
+        rPrInner = rPrInner + `<w:szCs w:val="${sz}"/>`;
+      }
+      const newInner = (inner as string).replace(
+        /^<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/,
+        `<w:rPr>${rPrInner}</w:rPr>`,
+      );
+      return `<w:r${attrs}>${newInner}</w:r>`;
+    }
+
+    // No tiene rPr — insertar uno mínimo al inicio del run.
+    const newRPr = `<w:rPr>${rFontsTag}${szTag}</w:rPr>`;
+    return `<w:r${attrs}>${newRPr}${inner}</w:r>`;
+  });
+
+  return xml.replace(
+    /(<w:body\b[^>]*>)[\s\S]*(<\/w:body>)/,
+    (_m, open, close) => `${open}${newBody}${close}`,
+  );
 }
 
 function applyParagraphFormattingString(xml: string, t: FormatTemplate): string {
