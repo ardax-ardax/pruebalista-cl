@@ -1,39 +1,67 @@
 
 
-# Quitar "Ajustes finos" e igualar alto de imagen MC/VF a la columna de texto
+# Imagen MC/VF: forzar alto = alto de la columna de opciones
 
-## Problema 1: Ajustes finos sobran
-El bloque colapsable "Ajustes finos" (sliders top/bottom/left/right) ya no aporta — el botón **Recortar** abre un diálogo visual completo que cubre el caso. En el modo `allowFullWidth` (MC/VF) además genera ruido visual.
+## Diagnóstico
 
-## Problema 2: Imagen MC/VF queda en miniatura
-La columna de imagen usa `height: 1px` en el `<td>` esperando que el motor de tablas la estire al alto de la celda hermana. Con `display:flex; align-items:flex-start` y la imagen con `object-fit:contain` + `width:100%`, la imagen se dibuja a su altura intrínseca (proporción natural), no al alto de la columna. Si el bloque de opciones es alto y la imagen es ancha pero baja, queda chica arriba de su celda.
+`height: 100%` en el `<img>` dentro de un `<td height:1px>` no se resuelve correctamente: el navegador no propaga la altura calculada de la fila al contenido del `<td>` cuando el contenedor intermedio es `display:block`. Por eso la imagen se queda en su tamaño intrínseco (miniatura).
 
-## Cambios
+## Solución
 
-### `src/components/test-builder/ImageCropEditor.tsx`
-- **Eliminar por completo** el bloque `<Collapsible>` de "Ajustes finos" (líneas 180–204) y el helper `labelOf`. La edición de crop sigue disponible vía botón **Recortar**.
-- Eliminar imports ya no usados: `Slider`, `Collapsible/CollapsibleContent/CollapsibleTrigger`, `ChevronsUpDown`, `localCrop` state y su `useEffect` de sincronización.
+Usar el patrón estándar de "hijo absoluto dentro de celda relativa" para que la imagen reciba un alto real desde el cual derivar `max-height: 100%`.
 
-### `src/lib/assessment-render.tsx` — CSS `.pa-mc-split` y `.pa-mc-image`
-Cambiar la estrategia de igualar alto:
-- Mantener `table-layout: fixed` y `height: 1px` en el `<td>` de imagen (sigue siendo el truco para que el `<td>` adopte la altura de la fila).
-- En `.pa-mc-image .pa-image-wrap`: usar `height: 100%` con `display: block` (no flex) y centrar via `text-align: center`.
-- En `.pa-mc-image .pa-image-plain` (sin crop) y `.pa-mc-image .pa-image-crop` (con crop): forzar **`height: 100%; width: auto; max-width: 100%; object-fit: contain;`** para que la imagen se escale al alto de la celda manteniendo proporción, y solo se reduzca de ancho si excede 100% de la columna.
-- Para el caso **con crop** (`.pa-image-crop` con `aspect-ratio` inline): cambiar el comportamiento — en columna MC/VF, ignorar el `aspect-ratio` inline y usar `height:100%; width:auto;` directamente en el wrapper, dejando que `.pa-image-crop-inner` mantenga el recorte vía `overflow:hidden` y posicionamiento absoluto del `<img>` interno (que ya está implementado).
+### `src/lib/assessment-render.tsx` — CSS `.pa-mc-image`
 
-Concretamente:
+Reemplazar las reglas actuales por:
+
 ```css
-.pa-mc-image .pa-image-wrap { width: 100%; height: 100%; margin: 0; text-align: center; display: block; }
-.pa-mc-image .pa-image-crop { display: inline-block; height: 100%; width: auto; max-width: 100%; aspect-ratio: var(--pa-ar, auto); }
-.pa-mc-image .pa-image-plain { display: inline-block; height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+.pa-mc-split td.pa-mc-image {
+  width: 40%;
+  padding-left: 8pt;
+  position: relative;          /* contenedor para el wrapper absoluto */
+}
+.pa-mc-image .pa-image-wrap {
+  position: absolute;
+  inset: 0 0 0 8pt;            /* respeta el padding-left */
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pa-mc-image .pa-image-plain {
+  max-height: 100%;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.pa-mc-image .pa-image-crop {
+  max-height: 100%;
+  max-width: 100%;
+  height: 100%;                /* el inner usa overflow:hidden + img absoluta */
+  width: auto;
+  aspect-ratio: var(--pa-ar, auto);
+  display: inline-block;
+  overflow: hidden;
+  position: relative;
+}
+.pa-mc-image .pa-image-crop-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
 ```
-Y en `renderContainedImageHtml` exponer el aspect-ratio vía CSS var (`style="--pa-ar:${ratio}; ..."`) en lugar de `aspect-ratio:${ratio}` directo, para que el navegador calcule width desde height (cuando hay alto disponible) o height desde width (fallback).
 
-### Sin cambios
-- `assessment-docx.ts`: Word ya escala por proporción de columna (no aplica el problema visual del HTML).
-- `QuestionEditor.tsx`: sigue pasando `allowFullWidth` para MC/VF.
+Quitar la regla `height: 1px` del `<td>`. El truco real para igualar alto es: el `<td>` adopta el alto de la fila (definido por el `<td>` hermano con el contenido de opciones), y el wrapper absoluto se estira a ese alto vía `inset: 0`.
 
-## Resultado
-- Editor de imagen muestra solo: miniatura, **Recortar**, **Quitar** (en MC/VF) o + ancho/alineación (otros tipos). Sin "Ajustes finos".
-- En MC/VF la imagen llena verticalmente la columna derecha igualando la altura del bloque de opciones/afirmaciones, manteniendo su proporción y centrada.
+### Sin otros cambios
+
+- `renderContainedImageHtml`: ya expone `--pa-ar` correctamente, no requiere cambios.
+- `assessment-docx.ts`: sin cambios.
+- Editor: sin cambios.
+
+## Resultado esperado
+
+En MC/VF con imagen, la imagen ocupa el 100% del alto de la columna de opciones/afirmaciones, centrada vertical y horizontalmente, manteniendo su proporción (recortada o no). Ya no aparece como miniatura.
 
