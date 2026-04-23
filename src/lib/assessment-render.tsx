@@ -1,0 +1,212 @@
+// Renderer único de evaluaciones. Produce React (preview) y HTML (PDF print).
+// Mismo CSS para ambos para que coincidan visualmente.
+
+import type { CSSProperties, ReactNode } from "react";
+import type { Assessment, Question, QuestionImage } from "./assessment-schema";
+import type { FormatTemplate } from "./templates";
+
+export interface RenderContext {
+  assessment: Assessment;
+  template: FormatTemplate;
+  logoDataUrl: string | null;
+  institutionName: string;
+  subjectLabel: string;
+  gradeLabel: string;
+  teacherLabel: string;
+}
+
+// === CSS común para preview y print ===
+// Usa unidades absolutas (cm/pt) para que el render web se acerque a la hoja
+// imprimible. La tipografía va en Arial fallback porque Century Gothic no está
+// garantizado en navegador, pero el .docx sí usará Century Gothic.
+export const ASSESSMENT_CSS = `
+  .pa-page {
+    font-family: "Century Gothic", "Apple Gothic", "URW Gothic", "Avenir", Arial, sans-serif;
+    font-size: 10pt;
+    color: #000;
+    line-height: 1.35;
+  }
+  .pa-banner {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: 12pt;
+    border: 0.75pt solid #000;
+  }
+  .pa-banner td {
+    border: 0.75pt solid #000;
+    padding: 4pt 6pt;
+    vertical-align: middle;
+    font-size: 9pt;
+  }
+  .pa-banner .pa-logo-cell { width: 22%; text-align: center; }
+  .pa-banner .pa-logo-cell img { max-width: 90%; max-height: 60pt; }
+  .pa-banner .pa-info-cell { width: 56%; }
+  .pa-banner .pa-grade-cell { width: 22%; text-align: center; font-weight: bold; }
+  .pa-banner .pa-info-cell .pa-inst-name {
+    font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 2pt;
+  }
+  .pa-banner .pa-info-cell .pa-row {
+    display: flex; justify-content: space-between; gap: 8pt;
+  }
+  .pa-banner .pa-info-cell .pa-row span { white-space: nowrap; }
+  .pa-student-row {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: 10pt;
+  }
+  .pa-student-row td {
+    border-bottom: 0.5pt solid #000;
+    padding: 4pt 4pt;
+    font-size: 9pt;
+  }
+  .pa-title { font-size: 12pt; font-weight: bold; text-align: center; margin: 6pt 0 4pt; text-transform: uppercase; }
+  .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
+  .pa-instructions strong { font-weight: bold; }
+  .pa-question { margin: 0 0 10pt; page-break-inside: avoid; }
+  .pa-question-header { font-weight: bold; font-size: 10pt; margin-bottom: 3pt; }
+  .pa-question-prompt { text-align: justify; }
+  .pa-question-points { float: right; font-weight: normal; font-style: italic; }
+  .pa-options { margin: 4pt 0 0 14pt; padding: 0; list-style: none; }
+  .pa-options li { margin: 2pt 0; }
+  .pa-option-letter { font-weight: bold; margin-right: 4pt; }
+  .pa-answer-line { border-bottom: 0.5pt solid #000; height: 14pt; margin: 4pt 0; }
+  .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; }
+  .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; }
+  .pa-image-wrap { margin: 6pt 0; }
+  .pa-image-wrap.pa-align-left { text-align: left; }
+  .pa-image-wrap.pa-align-center { text-align: center; }
+  .pa-image-wrap.pa-align-right { text-align: right; }
+  .pa-image-crop { display: inline-block; overflow: hidden; vertical-align: top; }
+  .pa-image-crop img { display: block; max-width: none; }
+`;
+
+const escape = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+// ====================== HTML render (para PDF) ======================
+
+export function renderAssessmentHtml(ctx: RenderContext): string {
+  const { assessment, template, logoDataUrl, institutionName, subjectLabel, gradeLabel, teacherLabel } = ctx;
+  const meta = assessment.meta;
+  const showGradeBox = template.header?.style === "banner-evaluacion";
+
+  const banner = template.header?.enabled
+    ? `<table class="pa-banner"><tr>
+        <td class="pa-logo-cell">${logoDataUrl ? `<img src="${logoDataUrl}" alt="Logo" />` : ""}</td>
+        <td class="pa-info-cell">
+          <div class="pa-inst-name">${escape(institutionName)}</div>
+          <div class="pa-row"><span><strong>Profesor/a:</strong> ${escape(teacherLabel || "")}</span></div>
+          <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
+          ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
+        </td>
+        ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><strong>${meta.totalPoints}</strong></td>`}
+      </tr></table>`
+    : "";
+
+  const studentRow = `<table class="pa-student-row"><tr>
+    <td style="width:65%"><strong>Nombre:</strong> ${escape(meta.studentName || "")}</td>
+    <td style="width:35%"><strong>Puntaje obtenido:</strong></td>
+  </tr></table>`;
+
+  const title = meta.title ? `<div class="pa-title">${escape(meta.title)}</div>` : "";
+  const instructions = meta.instructions
+    ? `<div class="pa-instructions"><strong>Instrucciones:</strong> ${escape(meta.instructions)}</div>`
+    : "";
+
+  let qNum = 0;
+  const questionsHtml = assessment.questions
+    .map((q) => {
+      if (q.type === "section-title") {
+        return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>`;
+      }
+      if (q.type === "info-block") {
+        return `<div class="pa-info-block">${escape(q.prompt)}</div>`;
+      }
+      qNum += 1;
+      const pts =
+        typeof q.points === "number"
+          ? `<span class="pa-question-points">(${q.points} pt${q.points === 1 ? "" : "s"})</span>`
+          : "";
+      const header = `<div class="pa-question-header">${pts}${qNum}) ${escape(q.prompt)}</div>`;
+      const img = q.image ? renderImageHtml(q.image) : "";
+      let body = "";
+      if (q.type === "multiple-choice" || q.type === "true-false") {
+        const letters = ["a", "b", "c", "d", "e", "f"];
+        body = `<ol class="pa-options">${(q.options ?? [])
+          .map(
+            (o, i) =>
+              `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}</li>`,
+          )
+          .join("")}</ol>`;
+      } else if (q.type === "short-answer") {
+        const lines = Math.max(1, q.answerLines ?? 3);
+        body = Array.from({ length: lines })
+          .map(() => `<div class="pa-answer-line"></div>`)
+          .join("");
+      }
+      return `<div class="pa-question">${header}${img}${body}</div>`;
+    })
+    .join("");
+
+  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${questionsHtml}</div>`;
+}
+
+function renderImageHtml(img: QuestionImage): string {
+  const { left: L, right: R, top: T, bottom: B } = img.crop;
+  const visibleW = Math.max(1, 100 - L - R);
+  const visibleH = Math.max(1, 100 - T - B);
+  const wrapperWidth = `${img.widthPct}%`;
+  const cropStyles =
+    L > 0 || R > 0 || T > 0 || B > 0
+      ? `<span class="pa-image-crop" style="width:${wrapperWidth};aspect-ratio:auto;"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="width:${(100 / visibleW) * 100}%;height:auto;margin-left:${-(L / visibleW) * 100}%;margin-top:${-(T / visibleH) * 100}%;" /></span>`
+      : `<img src="${img.src}" alt="${escape(img.alt ?? "")}" style="width:${wrapperWidth};height:auto;display:inline-block;" />`;
+  return `<div class="pa-image-wrap pa-align-${img.alignment}">${cropStyles}</div>`;
+}
+
+// ====================== React render (para preview en pantalla) ======================
+// Implementado como componente con dangerouslySetInnerHTML para mantener una sola
+// fuente de truth: el renderer HTML. Esto asegura que el preview sea idéntico al PDF.
+
+export function AssessmentPreviewRender({ ctx }: { ctx: RenderContext }) {
+  const html = renderAssessmentHtml(ctx);
+  // Inyectamos el CSS como style scope-less; lo aislamos visualmente por el contenedor .pa-page.
+  const wrapperStyle: CSSProperties = {
+    background: "white",
+    color: "black",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+    padding: "2cm 2cm 2cm 2.5cm",
+    width: `${ctx.template.pageSize.widthCm}cm`,
+    minHeight: `${ctx.template.pageSize.heightCm}cm`,
+    margin: "0 auto",
+    boxSizing: "border-box",
+  };
+  return (
+    <>
+      <style>{ASSESSMENT_CSS}</style>
+      <div style={wrapperStyle} dangerouslySetInnerHTML={{ __html: html }} />
+    </>
+  );
+}
+
+export function renderQuestionNumber(questions: Question[], index: number): number | null {
+  let n = 0;
+  for (let i = 0; i <= index; i++) {
+    const t = questions[i].type;
+    if (t === "section-title" || t === "info-block") continue;
+    n += 1;
+  }
+  const cur = questions[index].type;
+  if (cur === "section-title" || cur === "info-block") return null;
+  return n;
+}
+
+export const _internal = { renderImageHtml };
+
+// node import-friendly export to satisfy ReactNode type usage
+export type AssessmentChildren = ReactNode;

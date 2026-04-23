@@ -1,0 +1,332 @@
+// Generación nativa de .docx desde Assessment usando docx-js.
+// Sin mutar archivos arbitrarios: garantiza formato institucional consistente.
+
+import {
+  AlignmentType,
+  BorderStyle,
+  Document,
+  HeadingLevel,
+  ImageRun,
+  PageOrientation,
+  Packer,
+  Paragraph,
+  ShadingType,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+  HeightRule,
+} from "docx";
+import { saveAs } from "file-saver";
+
+import type { Assessment, Question, QuestionImage } from "./assessment-schema";
+import type { FormatTemplate } from "./templates";
+
+interface BuildContext {
+  assessment: Assessment;
+  template: FormatTemplate;
+  logoDataUrl: string | null;
+  institutionName: string;
+  subjectLabel: string;
+  gradeLabel: string;
+  teacherLabel: string;
+}
+
+const cmToTwip = (cm: number) => Math.round(cm * 567); // 1 cm = ~567 twips
+const ptToHalfPt = (pt: number) => Math.round(pt * 2);
+
+function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" | "jpg" | "gif" | "bmp" } {
+  const m = /^data:image\/(\w+);base64,(.+)$/.exec(dataUrl);
+  if (!m) throw new Error("Imagen inválida");
+  const ext = m[1].toLowerCase();
+  const type: "png" | "jpg" | "gif" | "bmp" =
+    ext === "jpeg" || ext === "jpg" ? "jpg" : (["png", "gif", "bmp"].includes(ext) ? (ext as "png" | "gif" | "bmp") : "png");
+  const bin = atob(m[2]);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return { data: u8, type };
+}
+
+// Crea un ImageRun con tamaño aproximado, aplicando crop por reescalado.
+// Estrategia: usamos ImageRun con dimensiones objetivo, y aceptamos que el
+// crop visible se aproxima por reescalado proporcional. Para crops complejos
+// el preview/PDF sigue siendo la fuente exacta; el .docx queda inline limpio.
+function buildImageRun(img: QuestionImage, contentWidthCm: number): ImageRun {
+  const { data, type } = dataUrlToUint8Array(img.src);
+  const targetWidthCm = contentWidthCm * (img.widthPct / 100);
+  // Asumimos aspect 4:3 si no podemos medir; docx-js requiere width/height.
+  // El usuario define width%; height se aproxima manteniendo proporciones razonables.
+  const widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
+  const heightPx = Math.round(widthPx * 0.75);
+  return new ImageRun({
+    type,
+    data,
+    transformation: { width: widthPx, height: heightPx },
+    altText: { title: img.alt ?? "Imagen", description: img.alt ?? "Imagen", name: "image" },
+  });
+}
+
+function bannerTable(ctx: BuildContext): Table {
+  const { template, logoDataUrl, institutionName, teacherLabel, subjectLabel, gradeLabel } = ctx;
+  const showGradeBox = template.header?.style === "banner-evaluacion";
+  const contentWidthTwip = cmToTwip(
+    template.pageSize.widthCm - template.spacing.marginLeft - template.spacing.marginRight,
+  );
+  const w = (pct: number) => Math.round(contentWidthTwip * pct);
+  const border = { style: BorderStyle.SINGLE, size: 6, color: "000000" };
+  const borders = { top: border, bottom: border, left: border, right: border };
+
+  const logoChildren = logoDataUrl
+    ? (() => {
+        try {
+          const { data, type } = dataUrlToUint8Array(logoDataUrl);
+          return [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new ImageRun({ type, data, transformation: { width: 70, height: 70 }, altText: { title: "Logo", description: "Logo", name: "logo" } })],
+            }),
+          ];
+        } catch {
+          return [new Paragraph({ children: [new TextRun("")] })];
+        }
+      })()
+    : [new Paragraph({ children: [new TextRun("")] })];
+
+  const infoChildren: Paragraph[] = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: institutionName, bold: true, size: ptToHalfPt(11) })],
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Profesor/a: ", bold: true, size: ptToHalfPt(9) }),
+        new TextRun({ text: teacherLabel, size: ptToHalfPt(9) }),
+      ],
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Asignatura: ", bold: true, size: ptToHalfPt(9) }),
+        new TextRun({ text: subjectLabel, size: ptToHalfPt(9) }),
+        new TextRun({ text: "    Curso: ", bold: true, size: ptToHalfPt(9) }),
+        new TextRun({ text: gradeLabel, size: ptToHalfPt(9) }),
+      ],
+    }),
+  ];
+
+  const gradeChildren: Paragraph[] = showGradeBox
+    ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Calificación", bold: true, size: ptToHalfPt(9) })] })]
+    : [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Pje. Total", bold: true, size: ptToHalfPt(9) })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(ctx.assessment.meta.totalPoints), bold: true, size: ptToHalfPt(11) })] }),
+      ];
+
+  return new Table({
+    width: { size: contentWidthTwip, type: WidthType.DXA },
+    columnWidths: [w(0.22), w(0.56), w(0.22)],
+    rows: [
+      new TableRow({
+        height: { value: 1100, rule: HeightRule.ATLEAST },
+        children: [
+          new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: logoChildren }),
+          new TableCell({ borders, width: { size: w(0.56), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: infoChildren }),
+          new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" }, children: gradeChildren }),
+        ],
+      }),
+    ],
+  });
+}
+
+function studentRow(ctx: BuildContext): Table {
+  const contentWidthTwip = cmToTwip(
+    ctx.template.pageSize.widthCm - ctx.template.spacing.marginLeft - ctx.template.spacing.marginRight,
+  );
+  const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  const bottom = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+  const cellBorders = { top: noBorder, left: noBorder, right: noBorder, bottom };
+  return new Table({
+    width: { size: contentWidthTwip, type: WidthType.DXA },
+    columnWidths: [Math.round(contentWidthTwip * 0.65), Math.round(contentWidthTwip * 0.35)],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: cellBorders,
+            width: { size: Math.round(contentWidthTwip * 0.65), type: WidthType.DXA },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Nombre: ", bold: true, size: ptToHalfPt(9) }),
+                  new TextRun({ text: ctx.assessment.meta.studentName ?? "", size: ptToHalfPt(9) }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            borders: cellBorders,
+            width: { size: Math.round(contentWidthTwip * 0.35), type: WidthType.DXA },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: "Puntaje obtenido: ", bold: true, size: ptToHalfPt(9) })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext): Array<Paragraph | Table> {
+  const out: Array<Paragraph | Table> = [];
+  const baseSize = ptToHalfPt(ctx.template.typography.bodySize);
+
+  if (q.type === "section-title") {
+    out.push(
+      new Paragraph({
+        spacing: { before: 240, after: 120 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 1 } },
+        children: [new TextRun({ text: (q.prompt || "Sección").toUpperCase(), bold: true, size: ptToHalfPt(11) })],
+      }),
+    );
+    return out;
+  }
+  if (q.type === "info-block") {
+    out.push(
+      new Paragraph({
+        spacing: { before: 120, after: 120 },
+        shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" },
+        border: { left: { style: BorderStyle.SINGLE, size: 12, color: "000000", space: 4 } },
+        children: [new TextRun({ text: q.prompt, italics: true, size: baseSize })],
+      }),
+    );
+    return out;
+  }
+
+  // Cabecera de pregunta
+  const headerRuns: TextRun[] = [
+    new TextRun({ text: `${qNumber}) `, bold: true, size: baseSize }),
+    new TextRun({ text: q.prompt, bold: false, size: baseSize }),
+  ];
+  if (typeof q.points === "number") {
+    headerRuns.push(new TextRun({ text: `   (${q.points} pt${q.points === 1 ? "" : "s"})`, italics: true, size: baseSize }));
+  }
+  out.push(
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { before: 120, after: 60 },
+      children: headerRuns,
+    }),
+  );
+
+  if (q.image) {
+    const contentWidthCm =
+      ctx.template.pageSize.widthCm - ctx.template.spacing.marginLeft - ctx.template.spacing.marginRight;
+    const align =
+      q.image.alignment === "left"
+        ? AlignmentType.LEFT
+        : q.image.alignment === "right"
+          ? AlignmentType.RIGHT
+          : AlignmentType.CENTER;
+    out.push(new Paragraph({ alignment: align, spacing: { before: 60, after: 60 }, children: [buildImageRun(q.image, contentWidthCm)] }));
+  }
+
+  if (q.type === "multiple-choice" || q.type === "true-false") {
+    const letters = ["a", "b", "c", "d", "e", "f"];
+    (q.options ?? []).forEach((o, i) => {
+      out.push(
+        new Paragraph({
+          indent: { left: 360 },
+          spacing: { before: 0, after: 40 },
+          children: [
+            new TextRun({ text: `${letters[i] ?? i + 1}) `, bold: true, size: baseSize }),
+            new TextRun({ text: o.text, size: baseSize }),
+          ],
+        }),
+      );
+    });
+  } else if (q.type === "short-answer") {
+    const lines = Math.max(1, q.answerLines ?? 3);
+    for (let i = 0; i < lines; i++) {
+      out.push(
+        new Paragraph({
+          spacing: { before: 0, after: 80 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 1 } },
+          children: [new TextRun({ text: "", size: baseSize })],
+        }),
+      );
+    }
+  }
+
+  return out;
+}
+
+export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string) {
+  const { template, assessment } = ctx;
+  const children: Array<Paragraph | Table> = [];
+
+  if (template.header?.enabled) children.push(bannerTable(ctx));
+  children.push(studentRow(ctx));
+
+  if (assessment.meta.title) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 120, after: 120 },
+        children: [new TextRun({ text: assessment.meta.title.toUpperCase(), bold: true, size: ptToHalfPt(12) })],
+      }),
+    );
+  }
+  if (assessment.meta.instructions) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: { before: 60, after: 180 },
+        children: [
+          new TextRun({ text: "Instrucciones: ", bold: true, size: ptToHalfPt(template.typography.bodySize) }),
+          new TextRun({ text: assessment.meta.instructions, size: ptToHalfPt(template.typography.bodySize) }),
+        ],
+      }),
+    );
+  }
+
+  let qN = 0;
+  for (const q of assessment.questions) {
+    const isCounted = q.type !== "section-title" && q.type !== "info-block";
+    if (isCounted) qN += 1;
+    for (const p of questionParagraphs(q, isCounted ? qN : null, ctx)) children.push(p);
+  }
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: template.typography.bodyFont, size: ptToHalfPt(template.typography.bodySize) },
+        },
+      },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            size: {
+              width: cmToTwip(template.pageSize.widthCm),
+              height: cmToTwip(template.pageSize.heightCm),
+              orientation: PageOrientation.PORTRAIT,
+            },
+            margin: {
+              top: cmToTwip(template.spacing.marginTop),
+              bottom: cmToTwip(template.spacing.marginBottom),
+              left: cmToTwip(template.spacing.marginLeft),
+              right: cmToTwip(template.spacing.marginRight),
+            },
+          },
+        },
+        children,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, fileName);
+}
