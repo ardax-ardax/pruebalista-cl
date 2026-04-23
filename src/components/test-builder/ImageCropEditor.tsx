@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronsUpDown, Crop as CropIcon, Trash2, Upload } from "lucide-react";
-import { clampWidthPct, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type ImageCrop, type QuestionImage } from "@/lib/assessment-schema";
+import { clampWidthPctByAlign, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type ImageCrop, type QuestionImage } from "@/lib/assessment-schema";
 import { ImageCropDialog } from "./ImageCropDialog";
 
 interface Props {
@@ -115,15 +115,27 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
               <Input
                 type="number"
                 min={MIN_IMAGE_WIDTH_PCT}
-                max={MAX_IMAGE_WIDTH_PCT}
-                value={Math.min(MAX_IMAGE_WIDTH_PCT, value.widthPct)}
-                onChange={(e) => onChange({ ...value, widthPct: clampWidthPct(Number(e.target.value)) })}
+                max={value.alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT}
+                value={Math.min(value.alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT, value.widthPct)}
+                onChange={(e) => onChange({ ...value, widthPct: clampWidthPctByAlign(Number(e.target.value), value.alignment) })}
               />
-              <p className="text-[10px] text-muted-foreground mt-1">Máx. {MAX_IMAGE_WIDTH_PCT}% del ancho disponible</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Máx. {value.alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT}% del ancho disponible
+              </p>
             </div>
             <div>
               <Label className="text-xs">Alineación</Label>
-              <Select value={value.alignment} onValueChange={(v) => onChange({ ...value, alignment: v as QuestionImage["alignment"] })}>
+              <Select
+                value={value.alignment}
+                onValueChange={(v) => {
+                  const alignment = v as QuestionImage["alignment"];
+                  onChange({
+                    ...value,
+                    alignment,
+                    widthPct: clampWidthPctByAlign(value.widthPct, alignment),
+                  });
+                }}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="left">Izquierda</SelectItem>
