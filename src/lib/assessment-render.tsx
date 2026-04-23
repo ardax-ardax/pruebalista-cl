@@ -94,13 +94,10 @@ export const ASSESSMENT_CSS = `
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
   .pa-mc-split .pa-mc-text { width: 60%; padding-right: 8pt; }
   .pa-mc-split .pa-mc-image { width: 40%; padding-left: 8pt; height: 1px; }
-  .pa-mc-image .pa-image-wrap { width: 100%; height: 100%; max-height: 100%; display: flex; align-items: flex-start; margin: 0; }
-  .pa-mc-image .pa-image-wrap.pa-align-left { justify-content: flex-start; }
-  .pa-mc-image .pa-image-wrap.pa-align-center { justify-content: center; }
-  .pa-mc-image .pa-image-wrap.pa-align-right { justify-content: flex-end; }
-  .pa-mc-image .pa-image-crop { max-width: 100%; max-height: 100%; }
+  .pa-mc-image .pa-image-wrap { width: 100%; height: 100%; margin: 0; text-align: center; display: block; }
+  .pa-mc-image .pa-image-crop { display: inline-block; height: 100%; width: auto; max-width: 100%; aspect-ratio: var(--pa-ar, auto); }
   .pa-mc-image .pa-image-crop-inner { width: 100%; height: 100%; overflow: hidden; position: relative; }
-  .pa-mc-image .pa-image-plain { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  .pa-mc-image .pa-image-plain { display: inline-block; height: 100%; width: auto; max-width: 100%; object-fit: contain; }
 `;
 
 const escape = (s: string) =>
@@ -288,10 +285,10 @@ function renderContainedImageHtml(img: QuestionImage): string {
   }
 
   const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
-  // Wrapper con aspect-ratio del recorte; max-width/max-height de la celda
-  // reducirán la imagen manteniendo proporción cuando exceda.
+  // Exponemos aspect-ratio como CSS var para que el navegador derive width desde
+  // height (el wrapper en columna MC/VF usa height:100%; width:auto).
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
-  return `<div class="pa-image-wrap ${alignClass}"><span class="pa-image-crop" style="aspect-ratio:${ratio};${widthStyle}">${inner}</span></div>`;
+  return `<div class="pa-image-wrap ${alignClass}" style="--pa-ar:${ratio};"><span class="pa-image-crop" style="--pa-ar:${ratio};">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };
