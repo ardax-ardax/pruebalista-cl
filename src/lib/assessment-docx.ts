@@ -451,6 +451,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
 export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string) {
   const { template, assessment } = ctx;
+  // Pre-procesar imágenes con crop a PNG recortado para evitar deformación en Word.
+  const imageCache = await processAssessmentImages(assessment);
   const children: Array<Paragraph | Table> = [];
 
   if (template.header?.enabled) children.push(bannerTable(ctx));
@@ -482,7 +484,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
   for (const q of assessment.questions) {
     const isCounted = q.type !== "section-title" && q.type !== "info-block";
     if (isCounted) qN += 1;
-    for (const p of questionParagraphs(q, isCounted ? qN : null, ctx)) children.push(p);
+    for (const p of questionParagraphs(q, isCounted ? qN : null, ctx, imageCache)) children.push(p);
   }
 
   const doc = new Document({
