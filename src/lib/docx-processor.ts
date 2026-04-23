@@ -119,6 +119,9 @@ export async function applyTemplate(
     const imagesRes = fitOversizedImagesString(docContent, template);
     docContent = imagesRes.xml;
     imageRescales = imagesRes.count;
+    // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
+    // para que Word no use la fuente original almacenada en cada <w:rPr>.
+    docContent = forceDirectFontFormatting(docContent, template);
     zip.file("word/document.xml", docContent);
 
     changes.push({
