@@ -26,6 +26,10 @@ export interface DocDiagnostics {
   originalPageBreaks: number;
   processedPageBreaks: number;
   addedPageBreaks: number;
+  optionFormatInconsistencies: { before: number; after: number };
+  questionFormatInconsistencies: { before: number; after: number };
+  autoFixesApplied: string[];
+  warnings: string[];
 }
 
 export interface ProcessResult {
