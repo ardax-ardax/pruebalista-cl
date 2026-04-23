@@ -42,6 +42,176 @@ export interface ProcessResult {
   diagnostics: DocDiagnostics;
 }
 
+/**
+ * Error con contexto técnico de qué pasada falló y por qué.
+ * Permite mostrar al usuario el detalle exacto en lugar del mensaje genérico
+ * "elementos avanzados".
+ */
+export class DocxProcessingError extends Error {
+  stage: string;
+  detail: string;
+  constructor(stage: string, detail: string, original?: unknown) {
+    super(`[${stage}] ${detail}`);
+    this.name = "DocxProcessingError";
+    this.stage = stage;
+    this.detail = detail;
+    if (original instanceof Error && original.stack) {
+      this.stack = `${this.stack}\nCaused by: ${original.stack}`;
+    }
+  }
+}
+
+export interface PreflightFinding {
+  kind: "sdt" | "smartart" | "vml" | "ole" | "altchunk";
+  count: number;
+  label: string;
+}
+
+export interface PreflightResult {
+  ok: boolean;
+  fatal?: { code: "not-docx" | "missing-document" | "missing-content-types"; message: string };
+  findings: PreflightFinding[];
+}
+
+/**
+ * Valida estructura mínima del .docx antes de procesar.
+ * Detecta:
+ *  - Archivos .doc renombrados (firma binaria D0CF11E0).
+ *  - ZIP sin word/document.xml o [Content_Types].xml.
+ *  - Elementos riesgosos: <w:sdt>, SmartArt, VML legacy, OLE, altChunk.
+ */
+export async function validateDocxStructure(
+  fileBuffer: ArrayBuffer,
+): Promise<PreflightResult> {
+  const findings: PreflightFinding[] = [];
+
+  // Firma de OLE Compound File (.doc legacy): D0 CF 11 E0 A1 B1 1A E1
+  const head = new Uint8Array(fileBuffer.slice(0, 8));
+  if (
+    head[0] === 0xd0 &&
+    head[1] === 0xcf &&
+    head[2] === 0x11 &&
+    head[3] === 0xe0
+  ) {
+    return {
+      ok: false,
+      fatal: {
+        code: "not-docx",
+        message:
+          "El archivo parece ser un .doc antiguo (formato binario de Word 97-2003). Ábrelo en Word y guárdalo como .docx.",
+      },
+      findings: [],
+    };
+  }
+
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(fileBuffer);
+  } catch (e) {
+    return {
+      ok: false,
+      fatal: {
+        code: "not-docx",
+        message: "El archivo no es un .docx válido (no se pudo abrir como ZIP).",
+      },
+      findings: [],
+    };
+  }
+
+  if (!zip.file("[Content_Types].xml")) {
+    return {
+      ok: false,
+      fatal: {
+        code: "missing-content-types",
+        message: "Falta [Content_Types].xml — el .docx está corrupto o incompleto.",
+      },
+      findings: [],
+    };
+  }
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) {
+    return {
+      ok: false,
+      fatal: {
+        code: "missing-document",
+        message: "Falta word/document.xml — el .docx está corrupto o incompleto.",
+      },
+      findings: [],
+    };
+  }
+
+  const docXml = await docFile.async("string");
+
+  const sdtCount = countOccurrences(docXml, /<w:sdt\b/g);
+  if (sdtCount > 0) {
+    findings.push({
+      kind: "sdt",
+      count: sdtCount,
+      label: `${sdtCount} control(es) de contenido (casillas, fechas, listas desplegables)`,
+    });
+  }
+  const smartArtCount = countOccurrences(
+    docXml,
+    /<a:graphicData\b[^>]*uri="[^"]*diagram[^"]*"/g,
+  );
+  if (smartArtCount > 0) {
+    findings.push({
+      kind: "smartart",
+      count: smartArtCount,
+      label: `${smartArtCount} diagrama(s) SmartArt`,
+    });
+  }
+  const vmlCount = countOccurrences(docXml, /<v:shape\b|<v:rect\b|<v:oval\b/g);
+  if (vmlCount > 0) {
+    findings.push({
+      kind: "vml",
+      count: vmlCount,
+      label: `${vmlCount} forma(s) en formato VML legacy (Word 2003 o anterior)`,
+    });
+  }
+  const oleCount = countOccurrences(docXml, /<w:object\b/g);
+  if (oleCount > 0) {
+    findings.push({
+      kind: "ole",
+      count: oleCount,
+      label: `${oleCount} objeto(s) embebido(s) (Excel, ecuaciones, etc.)`,
+    });
+  }
+  const altChunkCount = countOccurrences(docXml, /<w:altChunk\b/g);
+  if (altChunkCount > 0) {
+    findings.push({
+      kind: "altchunk",
+      count: altChunkCount,
+      label: `${altChunkCount} fragmento(s) externos (HTML/RTF embebido)`,
+    });
+  }
+
+  return { ok: true, findings };
+}
+
+/**
+ * Ejecuta una pasada de procesamiento atrapando errores. Si falla, devuelve
+ * el XML original y registra un warning legible en lugar de abortar.
+ */
+function runPass<T>(
+  stage: string,
+  warnings: string[],
+  fn: () => T,
+  fallback: T,
+): T {
+  try {
+    return fn();
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    // Intentar extraer el primer tag XML mencionado (útil para debugging)
+    const tagHint = detail.match(/<\/?[\w:]+/)?.[0];
+    const suffix = tagHint ? ` (cerca de \`${tagHint}\`)` : "";
+    warnings.push(`No se pudo aplicar "${stage}"${suffix}. Se mantuvo el contenido original de esa pasada.`);
+    console.warn(`[docx-processor] Pasada "${stage}" falló:`, e);
+    return fallback;
+  }
+}
+
 function countOccurrences(xml: string, regex: RegExp): number {
   const matches = xml.match(regex);
   return matches ? matches.length : 0;
@@ -164,27 +334,75 @@ export async function applyTemplate(
     originalStats = computeDocStats(docContent);
     const originalDocXml = docContent;
 
-    // Contar inconsistencias de numeración ANTES de cualquier normalización
-    const beforeCounts = countNumberingInconsistencies(docContent);
+    // Recolector de warnings de pasadas individuales (try/catch por pasada)
+    const passWarnings: string[] = [];
 
-    const marginsRes = applyMarginsString(docContent, template);
+    // Contar inconsistencias de numeración ANTES de cualquier normalización
+    const beforeCounts = runPass(
+      "conteo previo de numeración",
+      passWarnings,
+      () => countNumberingInconsistencies(docContent),
+      { options: 0, questions: 0 },
+    );
+
+    const marginsRes = runPass(
+      "márgenes y tamaño de hoja",
+      passWarnings,
+      () => applyMarginsString(docContent, template),
+      { xml: docContent, created: false },
+    );
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
-    docContent = applyParagraphFormattingString(docContent, template);
-    const tablesRes = optimizeTablesString(docContent);
+
+    docContent = runPass(
+      "formato de párrafos",
+      passWarnings,
+      () => applyParagraphFormattingString(docContent, template),
+      docContent,
+    );
+
+    const tablesRes = runPass(
+      "optimización de tablas",
+      passWarnings,
+      () => optimizeTablesString(docContent),
+      { xml: docContent, count: 0 },
+    );
     docContent = tablesRes.xml;
     tableOptimizations = tablesRes.count;
-    const imagesRes = fitOversizedImagesString(docContent, template);
+
+    const imagesRes = runPass(
+      "ajuste de imágenes",
+      passWarnings,
+      () => fitOversizedImagesString(docContent, template),
+      { xml: docContent, count: 0 },
+    );
     docContent = imagesRes.xml;
     imageRescales = imagesRes.count;
-    // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
-    // para que Word no use la fuente original almacenada en cada <w:rPr>.
-    docContent = forceDirectFontFormatting(docContent, template);
+
+    docContent = runPass(
+      "tipografía directa en runs",
+      passWarnings,
+      () => forceDirectFontFormatting(docContent, template),
+      docContent,
+    );
 
     // Normalización de numeración (texto plano + numbering.xml)
     const numberingFile = zip.file("word/numbering.xml");
     let numberingXml = numberingFile ? await numberingFile.async("string") : null;
-    const normRes = normalizeNumbering(docContent, numberingXml);
+    const normRes = runPass(
+      "normalización de numeración",
+      passWarnings,
+      () => normalizeNumbering(docContent, numberingXml),
+      {
+        documentXml: docContent,
+        numberingXml,
+        optionsTextFixed: 0,
+        questionsTextFixed: 0,
+        optionsListFixed: 0,
+        questionsListFixed: 0,
+        duplicateNumberingStripped: 0,
+      },
+    );
     docContent = normRes.documentXml;
     numberingXml = normRes.numberingXml;
     if (numberingFile && numberingXml) {
@@ -197,7 +415,7 @@ export async function applyTemplate(
     // Auto-QA: comparar antes/después y generar warnings + fixes legibles
     const afterCounts = countNumberingInconsistencies(docContent);
     const autoFixesApplied: string[] = [];
-    const warnings: string[] = [];
+    const warnings: string[] = [...passWarnings];
 
     const optionsFixed = Math.max(0, beforeCounts.options - afterCounts.options);
     const questionsFixed = Math.max(0, beforeCounts.questions - afterCounts.questions);
@@ -221,8 +439,16 @@ export async function applyTemplate(
         description: `Preguntas uniformadas a formato \`1)\` (${total} ítem(s)).`,
       });
     }
+    if (normRes.duplicateNumberingStripped > 0) {
+      autoFixesApplied.push(
+        `Se eliminó numeración manual duplicada en ${normRes.duplicateNumberingStripped} párrafo(s) (Word ya pintaba la numeración nativa).`,
+      );
+      changes.push({
+        category: "Numeración",
+        description: `Numeración manual duplicada removida en ${normRes.duplicateNumberingStripped} párrafo(s).`,
+      });
+    }
 
-    // Warnings estructurales
     const addedPageBreaks = Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks);
     // El banner añade un párrafo, no un page break duro; cualquier salto extra es notable
     if (addedPageBreaks > 0) {
@@ -612,47 +838,66 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
   const usableH = Math.round(usableHcm * 360000);
   const limitH = Math.round(usableH * 0.95);
 
+  // Cachear por r:embed para que imágenes reutilizadas (e.g. la misma foto en
+  // varias celdas de una tabla) no se procesen N veces de forma independiente
+  // y, sobre todo, no contemos como N reescalados algo que es 1 imagen única.
+  const embedsSeen = new Set<string>();
   let count = 0;
+
   const out = xml.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/g, (drawingXml) => {
-    // 1) Imágenes ancladas/flotantes: preservar tal cual.
-    if (/<wp:anchor\b/.test(drawingXml)) return drawingXml;
+    try {
+      // 1) Imágenes ancladas/flotantes: preservar tal cual.
+      if (/<wp:anchor\b/.test(drawingXml)) return drawingXml;
 
-    // 2) Imágenes con recorte real: preservar tal cual.
-    //    Un srcRect "vacío" (`<a:srcRect/>`) NO cuenta como recorte.
-    const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
-    if (srcRectMatch) {
-      const attrs = srcRectMatch[1] || "";
-      const hasCropValue = /\b[lrtb]="(-?\d+)"/.test(attrs)
-        && !/^\s*$/.test(attrs)
-        && /[1-9]/.test(attrs); // al menos un dígito distinto de 0
-      if (hasCropValue) return drawingXml;
+      // 2) Imágenes con recorte real: preservar tal cual.
+      const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
+      if (srcRectMatch) {
+        const attrs = srcRectMatch[1] || "";
+        const hasCropValue = /\b[lrtb]="(-?\d+)"/.test(attrs)
+          && !/^\s*$/.test(attrs)
+          && /[1-9]/.test(attrs);
+        if (hasCropValue) return drawingXml;
+      }
+
+      // 3) Imagen inline: solo reescalar si excede el área imprimible.
+      const extentMatch = drawingXml.match(/<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"\s*\/>/);
+      if (!extentMatch) return drawingXml; // sin transform: saltar en silencio
+      const cx = parseInt(extentMatch[1], 10);
+      const cy = parseInt(extentMatch[2], 10);
+
+      if (cx <= usableW && cy <= limitH) return drawingXml;
+
+      const ratioW = cx > usableW ? usableW / cx : 1;
+      const ratioH = cy > limitH ? limitH / cy : 1;
+      const ratio = Math.min(ratioW, ratioH);
+      const newCx = Math.round(cx * ratio);
+      const newCy = Math.round(cy * ratio);
+
+      // Detectar r:embed para no contar la misma imagen varias veces.
+      const embedMatch = drawingXml.match(/r:embed="([^"]+)"/);
+      const embedId = embedMatch?.[1];
+      if (embedId) {
+        if (!embedsSeen.has(embedId)) {
+          embedsSeen.add(embedId);
+          count++;
+        }
+      } else {
+        count++;
+      }
+
+      let updated = drawingXml.replace(
+        /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
+        `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
+      );
+      updated = updated.replace(
+        /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
+        `<a:ext cx="${newCx}" cy="${newCy}"/>`,
+      );
+      return updated;
+    } catch {
+      // Drawing con estructura inesperada: dejar intacto en silencio.
+      return drawingXml;
     }
-
-    // 3) Imagen inline simple: solo reescalar si excede el área imprimible.
-    const extentMatch = drawingXml.match(/<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"\s*\/>/);
-    if (!extentMatch) return drawingXml;
-    const cx = parseInt(extentMatch[1], 10);
-    const cy = parseInt(extentMatch[2], 10);
-
-    if (cx <= usableW && cy <= limitH) return drawingXml;
-
-    const ratioW = cx > usableW ? usableW / cx : 1;
-    const ratioH = cy > limitH ? limitH / cy : 1;
-    const ratio = Math.min(ratioW, ratioH);
-    const newCx = Math.round(cx * ratio);
-    const newCy = Math.round(cy * ratio);
-
-    count++;
-    let updated = drawingXml.replace(
-      /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
-      `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
-    );
-    // Actualizar el a:ext del transform principal del mismo drawing.
-    updated = updated.replace(
-      /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
-      `<a:ext cx="${newCx}" cy="${newCy}"/>`,
-    );
-    return updated;
   });
 
   return { xml: out, count };
@@ -1243,11 +1488,13 @@ function normalizeNumbering(
   questionsTextFixed: number;
   optionsListFixed: number;
   questionsListFixed: number;
+  duplicateNumberingStripped: number;
 } {
   let optionsTextFixed = 0;
   let questionsTextFixed = 0;
   let optionsListFixed = 0;
   let questionsListFixed = 0;
+  let duplicateNumberingStripped = 0;
 
   // 1) Texto plano: solo tocar el primer <w:t> de cada párrafo cuyo TEXTO COMPLETO
   // del párrafo arranque con un patrón de opción/pregunta no canónico.
@@ -1261,6 +1508,33 @@ function normalizeNumbering(
     const newBody = body.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
       const text = extractParagraphText(paragraph);
       if (!text) return paragraph;
+
+      // 1a) Doble numeración: párrafo con <w:numPr> Y texto que empieza con
+      // numeración manual (1), 1., a), a., etc.). Word ya pinta la nativa,
+      // así que eliminamos la manual del texto para evitar "1) 1) Texto…".
+      const hasNumPr = /<w:numPr\b/.test(paragraph);
+      if (hasNumPr) {
+        const manualPrefix = text.match(/^(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/);
+        if (manualPrefix) {
+          const newPara = paragraph.replace(
+            /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+            (_full, openT, content, closeT) => {
+              const updated = (content as string).replace(
+                /^(\s*)(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/,
+                (_m, lead) => lead,
+              );
+              return `${openT}${updated}${closeT}`;
+            },
+          );
+          if (newPara !== paragraph) {
+            duplicateNumberingStripped++;
+            return newPara;
+          }
+        }
+        // Si tiene numPr pero no prefijo manual, no tocar el texto: la
+        // numeración nativa ya está canonicalizada por la pasada de numbering.xml.
+        return paragraph;
+      }
 
       // Opción no canónica
       const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
@@ -1363,5 +1637,6 @@ function normalizeNumbering(
     questionsTextFixed,
     optionsListFixed,
     questionsListFixed,
+    duplicateNumberingStripped,
   };
 }
