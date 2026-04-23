@@ -791,6 +791,30 @@ export async function applyTemplate(
       (xml) => applyParagraphFormattingString(xml, template),
     );
 
+    // Colapsar párrafos vacíos consecutivos para evitar huecos enormes entre preguntas
+    let blankParagraphsRemoved = 0;
+    const collapseRes = runPass(
+      "colapso de líneas en blanco",
+      passWarnings,
+      () => collapseBlankParagraphs(docContent),
+      { xml: docContent, removed: 0 },
+    );
+    docContent = collapseRes.xml;
+    blankParagraphsRemoved = collapseRes.removed;
+
+    // Ritmo visual para evaluaciones (preguntas vs opciones)
+    let questionsRhythm = 0;
+    let optionsRhythm = 0;
+    const rhythmRes = runPass(
+      "ritmo visual preguntas/opciones",
+      passWarnings,
+      () => applyQuestionRhythm(docContent, template),
+      { xml: docContent, questions: 0, options: 0 },
+    );
+    docContent = rhythmRes.xml;
+    questionsRhythm = rhythmRes.questions;
+    optionsRhythm = rhythmRes.options;
+
     const tablesRes = runPass(
       "optimización de tablas",
       passWarnings,
@@ -961,6 +985,18 @@ export async function applyTemplate(
         description: `Se redimensionaron ${imageRescales} imagen(es) que excedían el área imprimible.`,
       });
     }
+    if (blankParagraphsRemoved > 0) {
+      changes.push({
+        category: "Espaciado",
+        description: `Se colapsaron ${blankParagraphsRemoved} línea(s) en blanco entre preguntas para mejorar la densidad.`,
+      });
+    }
+    if (questionsRhythm > 0 || optionsRhythm > 0) {
+      changes.push({
+        category: "Espaciado",
+        description: `Ritmo visual aplicado: ${questionsRhythm} pregunta(s) separadas y ${optionsRhythm} opción(es) compactadas a su pregunta.`,
+      });
+    }
     void originalDocXml;
   }
 
@@ -969,7 +1005,7 @@ export async function applyTemplate(
   const isBanner = headerStyle === "banner-evaluacion" || headerStyle === "banner-guia";
 
   if (isBanner) {
-    await insertInstitutionBanner(
+    const bannerRes = await insertInstitutionBanner(
       zip,
       template,
       bannerData?.teacherLabel ?? "",
@@ -984,6 +1020,24 @@ export async function applyTemplate(
         template.header.showLogo && logoDataUrl ? " con logo del colegio" : ""
       }${headerStyle === "banner-evaluacion" ? " y recuadro de Calificación" : ""}.`,
     });
+    if (bannerRes.replaced) {
+      changes.push({
+        category: "Encabezado",
+        description: `Se reemplazó la tabla de portada existente del documento por el banner institucional.`,
+      });
+    }
+    if (bannerRes.coverRemoved > 0) {
+      changes.push({
+        category: "Encabezado",
+        description: `Se eliminaron ${bannerRes.coverRemoved} párrafo(s) de portada del original (título de evaluación) para evitar duplicación.`,
+      });
+    }
+    if (bannerRes.titlesRemoved > 0) {
+      changes.push({
+        category: "Encabezado",
+        description: `Se eliminaron ${bannerRes.titlesRemoved} título(s) duplicado(s) inmediatamente después del banner.`,
+      });
+    }
   } else if (template.header.enabled) {
     await applyHeader(zip, template, logoDataUrl);
     changes.push({
@@ -1528,6 +1582,155 @@ function applyParagraphFormattingString(xml: string, t: FormatTemplate): string 
   );
 }
 
+/**
+ * Colapsa secuencias de párrafos vacíos consecutivos a uno solo, y le quita el
+ * spacingBefore/After (deja solo la altura natural de la línea).
+ */
+function collapseBlankParagraphs(xml: string): { xml: string; removed: number } {
+  let removed = 0;
+
+  const newXml = withProtectedRegions(xml, (masked) => {
+    return masked.replace(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/, (full, bodyInner) => {
+      const tokenRegex =
+        /<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>|<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>|<w:sectPr\b[^>]*>[\s\S]*?<\/w:sectPr>|<w:sectPr\b[^>]*\/>/g;
+      const tokens: { full: string; start: number; end: number; isBlankP: boolean }[] = [];
+      let tm: RegExpExecArray | null;
+      while ((tm = tokenRegex.exec(bodyInner))) {
+        const t = tm[0];
+        let isBlankP = false;
+        if (t.startsWith("<w:p")) {
+          const text = extractParagraphText(t).trim();
+          const hasDrawing = /<w:drawing\b/.test(t) || /<w:pict\b/.test(t) || /<w:object\b/.test(t);
+          const hasNestedSect = /<w:sectPr\b/.test(t);
+          isBlankP = !text && !hasDrawing && !hasNestedSect;
+        }
+        tokens.push({ full: t, start: tm.index, end: tm.index + t.length, isBlankP });
+      }
+
+      const toDelete: { start: number; end: number }[] = [];
+      let i = 0;
+      while (i < tokens.length) {
+        if (tokens[i].isBlankP) {
+          let j = i + 1;
+          while (j < tokens.length && tokens[j].isBlankP) j++;
+          for (let k = i + 1; k < j; k++) {
+            toDelete.push({ start: tokens[k].start, end: tokens[k].end });
+            removed++;
+          }
+          i = j;
+        } else {
+          i++;
+        }
+      }
+
+      let newBodyInner = bodyInner;
+      for (let k = toDelete.length - 1; k >= 0; k--) {
+        newBodyInner = newBodyInner.slice(0, toDelete[k].start) + newBodyInner.slice(toDelete[k].end);
+      }
+
+      newBodyInner = newBodyInner.replace(
+        /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g,
+        (paragraph) => {
+          const text = extractParagraphText(paragraph).trim();
+          const hasDrawing = /<w:drawing\b/.test(paragraph) || /<w:pict\b/.test(paragraph) || /<w:object\b/.test(paragraph);
+          if (text || hasDrawing) return paragraph;
+          const tightSpacing = `<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>`;
+          if (/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/.test(paragraph)) {
+            return paragraph.replace(
+              /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+              (_f, attrs, inner) => {
+                let p = inner as string;
+                if (/<w:spacing\b[^/]*\/>/.test(p)) {
+                  p = p.replace(/<w:spacing\b[^/]*\/>/, tightSpacing);
+                } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+                  p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, tightSpacing);
+                } else {
+                  p = tightSpacing + p;
+                }
+                return `<w:pPr${attrs}>${p}</w:pPr>`;
+              },
+            );
+          }
+          return paragraph.replace(/(<w:p\b[^>]*>)/, `$1<w:pPr>${tightSpacing}</w:pPr>`);
+        },
+      );
+
+      return full.replace(bodyInner, newBodyInner);
+    });
+  });
+
+  return { xml: newXml, removed };
+}
+
+/**
+ * Aplica un ritmo visual específico para evaluaciones:
+ *  - Pregunta numerada (1) ó 1.) — spacingBefore 160, after 60
+ *  - Opción (a) b) c) d) — spacingBefore 0, after 0
+ * Solo activo cuando la plantilla es de evaluación (prefix Ev_).
+ */
+function applyQuestionRhythm(xml: string, t: FormatTemplate): { xml: string; questions: number; options: number } {
+  const isEvaluation = (t.fileNaming?.prefix ?? "").toLowerCase().startsWith("ev_");
+  if (!isEvaluation) return { xml, questions: 0, options: 0 };
+
+  let qCount = 0;
+  let oCount = 0;
+  const questionRe = /^\s*\d+\s*[\)\.\-]/;
+  const optionRe = /^\s*[a-eA-E]\s*[\)\.\-]/;
+  const headingPrefixRe = /^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X)\s*[\)\.\-]/;
+
+  const questionSpacing = `<w:spacing w:before="160" w:after="60" w:line="276" w:lineRule="auto"/>`;
+  const optionSpacing = `<w:spacing w:before="0" w:after="0" w:line="276" w:lineRule="auto"/>`;
+
+  const newXml = withProtectedRegions(xml, (masked) =>
+    masked.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
+      const text = extractParagraphText(full).trim();
+      if (!text) return full;
+      const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
+      const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
+      const styleVal = pStyleMatch?.[1] ?? "";
+      if (/^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal)) {
+        return full;
+      }
+
+      let newSpacing: string | null = null;
+      if (headingPrefixRe.test(text)) {
+        return full;
+      } else if (questionRe.test(text)) {
+        newSpacing = questionSpacing;
+        qCount++;
+      } else if (optionRe.test(text) && text.length < 200) {
+        newSpacing = optionSpacing;
+        oCount++;
+      }
+
+      if (!newSpacing) return full;
+
+      let updatedInner = inner as string;
+      if (pPrMatch) {
+        updatedInner = updatedInner.replace(
+          /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+          (_f, pAttrs, pInner) => {
+            let p = pInner as string;
+            if (/<w:spacing\b[^/]*\/>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing!);
+            } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing!);
+            } else {
+              p = newSpacing! + p;
+            }
+            return `<w:pPr${pAttrs}>${p}</w:pPr>`;
+          },
+        );
+      } else {
+        updatedInner = `<w:pPr>${newSpacing}</w:pPr>` + updatedInner;
+      }
+      return `<w:p${attrs}>${updatedInner}</w:p>`;
+    }),
+  );
+
+  return { xml: newXml, questions: qCount, options: oCount };
+}
+
 // ===================== Encabezado / Pie =====================
 
 const CONTENT_TYPES_PATH = "[Content_Types].xml";
@@ -1701,6 +1904,148 @@ async function linkPartToSections(zip: JSZip, refName: "headerReference" | "foot
  * Tamaños en twips (1 cm ≈ 567 twips). Ancho útil de hoja Oficio (21,59 cm)
  * con márgenes 2,5/2 = 16,9 cm ≈ 9580 twips.
  */
+/**
+ * Detecta si el documento ya trae un encabezado/portada equivalente al banner del colegio.
+ * Solo revisa los primeros ~6 elementos del body (suficiente para portada,
+ * sin tocar contenido posterior).
+ *
+ *  - "table-banner": hay una tabla al inicio cuyo texto contiene 2+ palabras clave de banner.
+ *  - "title-only": no hay tabla pero hay 1-4 párrafos al inicio con texto tipo "EVALUACIÓN…".
+ *  - "none": ni tabla ni texto de portada — inyectar normal.
+ */
+type BannerDetection =
+  | { kind: "none" }
+  | { kind: "table-banner"; tableXml: string; hadDrawing: boolean }
+  | { kind: "title-only"; paragraphs: string[] };
+
+const BANNER_KEYWORDS = [
+  "profesor",
+  "asignatura",
+  "curso",
+  "calificación",
+  "calificacion",
+  "puntaje",
+  "fecha",
+  "nombre",
+  "alumno",
+  "estudiante",
+];
+
+const COVER_TITLE_KEYWORDS = [
+  "evaluación",
+  "evaluacion",
+  "guía",
+  "guia",
+  "prueba",
+  "control",
+];
+
+function detectExistingBanner(docContent: string): BannerDetection {
+  const bodyMatch = docContent.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
+  if (!bodyMatch) return { kind: "none" };
+  const body = bodyMatch[1];
+
+  // Capturar los primeros ~6 hijos directos del body (tablas o párrafos)
+  const childRegex = /<w:(tbl|p)\b[^>]*>[\s\S]*?<\/w:\1>|<w:p\b[^>]*\/>/g;
+  const firstChildren: { tag: "tbl" | "p"; xml: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = childRegex.exec(body)) && firstChildren.length < 6) {
+    const xml = m[0];
+    const tag = xml.startsWith("<w:tbl") ? "tbl" : "p";
+    firstChildren.push({ tag, xml });
+  }
+  if (firstChildren.length === 0) return { kind: "none" };
+
+  // Caso 1 — primera tabla en los primeros 3 elementos
+  const firstThree = firstChildren.slice(0, 3);
+  const firstTableIdx = firstThree.findIndex((c) => c.tag === "tbl");
+  if (firstTableIdx >= 0) {
+    const tableXml = firstThree[firstTableIdx].xml;
+    const tableText = extractParagraphText(tableXml).toLowerCase();
+    let hits = 0;
+    for (const kw of BANNER_KEYWORDS) {
+      if (tableText.includes(kw)) hits++;
+    }
+    if (hits >= 2) {
+      const hadDrawing = /<w:drawing\b/.test(tableXml) || /<w:pict\b/.test(tableXml);
+      return { kind: "table-banner", tableXml, hadDrawing };
+    }
+  }
+
+  // Caso 2 — sin tabla al inicio, párrafos de portada
+  if (firstTableIdx < 0) {
+    const coverParagraphs: string[] = [];
+    for (const c of firstChildren.slice(0, 4)) {
+      if (c.tag !== "p") break;
+      const txt = extractParagraphText(c.xml).toLowerCase().trim();
+      if (!txt) {
+        // párrafo vacío, lo arrastramos como "portada"
+        coverParagraphs.push(c.xml);
+        continue;
+      }
+      const isCover = COVER_TITLE_KEYWORDS.some((kw) => txt.includes(kw));
+      if (isCover) {
+        coverParagraphs.push(c.xml);
+      } else {
+        break;
+      }
+    }
+    // Considerar portada solo si hay al menos un párrafo con palabra clave
+    const hasRealCover = coverParagraphs.some((p) => {
+      const t = extractParagraphText(p).toLowerCase().trim();
+      return t && COVER_TITLE_KEYWORDS.some((kw) => t.includes(kw));
+    });
+    if (hasRealCover) return { kind: "title-only", paragraphs: coverParagraphs };
+  }
+
+  return { kind: "none" };
+}
+
+/**
+ * Después de insertar el banner, eliminar los próximos 3 párrafos que dupliquen
+ * texto que ya quedó dentro del banner (asignatura, curso, profesor, "EVALUACIÓN").
+ */
+function dedupeAdjacentTitles(
+  docContent: string,
+  bannerInsertedAfter: string,
+  bannerKeywords: string[],
+): { xml: string; removed: number } {
+  const idx = docContent.indexOf(bannerInsertedAfter);
+  if (idx < 0) return { xml: docContent, removed: 0 };
+
+  // Posición justo después del banner insertado
+  const startSearch = idx + bannerInsertedAfter.length;
+  const tail = docContent.slice(startSearch);
+
+  // Capturar hasta 4 párrafos siguientes (saltamos el <w:p> de cierre del banner)
+  const paragraphRegex = /<w:p\b[^>]*>[\s\S]*?<\/w:p>|<w:p\b[^>]*\/>/g;
+  paragraphRegex.lastIndex = 0;
+  const matches: { xml: string; index: number; length: number }[] = [];
+  let pm: RegExpExecArray | null;
+  while ((pm = paragraphRegex.exec(tail)) && matches.length < 4) {
+    matches.push({ xml: pm[0], index: pm.index, length: pm[0].length });
+  }
+
+  const lowerKeywords = bannerKeywords.map((k) => k.toLowerCase()).filter((k) => k.length >= 4);
+  const toRemove: { index: number; length: number }[] = [];
+  for (const p of matches) {
+    const text = extractParagraphText(p.xml).toLowerCase().trim();
+    if (!text) continue;
+    // Si el párrafo es corto y todo su contenido aparece dentro de las keywords del banner
+    const isDuplicate = lowerKeywords.some((kw) => text.includes(kw)) && text.length < 120;
+    if (isDuplicate) toRemove.push({ index: p.index, length: p.length });
+  }
+
+  if (toRemove.length === 0) return { xml: docContent, removed: 0 };
+
+  // Reconstruir tail eliminando de atrás hacia adelante
+  let newTail = tail;
+  for (let i = toRemove.length - 1; i >= 0; i--) {
+    newTail = newTail.slice(0, toRemove[i].index) + newTail.slice(toRemove[i].index + toRemove[i].length);
+  }
+  return { xml: docContent.slice(0, startSearch) + newTail, removed: toRemove.length };
+}
+
 async function insertInstitutionBanner(
   zip: JSZip,
   t: FormatTemplate,
@@ -1709,10 +2054,24 @@ async function insertInstitutionBanner(
   gradeLabel: string,
   logoDataUrl: string | null,
   showCalificacion: boolean,
-) {
+): Promise<{ replaced: boolean; coverRemoved: number; titlesRemoved: number }> {
   const documentFile = zip.file("word/document.xml");
-  if (!documentFile) return;
+  if (!documentFile) return { replaced: false, coverRemoved: 0, titlesRemoved: 0 };
   let docContent = await documentFile.async("string");
+
+  // 0) Detectar portada existente y limpiarla antes de inyectar
+  const detection = detectExistingBanner(docContent);
+  let replaced = false;
+  let coverRemoved = 0;
+  if (detection.kind === "table-banner") {
+    docContent = docContent.replace(detection.tableXml, "");
+    replaced = true;
+  } else if (detection.kind === "title-only") {
+    for (const p of detection.paragraphs) {
+      docContent = docContent.replace(p, "");
+      coverRemoved++;
+    }
+  }
 
   // 1) Embed del logo (si corresponde)
   let logoRelId: string | null = null;
@@ -1778,12 +2137,33 @@ async function insertInstitutionBanner(
   docContent = ensureDocumentRootNamespaces(docContent);
 
   // 5) Inyectar justo después de <w:body ...> (apertura)
+  let bodyOpen = "";
   docContent = docContent.replace(
     /<w:body\b[^>]*>/,
-    (match) => `${match}${tableXml}`,
+    (match) => {
+      bodyOpen = match;
+      return `${match}${tableXml}`;
+    },
   );
 
+  // 6) Eliminar títulos sueltos inmediatamente después del banner que dupliquen
+  //    contenido (asignatura, curso, etc).
+  const dedupeKeywords = [
+    teacherLabel,
+    subjectLabel,
+    gradeLabel,
+    "evaluación sumativa",
+    "evaluación formativa",
+    "evaluacion sumativa",
+    "evaluacion formativa",
+    "guía de portafolio",
+    "guia de portafolio",
+  ].filter((s) => s && s.trim().length >= 4);
+  const dedupeRes = dedupeAdjacentTitles(docContent, bodyOpen + tableXml, dedupeKeywords);
+  docContent = dedupeRes.xml;
+
   zip.file("word/document.xml", docContent);
+  return { replaced, coverRemoved, titlesRemoved: dedupeRes.removed };
 }
 
 function buildLogoCell(width: number, relId: string | null, cx: number, cy: number): string {
