@@ -9,6 +9,7 @@ export interface CatalogOption {
 
 export type SubjectOption = CatalogOption;
 export type GradeOption = CatalogOption;
+export type TeacherOption = CatalogOption;
 
 // Asignaturas oficiales del colegio (extraídas de horarios de Básica y Media).
 // El `value` es el token usado en el nombre de archivo (sin espacios ni símbolos).
@@ -76,8 +77,40 @@ export const DEFAULT_GRADES: GradeOption[] = [
   { label: "IV Medio B", value: "IVMedioB" },
 ];
 
+// Docentes oficiales del colegio (extraídos de los horarios 2026 de Básica y Media).
+// El `value` se usa como sufijo en el nombre del archivo para registrar quién creó
+// el documento (ej: "Ev_Sumativa_N°1_Historia_7Básico_JorgeVillablanca").
+export const DEFAULT_TEACHERS: TeacherOption[] = [
+  { label: "Bastián Pizarro", value: "BastiánPizarro" },
+  { label: "Christian Soto", value: "ChristianSoto" },
+  { label: "Denisse Escobar", value: "DenisseEscobar" },
+  { label: "Diego Olea", value: "DiegoOlea" },
+  { label: "Emiliano González", value: "EmilianoGonzález" },
+  { label: "Gina Fernández", value: "GinaFernández" },
+  { label: "Isidora Navarrete", value: "IsidoraNavarrete" },
+  { label: "Jorge Villablanca", value: "JorgeVillablanca" },
+  { label: "Julio Fernández", value: "JulioFernández" },
+  { label: "Manuel Guerrero", value: "ManuelGuerrero" },
+  { label: "Margarita Pérez", value: "MargaritaPérez" },
+  { label: "María José Cartes", value: "MaríaJoséCartes" },
+  { label: "Marilin Martínez", value: "MarilinMartínez" },
+  { label: "Nicole Badilla", value: "NicoleBadilla" },
+  { label: "Nicole Iasalvatore", value: "NicoleIasalvatore" },
+  { label: "Pamela Herrera", value: "PamelaHerrera" },
+  { label: "Patricia Calderón", value: "PatriciaCalderón" },
+  { label: "Paulina Oyanedel", value: "PaulinaOyanedel" },
+  { label: "Rayen Huenchuñir", value: "RayenHuenchuñir" },
+  { label: "Solange Garcés", value: "SolangeGarcés" },
+  { label: "Stefany Garcín", value: "StefanyGarcín" },
+  { label: "Tamara Navarro", value: "TamaraNavarro" },
+  { label: "Valentina Jara", value: "ValentinaJara" },
+  { label: "Viviana Orrego", value: "VivianaOrrego" },
+  { label: "Yesenia Zúñiga", value: "YeseniaZúñiga" },
+];
+
 const SUBJECTS_KEY = "doc-standardizer:subjects";
 const GRADES_KEY = "doc-standardizer:grades";
+const TEACHERS_KEY = "doc-standardizer:teachers";
 
 const safeParse = <T,>(raw: string | null, fallback: T): T => {
   if (!raw) return fallback;
@@ -108,6 +141,15 @@ export const saveGrades = (grades: GradeOption[]) => {
   localStorage.setItem(GRADES_KEY, JSON.stringify(grades));
 };
 
+export const loadTeachers = (): TeacherOption[] => {
+  if (typeof window === "undefined") return DEFAULT_TEACHERS;
+  return safeParse(localStorage.getItem(TEACHERS_KEY), DEFAULT_TEACHERS);
+};
+
+export const saveTeachers = (teachers: TeacherOption[]) => {
+  localStorage.setItem(TEACHERS_KEY, JSON.stringify(teachers));
+};
+
 export const resetSubjects = (): SubjectOption[] => {
   saveSubjects(DEFAULT_SUBJECTS);
   return DEFAULT_SUBJECTS;
@@ -116,6 +158,11 @@ export const resetSubjects = (): SubjectOption[] => {
 export const resetGrades = (): GradeOption[] => {
   saveGrades(DEFAULT_GRADES);
   return DEFAULT_GRADES;
+};
+
+export const resetTeachers = (): TeacherOption[] => {
+  saveTeachers(DEFAULT_TEACHERS);
+  return DEFAULT_TEACHERS;
 };
 
 // Sanitiza el value para que sea seguro como parte de un nombre de archivo:
