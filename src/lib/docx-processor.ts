@@ -471,11 +471,11 @@ export async function applyTemplate(
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
 
-    docContent = runPass(
+    docContent = runXmlPass(
       "formato de párrafos",
       passWarnings,
-      () => applyParagraphFormattingString(docContent, template),
       docContent,
+      (xml) => applyParagraphFormattingString(xml, template),
     );
 
     const tablesRes = runPass(
@@ -496,16 +496,17 @@ export async function applyTemplate(
     docContent = imagesRes.xml;
     imageRescales = imagesRes.count;
 
-    docContent = runPass(
+    docContent = runXmlPass(
       "tipografía directa en runs",
       passWarnings,
-      () => forceDirectFontFormatting(docContent, template),
       docContent,
+      (xml) => forceDirectFontFormatting(xml, template),
     );
 
     // Normalización de numeración (texto plano + numbering.xml)
     const numberingFile = zip.file("word/numbering.xml");
     let numberingXml = numberingFile ? await numberingFile.async("string") : null;
+    const beforeNumBalance = tagBalance(docContent);
     const normRes = runPass(
       "normalización de numeración",
       passWarnings,
@@ -520,8 +521,24 @@ export async function applyTemplate(
         duplicateNumberingStripped: 0,
       },
     );
-    docContent = normRes.documentXml;
-    numberingXml = normRes.numberingXml;
+    // Validar balance post-pasada de numeración; si rompió XML, descartar.
+    const afterNumBalance = tagBalance(normRes.documentXml);
+    if (
+      afterNumBalance.body !== beforeNumBalance.body ||
+      afterNumBalance.p !== beforeNumBalance.p ||
+      afterNumBalance.r !== beforeNumBalance.r
+    ) {
+      passWarnings.push(
+        `La pasada "normalización de numeración" dejó el XML desbalanceado (p: ${beforeNumBalance.p}→${afterNumBalance.p}, r: ${beforeNumBalance.r}→${afterNumBalance.r}). Se revirtió.`,
+      );
+      console.warn(`[docx-processor] normalización de numeración revertida`, {
+        beforeNumBalance,
+        afterNumBalance,
+      });
+    } else {
+      docContent = normRes.documentXml;
+      numberingXml = normRes.numberingXml;
+    }
     if (numberingFile && numberingXml) {
       zip.file("word/numbering.xml", numberingXml);
     }
