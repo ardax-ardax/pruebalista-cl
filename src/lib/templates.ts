@@ -129,6 +129,15 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
       alignment: "center",
       style: "banner-evaluacion",
     },
+    footer: {
+      enabled: true,
+      text: "",
+      showPageNumber: true,
+      showDate: false,
+    },
+    fileNaming: {
+      enabled: true,
+      prefix: "Ev_Diversificada",
       hint: "Ej: Ev_Diversificada_N°1_Historia_7Básico",
     },
   },
@@ -146,6 +155,15 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
       alignment: "center",
       style: "banner-evaluacion",
     },
+    footer: {
+      enabled: true,
+      text: "",
+      showPageNumber: true,
+      showDate: false,
+    },
+    fileNaming: {
+      enabled: true,
+      prefix: "Ev_Sumativa",
       hint: "Ej: Ev_Sumativa_N°1_Historia_7Básico",
     },
   },
@@ -163,6 +181,15 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
       alignment: "center",
       style: "banner-guia",
     },
+    footer: {
+      enabled: true,
+      text: "",
+      showPageNumber: true,
+      showDate: false,
+    },
+    fileNaming: {
+      enabled: true,
+      prefix: "Guía_Portafolio",
       hint: "Ej: Guía_Portafolio_N°1_Historia_7Básico",
     },
   },
