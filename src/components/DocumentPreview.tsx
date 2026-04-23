@@ -299,9 +299,9 @@ export function DocumentPreview({
         </Tabs>
 
         <p className="text-[11px] text-muted-foreground mt-3 italic">
-          Nota: la vista previa web (Mammoth) puede mostrar diferencias respecto al .docx final
-          en imágenes recortadas, objetos flotantes y layouts complejos. La referencia válida
-          siempre es el archivo .docx descargado abierto en Word.
+          Nota: la vista previa web aplica los recortes de imagen del .docx.
+          Pueden persistir diferencias en objetos flotantes y layouts complejos.
+          La referencia válida siempre es el archivo .docx descargado abierto en Word.
         </p>
       </CardContent>
     </Card>
