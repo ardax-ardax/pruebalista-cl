@@ -359,12 +359,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         margins: { top: 0, bottom: 0, left: 0, right: 120 },
         children: buildOptionParagraphs(textColCm, 0),
       });
-      const splitImgAlign =
-        q.image.alignment === "left"
-          ? AlignmentType.LEFT
-          : q.image.alignment === "right"
-            ? AlignmentType.RIGHT
-            : AlignmentType.CENTER;
+      // En MC split la imagen siempre se centra en su columna.
+      const splitImgAlign = AlignmentType.CENTER;
       const imgCell = new TableCell({
         borders,
         width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
