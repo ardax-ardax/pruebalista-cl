@@ -33,7 +33,14 @@ import {
   loadInstitutionName,
   type FormatTemplate,
 } from "@/lib/templates";
-import { applyTemplate, type ChangeReport, type DocDiagnostics } from "@/lib/docx-processor";
+import {
+  applyTemplate,
+  validateDocxStructure,
+  type ChangeReport,
+  type DocDiagnostics,
+  type PreflightFinding,
+} from "@/lib/docx-processor";
+import { PreflightDialog } from "@/components/PreflightDialog";
 import { exportHtmlToPdf } from "@/lib/pdf-export";
 import { DocumentPreview } from "@/components/DocumentPreview";
 import { DiscrepancyAlert } from "@/components/DiscrepancyAlert";
