@@ -49,10 +49,10 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
 
 // ImageRun manteniendo proporción real: usa naturalW/H y porcentajes de crop
 // para calcular height a partir de width preservando aspect ratio.
-function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?: number): ImageRun {
+function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?: number, allowFullWidth?: boolean): ImageRun {
   const { data, type } = dataUrlToUint8Array(img.src);
-  // Clamp a 20% (compat con borradores antiguos).
-  const safeWidthPct = Math.max(10, Math.min(20, img.widthPct));
+  // Clamp a 20% (compat con borradores antiguos) salvo que se pida full width (caso split).
+  const safeWidthPct = allowFullWidth ? Math.max(10, Math.min(100, img.widthPct)) : Math.max(10, Math.min(20, img.widthPct));
   const targetWidthCm = contentWidthCm * (safeWidthPct / 100);
   let widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
 
