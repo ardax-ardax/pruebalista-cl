@@ -161,9 +161,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         : "";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
       const header = `${titleHtml}<div class="pa-question-header">${pts}<span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
-      // Para selección múltiple con imagen siempre forzamos split: opciones izq, imagen der.
-      const isSplit = q.type === "multiple-choice" && !!q.image;
-      const layout: "side-left" | "side-right" | "block" = isSplit ? "side-right" : (q.imageLayout ?? "block");
+      // Para selección múltiple o V/F con imagen siempre forzamos split: texto izq, imagen der centrada.
+      const isSplit = (q.type === "multiple-choice" || q.type === "true-false") && !!q.image;
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
       let body = "";
       if (q.type === "multiple-choice") {
@@ -177,17 +176,24 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         if (isSplit && q.image) {
           const imgCell = `<td class="pa-mc-image">${renderContainedImageHtml(q.image)}</td>`;
           const txtCell = `<td class="pa-mc-text">${optionsList}</td>`;
-          body = `<table class="pa-mc-split"><tr>${layout === "side-left" ? imgCell + txtCell : txtCell + imgCell}</tr></table>`;
+          body = `<table class="pa-mc-split"><tr>${txtCell + imgCell}</tr></table>`;
         } else {
           body = optionsList;
         }
       } else if (q.type === "true-false") {
-        body = `<ol class="pa-statements">${(q.statements ?? [])
+        const statementsList = `<ol class="pa-statements">${(q.statements ?? [])
           .map((st, i) => {
             const stImg = st.image ? renderImageHtml(st.image) : "";
             return `<li><span class="pa-statement-vf">( V ) ( F )</span><span class="pa-statement-num">${qNum}.${i + 1}</span>${escape(st.text)}${stImg}</li>`;
           })
           .join("")}</ol>`;
+        if (isSplit && q.image) {
+          const imgCell = `<td class="pa-mc-image">${renderContainedImageHtml(q.image)}</td>`;
+          const txtCell = `<td class="pa-mc-text">${statementsList}</td>`;
+          body = `<table class="pa-mc-split"><tr>${txtCell + imgCell}</tr></table>`;
+        } else {
+          body = statementsList;
+        }
       } else if (q.type === "short-answer") {
         const lines = Math.max(1, q.answerLines ?? 3);
         body = Array.from({ length: lines })
