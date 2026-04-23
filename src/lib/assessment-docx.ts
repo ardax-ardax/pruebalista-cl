@@ -246,15 +246,27 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
   if (q.type === "section-title") {
     // section-title se mantiene junto con la pregunta siguiente.
-    return [
+    const out: Paragraph[] = [
       new Paragraph({
-        spacing: { before: 240, after: 120 },
+        spacing: { before: 240, after: q.instructions ? 60 : 120 },
         border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 1 } },
         keepLines: true,
         keepNext: true,
         children: [new TextRun({ text: (q.prompt || "Sección").toUpperCase(), bold: true, size: ptToHalfPt(11) })],
       }),
     ];
+    if (q.instructions) {
+      out.push(
+        new Paragraph({
+          spacing: { before: 60, after: 120 },
+          alignment: AlignmentType.JUSTIFIED,
+          keepLines: true,
+          keepNext: true,
+          children: [new TextRun({ text: q.instructions, italics: true, size: baseSize })],
+        }),
+      );
+    }
+    return out;
   }
   if (q.type === "info-block") {
     // info-block se mantiene junto con la pregunta siguiente.
