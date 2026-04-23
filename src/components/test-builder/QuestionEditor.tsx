@@ -139,24 +139,23 @@ export const QuestionEditor = ({
             </div>
             <div>
               <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
-              <ImageCropEditor value={question.image} onChange={(img) => update({ image: img })} />
+              <ImageCropEditor
+                value={question.image}
+                onChange={(img) => {
+                  // En selección múltiple con imagen, forzamos layout en columna (imagen derecha).
+                  if (question.type === "multiple-choice" && img) {
+                    update({ image: img, imageLayout: "side-right" });
+                  } else {
+                    update({ image: img });
+                  }
+                }}
+              />
+              {question.type === "multiple-choice" && question.image && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  En selección múltiple la imagen se ubica automáticamente a la derecha de las opciones, centrada en su columna.
+                </p>
+              )}
             </div>
-            {question.type === "multiple-choice" && question.image && (
-              <div className="max-w-xs">
-                <Label className="text-xs mb-1 block">Disposición de la imagen</Label>
-                <Select
-                  value={question.imageLayout ?? "block"}
-                  onValueChange={(v) => update({ imageLayout: v as "block" | "side-right" | "side-left" })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="block">Imagen arriba (ancho completo)</SelectItem>
-                    <SelectItem value="side-right">Imagen a la derecha (opciones a la izquierda)</SelectItem>
-                    <SelectItem value="side-left">Imagen a la izquierda (opciones a la derecha)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </>
         )}
 

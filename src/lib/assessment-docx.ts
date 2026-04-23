@@ -295,8 +295,9 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     children: headerRuns,
   });
 
-  const layout = q.imageLayout ?? "block";
-  const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
+  // MC con imagen → siempre split (opciones izquierda, imagen derecha centrada).
+  const isSplit = q.type === "multiple-choice" && !!q.image;
+  const layout: "side-left" | "side-right" | "block" = isSplit ? "side-right" : (q.imageLayout ?? "block");
 
   if (q.image && !isSplit) {
     const align =
@@ -358,12 +359,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         margins: { top: 0, bottom: 0, left: 0, right: 120 },
         children: buildOptionParagraphs(textColCm, 0),
       });
-      const splitImgAlign =
-        q.image.alignment === "left"
-          ? AlignmentType.LEFT
-          : q.image.alignment === "right"
-            ? AlignmentType.RIGHT
-            : AlignmentType.CENTER;
+      // En MC split la imagen siempre se centra en su columna.
+      const splitImgAlign = AlignmentType.CENTER;
       const imgCell = new TableCell({
         borders,
         width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
