@@ -322,6 +322,16 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       const contentWidthTwip = cmToTwip(contentWidthCm);
       const textColCm = contentWidthCm * 0.8;
       const imgColCm = contentWidthCm * 0.2;
+      // Estimar altura del bloque de opciones para limitar la altura de la imagen.
+      // optionLineCm ≈ bodySize(pt) * 0.0353 cm/pt * 1.35 (line-height)
+      const optionLineCm = ctx.template.typography.bodySize * 0.0353 * 1.35;
+      // chars por línea aprox para columna 80% en bodySize pt (heurística)
+      const charsPerLine = Math.max(20, Math.floor((textColCm * 10) / (ctx.template.typography.bodySize * 0.05)));
+      const totalLines = (q.options ?? []).reduce((sum, o) => {
+        const text = `a) ${o.text}`;
+        return sum + Math.max(1, Math.ceil(text.length / charsPerLine));
+      }, 0);
+      const maxImgHeightCm = Math.max(1, totalLines * optionLineCm + 0.2);
       const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
       const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
       const textCell = new TableCell({
@@ -334,7 +344,18 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         borders,
         width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
-        children: [imageParagraph({ ...q.image, widthPct: 100 }, imgColCm)],
+        children: [
+          new Paragraph({
+            alignment:
+              q.image.alignment === "left"
+                ? AlignmentType.LEFT
+                : q.image.alignment === "right"
+                  ? AlignmentType.RIGHT
+                  : AlignmentType.CENTER,
+            spacing: { before: 60, after: 60 },
+            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm)],
+          }),
+        ],
       });
       pushT(
         new Table({
