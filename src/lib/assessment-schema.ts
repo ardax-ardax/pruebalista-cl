@@ -42,12 +42,15 @@ export interface TfStatement {
   points?: number;
 }
 
+export type ImageLayout = "block" | "side-right" | "side-left";
+
 export interface Question {
   id: string;
   type: QuestionType;
   prompt: string; // texto principal o título de sección
   points?: number;
   image?: QuestionImage | null;
+  imageLayout?: ImageLayout; // solo aplica a multiple-choice + image; default "block"
   options?: Option[]; // para multiple-choice
   statements?: TfStatement[]; // para true-false (lista de afirmaciones)
   answerLines?: number; // para short-answer
