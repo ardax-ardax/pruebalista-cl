@@ -148,8 +148,8 @@ const Index = () => {
     const prefix = workingTemplate?.fileNaming?.prefix;
     if (prefix && (subject.trim() || grade.trim() || docNumber.trim())) {
       const n = docNumber.trim() || "1";
-      const subj = subject.trim().replace(/\s+/g, "");
-      const grd = grade.trim().replace(/\s+/g, "");
+      const subj = sanitizeFileToken(subject);
+      const grd = sanitizeFileToken(grade);
       const parts = [prefix, `N°${n}`, subj || "Asignatura", grd || "Curso"];
       return parts.join("_");
     }
