@@ -64,6 +64,7 @@ export async function applyTemplate(
   fileBuffer: ArrayBuffer,
   template: FormatTemplate,
   logoDataUrl: string | null,
+  bannerData?: BannerData,
 ): Promise<ProcessResult> {
   const zip = await JSZip.loadAsync(fileBuffer);
   const changes: ChangeReport[] = [];
