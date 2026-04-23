@@ -244,27 +244,67 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     }),
   );
 
-  if (q.image) {
+  const layout = q.imageLayout ?? "block";
+  const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
+
+  if (q.image && !isSplit) {
     out.push(imageParagraph(q.image, contentWidthCm));
   }
 
   if (q.type === "multiple-choice") {
     const letters = ["a", "b", "c", "d", "e", "f"];
-    (q.options ?? []).forEach((o, i) => {
+    const buildOptionParagraphs = (colWidthCm: number, indent: number): Paragraph[] => {
+      const ps: Paragraph[] = [];
+      (q.options ?? []).forEach((o, i) => {
+        ps.push(
+          new Paragraph({
+            indent: indent ? { left: indent } : undefined,
+            spacing: { before: 0, after: 40 },
+            children: [
+              new TextRun({ text: `${letters[i] ?? i + 1}) `, bold: true, size: baseSize }),
+              new TextRun({ text: o.text, size: baseSize }),
+            ],
+          }),
+        );
+        if (o.image) {
+          ps.push(imageParagraph(o.image, colWidthCm, indent));
+        }
+      });
+      return ps;
+    };
+
+    if (isSplit && q.image) {
+      const contentWidthTwip = cmToTwip(contentWidthCm);
+      const textColCm = contentWidthCm * 0.6;
+      const imgColCm = contentWidthCm * 0.4;
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+      const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+      const textCell = new TableCell({
+        borders,
+        width: { size: Math.round(contentWidthTwip * 0.6), type: WidthType.DXA },
+        margins: { top: 0, bottom: 0, left: 0, right: 120 },
+        children: buildOptionParagraphs(textColCm, 0),
+      });
+      const imgCell = new TableCell({
+        borders,
+        width: { size: Math.round(contentWidthTwip * 0.4), type: WidthType.DXA },
+        margins: { top: 0, bottom: 0, left: 120, right: 0 },
+        children: [imageParagraph({ ...q.image, widthPct: 100 }, imgColCm)],
+      });
       out.push(
-        new Paragraph({
-          indent: { left: 360 },
-          spacing: { before: 0, after: 40 },
-          children: [
-            new TextRun({ text: `${letters[i] ?? i + 1}) `, bold: true, size: baseSize }),
-            new TextRun({ text: o.text, size: baseSize }),
+        new Table({
+          width: { size: contentWidthTwip, type: WidthType.DXA },
+          columnWidths: [Math.round(contentWidthTwip * 0.6), Math.round(contentWidthTwip * 0.4)],
+          rows: [
+            new TableRow({
+              children: layout === "side-left" ? [imgCell, textCell] : [textCell, imgCell],
+            }),
           ],
         }),
       );
-      if (o.image) {
-        out.push(imageParagraph(o.image, contentWidthCm, 720));
-      }
-    });
+    } else {
+      for (const p of buildOptionParagraphs(contentWidthCm, 360)) out.push(p);
+    }
   } else if (q.type === "true-false") {
     (q.statements ?? []).forEach((st, i) => {
       out.push(
