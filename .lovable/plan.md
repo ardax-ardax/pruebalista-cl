@@ -1,46 +1,34 @@
 
 
-# Centrar imagen en columna split y respetar `max-height`
+# Forzar layout en columna para selección múltiple con imagen
 
-## Problema
+## Cambio de comportamiento
 
-En layout MC split (`side-right`/`side-left`), cuando la imagen es más alta que el bloque de opciones, **no se reduce** y tampoco se centra horizontalmente dentro de su columna. Causa: `.pa-mc-image .pa-image-crop` tiene `width: 100%` fijo + `aspect-ratio` + `max-height: 100%`. Con `width` explícito, el navegador NO reduce el ancho aunque `max-height` esté excedido — la imagen desborda en alto y queda pegada a la izquierda.
+Cuando una pregunta de selección múltiple **tiene imagen**, el layout será **siempre** dos columnas: opciones a la izquierda, imagen a la derecha (centrada en su columna). Se elimina la opción de elegir entre `block`, `side-right` o `side-left` para este caso.
 
-Además, hoy el wrapper en split siempre se fuerza a `pa-align-center`, ignorando la alineación elegida por el usuario (izquierda / centro / derecha) dentro de la columna.
-
-## Solución
-
-### 1) `src/lib/assessment-render.tsx` — `renderContainedImageHtml`
-
-- Respetar la alineación elegida por el usuario dentro de la columna: usar `pa-align-${img.alignment}` en el wrapper en vez de hardcodear `pa-align-center`.
-- Cambiar el `width: 100%` fijo por `max-width: 100%` en `.pa-image-crop` y en la `<img class="pa-image-plain">`. Con ancho `auto` + `aspect-ratio` + `max-height: 100%`, el navegador sí reduce ancho y alto manteniendo proporción.
-
-### 2) CSS `.pa-mc-image` (en `ASSESSMENT_CSS`)
-
-- Cambiar `display: flex; align-items: flex-start; justify-content: center;` del `.pa-mc-image .pa-image-wrap` por reglas que respeten alineación:
-  - Mantener `display: flex; align-items: flex-start;`.
-  - Quitar `justify-content: center` global. Añadir variantes:
-    - `.pa-mc-image .pa-image-wrap.pa-align-left { justify-content: flex-start; }`
-    - `.pa-mc-image .pa-image-wrap.pa-align-center { justify-content: center; }`
-    - `.pa-mc-image .pa-image-wrap.pa-align-right { justify-content: flex-end; }`
-- Cambiar `.pa-mc-image .pa-image-crop` de `width: 100%` a `max-width: 100%; max-height: 100%;` (sin `width` fijo). El `aspect-ratio` se mantiene inline.
-- Cambiar `.pa-mc-image .pa-image-plain` para usar `max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;`.
-
-### 3) Sin cambios en DOCX
-
-DOCX ya calcula correctamente el ancho de la celda y el cap de altura. El alignment dentro de la celda se aplica con `AlignmentType` — ajustar el párrafo de la celda de imagen para usar `LEFT`/`CENTER`/`RIGHT` según `q.image.alignment` en vez de forzar `CENTER`.
+Si la pregunta de selección múltiple **no tiene imagen**, no hay layout que elegir (las opciones ocupan el ancho completo, igual que hoy).
 
 ## Archivos a modificar
 
-- `src/lib/assessment-render.tsx`:
-  - `renderContainedImageHtml`: usar `pa-align-${img.alignment}`, quitar `width:100%` fijo en `.pa-image-crop` inline.
-  - CSS `.pa-mc-image`: variantes de alineación y `max-width`/`max-height` en lugar de `width: 100%`.
-- `src/lib/assessment-docx.ts`:
-  - En la rama `isSplit`, mapear `q.image.alignment` a `AlignmentType` del párrafo de la celda de imagen.
+### 1) `src/components/test-builder/QuestionEditor.tsx`
+- Quitar el control UI que permite elegir `imageLayout` (selector con `block` / `side-right` / `side-left`) **solo para preguntas de selección múltiple**.
+- Cuando se sube/carga una imagen en una pregunta MC, asignar automáticamente `imageLayout = "side-right"`.
+- Para los demás tipos de pregunta (verdadero/falso, respuesta corta) el control sigue como está.
+
+### 2) `src/lib/assessment-render.tsx`
+- En la lógica que decide `isSplit`, para `multiple-choice` con imagen forzar siempre split a la derecha, ignorando `imageLayout` distinto.
+- Forzar la alineación de la imagen dentro de la columna a `center` (sin importar lo configurado), tanto en HTML como en CSS.
+
+### 3) `src/lib/assessment-docx.ts`
+- Misma lógica: en `multiple-choice` con imagen, generar siempre la tabla de dos columnas con la imagen a la derecha y centrada en su celda (`AlignmentType.CENTER`), ignorando `imageLayout` y `alignment` del schema.
+
+### 4) Sin cambios de schema
+- `imageLayout` y `alignment` siguen existiendo en el modelo (compatibilidad con borradores y con los otros tipos de pregunta).
+- Para MC simplemente se ignoran al renderizar.
 
 ## Resultado esperado
 
-- Si el usuario elige alineación "centro", "izquierda" o "derecha", la imagen se posiciona donde corresponde **dentro de la columna del split**.
-- Si la imagen recortada excede la altura del bloque de opciones, se reduce manteniendo proporción (no desborda y no se deforma).
-- Sin cambios de schema; comportamiento idéntico en preview, PDF y Word.
+- En cualquier pregunta de selección múltiple con imagen: opciones a la izquierda, imagen a la derecha centrada en su columna, en preview, PDF y Word.
+- El editor ya no muestra opciones de layout/alineación de imagen para selección múltiple — se simplifica la UI.
+- Borradores antiguos con `side-left` o `block` se renderizan automáticamente con el nuevo layout fijo.
 
