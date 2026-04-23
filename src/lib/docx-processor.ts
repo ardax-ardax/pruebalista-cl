@@ -443,6 +443,10 @@ function optimizeTablesString(xml: string): { xml: string; count: number } {
 /**
  * Escala proporcionalmente imágenes que excedan el área imprimible
  * para evitar recortes en Word. Usa unidades EMU (1 cm = 360 000 EMU).
+ *
+ * Respeta los recortes (<a:srcRect>) que ya tenga la imagen: el escalado se
+ * calcula sobre el tamaño VISIBLE (después del recorte), no sobre el tamaño
+ * total del archivo embebido.
  */
 function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string; count: number } {
   const usableWcm = t.pageSize.widthCm - t.spacing.marginLeft - t.spacing.marginRight;
@@ -458,10 +462,32 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
     if (!extentMatch) return drawingXml;
     const cx = parseInt(extentMatch[1], 10);
     const cy = parseInt(extentMatch[2], 10);
-    if (cx <= usableW && cy <= limitH) return drawingXml;
 
-    const ratioW = cx > usableW ? usableW / cx : 1;
-    const ratioH = cy > limitH ? limitH / cy : 1;
+    // Detectar srcRect (recorte aplicado en Word). Valores en milésimas de %.
+    // Si la imagen está recortada, las dimensiones que el usuario realmente ve
+    // son menores que cx/cy: visible = total * (1 - l/100000 - r/100000).
+    const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
+    let cropL = 0, cropR = 0, cropT = 0, cropB = 0;
+    if (srcRectMatch) {
+      const attrs = srcRectMatch[1];
+      const lm = attrs.match(/\bl="(-?\d+)"/);
+      const rm = attrs.match(/\br="(-?\d+)"/);
+      const tm = attrs.match(/\bt="(-?\d+)"/);
+      const bm = attrs.match(/\bb="(-?\d+)"/);
+      cropL = lm ? parseInt(lm[1], 10) : 0;
+      cropR = rm ? parseInt(rm[1], 10) : 0;
+      cropT = tm ? parseInt(tm[1], 10) : 0;
+      cropB = bm ? parseInt(bm[1], 10) : 0;
+    }
+    const visibleFracW = Math.max(0.01, 1 - cropL / 100000 - cropR / 100000);
+    const visibleFracH = Math.max(0.01, 1 - cropT / 100000 - cropB / 100000);
+    const visibleW = Math.round(cx * visibleFracW);
+    const visibleH = Math.round(cy * visibleFracH);
+
+    if (visibleW <= usableW && visibleH <= limitH) return drawingXml;
+
+    const ratioW = visibleW > usableW ? usableW / visibleW : 1;
+    const ratioH = visibleH > limitH ? limitH / visibleH : 1;
     const ratio = Math.min(ratioW, ratioH);
     const newCx = Math.round(cx * ratio);
     const newCy = Math.round(cy * ratio);
@@ -471,7 +497,9 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
       /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
       `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
     );
-    // Actualizar también el a:ext interno (transform de la imagen)
+    // Actualizar también el a:ext interno (transform de la imagen).
+    // El srcRect se mantiene tal cual: como es porcentual, el recorte
+    // sigue siendo proporcional al nuevo tamaño.
     updated = updated.replace(
       /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
       `<a:ext cx="${newCx}" cy="${newCy}"/>`,
