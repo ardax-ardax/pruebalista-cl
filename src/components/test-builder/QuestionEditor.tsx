@@ -104,6 +104,15 @@ export const QuestionEditor = ({
         )}
         {isCounted && (
           <>
+            <div>
+              <Label className="text-xs">Título del enunciado</Label>
+              <Input
+                placeholder="Ej: Comprensión de lectura · Texto 1"
+                value={question.title ?? ""}
+                onChange={(e) => update({ title: e.target.value })}
+                className="font-semibold"
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-2">
               <div>
                 <Label className="text-xs">Enunciado</Label>
