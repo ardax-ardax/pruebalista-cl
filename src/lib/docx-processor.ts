@@ -1044,45 +1044,49 @@ function forceDirectFontFormatting(xml: string, t: FormatTemplate): string {
   if (!bodyMatch) return xml;
   const body = bodyMatch[1];
 
-  const newBody = body.replace(/<w:r\b([^>]*)>([\s\S]*?)<\/w:r>/g, (full, attrs, inner) => {
-    // Saltar runs que contienen drawings, símbolos especiales o instrucciones de campo.
-    if (/<w:drawing\b|<w:sym\b|<w:pict\b|<w:object\b|<w:fldChar\b|<w:instrText\b/.test(inner)) {
-      return full;
-    }
-    // Si no contiene texto, saltar (evita normalizar runs estructurales).
-    if (!/<w:t\b|<w:tab\b|<w:br\b/.test(inner)) return full;
+  // Proteger regiones con <w:p>/<w:r> anidados (cuadros de texto, AlternateContent, sdt)
+  // antes de aplicar la regex no codiciosa, que de otro modo cerraría en el </w:r> interior.
+  const newBody = withProtectedRegions(body, (maskedBody) =>
+    maskedBody.replace(/<w:r\b([^>]*)>([\s\S]*?)<\/w:r>/g, (full, attrs, inner) => {
+      // Saltar runs que contienen drawings, símbolos especiales o instrucciones de campo.
+      if (/<w:drawing\b|<w:sym\b|<w:pict\b|<w:object\b|<w:fldChar\b|<w:instrText\b/.test(inner)) {
+        return full;
+      }
+      // Si no contiene texto, saltar (evita normalizar runs estructurales).
+      if (!/<w:t\b|<w:tab\b|<w:br\b/.test(inner)) return full;
 
-    const rPrMatch = (inner as string).match(/^<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/);
-    if (rPrMatch) {
-      let rPrInner = rPrMatch[1];
-      // Reemplazar/insertar rFonts
-      if (/<w:rFonts\b[^/]*\/>/.test(rPrInner)) {
-        rPrInner = rPrInner.replace(/<w:rFonts\b[^/]*\/>/, rFontsTag);
-      } else {
-        rPrInner = rFontsTag + rPrInner;
+      const rPrMatch = (inner as string).match(/^<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/);
+      if (rPrMatch) {
+        let rPrInner = rPrMatch[1];
+        // Reemplazar/insertar rFonts
+        if (/<w:rFonts\b[^/]*\/>/.test(rPrInner)) {
+          rPrInner = rPrInner.replace(/<w:rFonts\b[^/]*\/>/, rFontsTag);
+        } else {
+          rPrInner = rFontsTag + rPrInner;
+        }
+        // Reemplazar/insertar sz y szCs
+        if (/<w:sz\b[^/]*\/>/.test(rPrInner)) {
+          rPrInner = rPrInner.replace(/<w:sz\b[^/]*\/>/, `<w:sz w:val="${sz}"/>`);
+        } else {
+          rPrInner = rPrInner + `<w:sz w:val="${sz}"/>`;
+        }
+        if (/<w:szCs\b[^/]*\/>/.test(rPrInner)) {
+          rPrInner = rPrInner.replace(/<w:szCs\b[^/]*\/>/, `<w:szCs w:val="${sz}"/>`);
+        } else {
+          rPrInner = rPrInner + `<w:szCs w:val="${sz}"/>`;
+        }
+        const newInner = (inner as string).replace(
+          /^<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/,
+          `<w:rPr>${rPrInner}</w:rPr>`,
+        );
+        return `<w:r${attrs}>${newInner}</w:r>`;
       }
-      // Reemplazar/insertar sz y szCs
-      if (/<w:sz\b[^/]*\/>/.test(rPrInner)) {
-        rPrInner = rPrInner.replace(/<w:sz\b[^/]*\/>/, `<w:sz w:val="${sz}"/>`);
-      } else {
-        rPrInner = rPrInner + `<w:sz w:val="${sz}"/>`;
-      }
-      if (/<w:szCs\b[^/]*\/>/.test(rPrInner)) {
-        rPrInner = rPrInner.replace(/<w:szCs\b[^/]*\/>/, `<w:szCs w:val="${sz}"/>`);
-      } else {
-        rPrInner = rPrInner + `<w:szCs w:val="${sz}"/>`;
-      }
-      const newInner = (inner as string).replace(
-        /^<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/,
-        `<w:rPr>${rPrInner}</w:rPr>`,
-      );
-      return `<w:r${attrs}>${newInner}</w:r>`;
-    }
 
-    // No tiene rPr — insertar uno mínimo al inicio del run.
-    const newRPr = `<w:rPr>${rFontsTag}${szTag}</w:rPr>`;
-    return `<w:r${attrs}>${newRPr}${inner}</w:r>`;
-  });
+      // No tiene rPr — insertar uno mínimo al inicio del run.
+      const newRPr = `<w:rPr>${rFontsTag}${szTag}</w:rPr>`;
+      return `<w:r${attrs}>${newRPr}${inner}</w:r>`;
+    }),
+  );
 
   return xml.replace(
     /(<w:body\b[^>]*>)[\s\S]*(<\/w:body>)/,
