@@ -16,12 +16,47 @@ export interface BannerData {
   gradeLabel?: string;
 }
 
+export interface DocDiagnostics {
+  originalPages: number;
+  processedPages: number;
+  originalImages: number;
+  processedImages: number;
+  originalTables: number;
+  processedTables: number;
+  originalPageBreaks: number;
+  processedPageBreaks: number;
+  addedPageBreaks: number;
+}
+
 export interface ProcessResult {
   blob: Blob;
   changes: ChangeReport[];
   originalSummary: {
     bodyFont?: string;
     bodySize?: number;
+  };
+  diagnostics: DocDiagnostics;
+}
+
+function countOccurrences(xml: string, regex: RegExp): number {
+  const matches = xml.match(regex);
+  return matches ? matches.length : 0;
+}
+
+function computeDocStats(xml: string): {
+  pages: number;
+  images: number;
+  tables: number;
+  pageBreaks: number;
+} {
+  const pageBreaks = countOccurrences(xml, /<w:br\b[^/]*w:type="page"/g);
+  const images = countOccurrences(xml, /<w:drawing\b/g);
+  const tables = countOccurrences(xml, /<w:tbl\b(?!Pr)/g);
+  return {
+    pages: pageBreaks + 1,
+    images,
+    tables,
+    pageBreaks,
   };
 }
 
@@ -107,8 +142,11 @@ export async function applyTemplate(
   let tableOptimizations = 0;
   let imageRescales = 0;
   let sectionCreated = false;
+  let originalStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
+  let processedStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
   if (documentFile) {
     let docContent = await documentFile.async("string");
+    originalStats = computeDocStats(docContent);
     const marginsRes = applyMarginsString(docContent, template);
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
@@ -122,6 +160,7 @@ export async function applyTemplate(
     // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
     // para que Word no use la fuente original almacenada en cada <w:rPr>.
     docContent = forceDirectFontFormatting(docContent, template);
+    processedStats = computeDocStats(docContent);
     zip.file("word/document.xml", docContent);
 
     changes.push({
@@ -198,7 +237,19 @@ export async function applyTemplate(
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   });
 
-  return { blob, changes, originalSummary };
+  const diagnostics: DocDiagnostics = {
+    originalPages: originalStats.pages,
+    processedPages: processedStats.pages,
+    originalImages: originalStats.images,
+    processedImages: processedStats.images,
+    originalTables: originalStats.tables,
+    processedTables: processedStats.tables,
+    originalPageBreaks: originalStats.pageBreaks,
+    processedPageBreaks: processedStats.pageBreaks,
+    addedPageBreaks: Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks),
+  };
+
+  return { blob, changes, originalSummary, diagnostics };
 }
 
 // ===================== styles.xml (DOMParser, seguro) =====================
