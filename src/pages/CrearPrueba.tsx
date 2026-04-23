@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Eye, FileDown, FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, FileDown, FileText, Pencil, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
@@ -15,7 +16,13 @@ import {
   emptyAssessment,
   type Assessment,
 } from "@/lib/assessment-schema";
-import { loadDraft, saveDraft, clearDraft } from "@/lib/assessment-storage";
+import {
+  clearDraft,
+  getAssessment,
+  loadDraft,
+  saveDraft,
+  upsertAssessment,
+} from "@/lib/assessment-storage";
 import { loadInstitutionName, loadLogo, loadTemplates, type FormatTemplate } from "@/lib/templates";
 import { loadGrades, loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import type { RenderContext } from "@/lib/assessment-render";
@@ -34,6 +41,9 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editingId = searchParams.get("id");
+
   useEffect(() => {
     const t = loadTemplates();
     setTemplates(t);
@@ -43,18 +53,26 @@ const CrearPrueba = () => {
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName() || "New Little College La Florida");
 
-    const draft = loadDraft();
-    if (draft) {
-      setAssessment(draft);
-    } else if (t.length > 0) {
-      setAssessment(emptyAssessment(t[0].id));
+    // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
+    if (editingId) {
+      const found = getAssessment(editingId);
+      if (found) {
+        setAssessment(found);
+      } else if (t.length > 0) {
+        toast.error("No se encontró la prueba");
+        setAssessment(emptyAssessment(t[0].id));
+      }
+    } else {
+      const draft = loadDraft();
+      if (draft) setAssessment(draft);
+      else if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
     }
-  }, []);
+  }, [editingId]);
 
-  // Auto-guardar borrador
+  // Auto-guardar borrador (solo si NO estamos editando una prueba guardada)
   useEffect(() => {
-    if (assessment) saveDraft(assessment);
-  }, [assessment]);
+    if (assessment && !editingId) saveDraft(assessment);
+  }, [assessment, editingId]);
 
   const template = useMemo(
     () => templates.find((t) => t.id === assessment?.meta.templateId) ?? templates[0] ?? null,
