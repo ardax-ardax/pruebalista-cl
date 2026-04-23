@@ -82,6 +82,7 @@ export const ASSESSMENT_CSS = `
   .pa-answer-line { border-bottom: 0.5pt solid #000; height: 14pt; margin: 4pt 0; }
   .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
   .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; break-after: avoid; page-break-after: avoid; }
+  .pa-section-instructions { font-size: 10pt; font-style: italic; margin: 2pt 0 8pt; text-align: justify; break-after: avoid; page-break-after: avoid; }
   .pa-image-wrap { margin: 6pt 0; break-inside: avoid; page-break-inside: avoid; }
   .pa-image-wrap.pa-align-left { text-align: left; }
   .pa-image-wrap.pa-align-center { text-align: center; }
