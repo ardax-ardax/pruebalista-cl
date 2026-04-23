@@ -854,6 +854,43 @@ export async function applyTemplate(
     });
   }
 
+  // ===== Sanitización + validación final del ZIP =====
+  // Aplicar sanitizers a los XML clave antes de generar el blob.
+  for (const path of [
+    "word/document.xml",
+    "word/header1.xml",
+    "word/footer1.xml",
+  ]) {
+    const f = zip.file(path);
+    if (!f) continue;
+    let xml = await f.async("string");
+    xml = stripInvalidXmlChars(xml);
+    if (path === "word/document.xml") {
+      xml = ensureDocumentRootNamespaces(xml);
+      xml = ensureBodyParagraphBoundaries(xml);
+    }
+    zip.file(path, xml);
+  }
+
+  // Validar el resultado y registrar issues como warnings/fatales.
+  const validationIssues = await validateProcessedDocx(zip);
+  const fatalIssues = validationIssues.filter((i) => i.severity === "fatal");
+  const warningIssues = validationIssues.filter((i) => i.severity === "warning");
+
+  if (fatalIssues.length > 0) {
+    const detail = fatalIssues
+      .map((i) => `${i.part}: ${i.message}`)
+      .join(" | ");
+    throw new DocxProcessingError(
+      "validación final del .docx",
+      `El procesamiento generó un .docx inválido. ${detail}`,
+    );
+  }
+
+  for (const w of warningIssues) {
+    extendedDiagnostics.warnings.push(`Validación final (${w.part}): ${w.message}`);
+  }
+
   const blob = await zip.generateAsync({
     type: "blob",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
