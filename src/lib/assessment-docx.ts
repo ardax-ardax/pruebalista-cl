@@ -49,10 +49,21 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
   return { data: u8, type };
 }
 
-// ImageRun manteniendo proporción real: usa naturalW/H y porcentajes de crop
-// para calcular height a partir de width preservando aspect ratio.
-function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?: number, allowFullWidth?: boolean): ImageRun {
-  const { data, type } = dataUrlToUint8Array(img.src);
+// ImageRun manteniendo proporción real. Si la imagen tiene crop, recibe los
+// bytes ya recortados desde imageCache (procesados con <canvas>); en caso
+// contrario usa el dataURL original.
+function buildImageRun(
+  img: QuestionImage,
+  contentWidthCm: number,
+  imageCache: Map<string, ProcessedImage>,
+  maxHeightCm?: number,
+  allowFullWidth?: boolean,
+): ImageRun {
+  const cropped = hasCrop(img) ? imageCache.get(imageCacheKey(img)) : undefined;
+  const { data, type } = cropped
+    ? { data: cropped.data, type: "png" as const }
+    : dataUrlToUint8Array(img.src);
+
   // Clamp: full width si se pide; en otro caso centro=50%, left/right=20%.
   const maxByAlign = img.alignment === "center" ? 50 : 20;
   const safeWidthPct = allowFullWidth
@@ -61,13 +72,10 @@ function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?:
   const targetWidthCm = contentWidthCm * (safeWidthPct / 100);
   let widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
 
-  const { left: L, right: R, top: T, bottom: B } = img.crop;
-  const visibleW = Math.max(1, 100 - L - R) / 100;
-  const visibleH = Math.max(1, 100 - T - B) / 100;
-  const natW = img.naturalW ?? 4;
-  const natH = img.naturalH ?? 3;
-  // Aspect ratio del área visible post-crop
-  const ratio = (natH * visibleH) / Math.max(1, natW * visibleW);
+  // Dimensiones efectivas: del recorte (si existe) o las naturales originales.
+  const effW = cropped ? cropped.width : (img.naturalW ?? 4);
+  const effH = cropped ? cropped.height : (img.naturalH ?? 3);
+  const ratio = effH / Math.max(1, effW);
   let heightPx = Math.max(1, Math.round(widthPx * ratio));
 
   if (maxHeightCm && maxHeightCm > 0) {
