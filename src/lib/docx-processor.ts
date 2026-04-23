@@ -185,8 +185,82 @@ export async function validateDocxStructure(
       label: `${altChunkCount} fragmento(s) externos (HTML/RTF embebido)`,
     });
   }
+  const textboxCount = countOccurrences(docXml, /<w:txbxContent\b/g);
+  if (textboxCount > 0) {
+    findings.push({
+      kind: "textbox",
+      count: textboxCount,
+      label: `${textboxCount} cuadro(s) de texto (contenido anidado, se preservará tal cual)`,
+    });
+  }
+  // Solo reportar mc:AlternateContent si tiene Fallback no trivial (no solo un placeholder vacío)
+  const altContentMatches = docXml.match(/<mc:AlternateContent\b[\s\S]*?<\/mc:AlternateContent>/g) ?? [];
+  const altContentNonTrivial = altContentMatches.filter((b) =>
+    /<mc:Fallback\b[\s\S]*?<w:[a-z]/i.test(b),
+  ).length;
+  if (altContentNonTrivial > 0) {
+    findings.push({
+      kind: "altcontent",
+      count: altContentNonTrivial,
+      label: `${altContentNonTrivial} bloque(s) de contenido alternativo (compatibilidad Word, se preservará tal cual)`,
+    });
+  }
 
   return { ok: true, findings };
+}
+
+// =====================================================================
+// Protección de regiones con anidamiento OOXML
+// =====================================================================
+//
+// Word permite anidar <w:p> y <w:r> dentro de:
+//   - <w:txbxContent> (cuadros de texto dentro de drawings)
+//   - <mc:AlternateContent> (contenido alternativo Word 2007+ con fallback)
+//   - <w:sdt> (controles de contenido)
+//
+// Nuestras pasadas que iteran <w:p>/<w:r> con regex no codiciosa
+// (`[\s\S]*?</w:p>`) cierran prematuramente al encontrar el </w:p> interior,
+// dejando el </w:p> exterior huérfano y rompiendo el balance de tags.
+// Mammoth.js entonces no encuentra <w:body> y aborta.
+//
+// Solución: antes de cada pasada riesgosa, "ocultar" estas regiones con un
+// placeholder único. La regex no las ve, los conteos quedan balanceados, y
+// al terminar restauramos el contenido original byte-a-byte.
+
+const PROTECTED_BLOCK_PATTERNS: RegExp[] = [
+  /<mc:AlternateContent\b[\s\S]*?<\/mc:AlternateContent>/g,
+  /<w:txbxContent\b[\s\S]*?<\/w:txbxContent>/g,
+  /<w:sdt\b[\s\S]*?<\/w:sdt>/g,
+];
+
+function withProtectedRegions(xml: string, fn: (masked: string) => string): string {
+  const stash: string[] = [];
+  let masked = xml;
+  for (const pattern of PROTECTED_BLOCK_PATTERNS) {
+    masked = masked.replace(pattern, (block) => {
+      const token = `__LOV_PROTECTED_${stash.length}__`;
+      stash.push(block);
+      return token;
+    });
+  }
+  const result = fn(masked);
+  // Restaurar en orden inverso al ordinal — los tokens son únicos por índice.
+  return result.replace(/__LOV_PROTECTED_(\d+)__/g, (_m, idx) => {
+    const i = parseInt(idx, 10);
+    return stash[i] ?? _m;
+  });
+}
+
+// Conteo simple de aperturas/cierres para validar balance de tags clave
+// después de cada pasada. No es un parser XML, pero detecta el caso típico
+// de regex no codiciosa que cierra en un tag anidado.
+function tagBalance(xml: string): { body: number; p: number; r: number } {
+  const open = (re: RegExp) => (xml.match(re) ?? []).length;
+  return {
+    body: open(/<w:body\b/g) - open(/<\/w:body>/g),
+    p: open(/<w:p\b(?![a-zA-Z])/g) - open(/<\/w:p>/g),
+    r: open(/<w:r\b(?![a-zA-Z])/g) - open(/<\/w:r>/g),
+  };
 }
 
 /**
