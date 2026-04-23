@@ -1,79 +1,85 @@
 
 
-# Limitar altura de la imagen al alto de las opciones (layout dos columnas)
+# Enunciado sin negrita + mini editor de texto enriquecido
 
 ## Problema
 
-En `multiple-choice` con `imageLayout: "side-right"` o `"side-left"`, la imagen ocupa el 20% derecho/izquierdo y las opciones el 80% restante. Hoy la altura de la imagen es libre: si la imagen es alta y las opciones son pocas líneas (ej. 4 opciones cortas), la imagen sobresale por debajo de la lista, dejando un bloque desbalanceado y desperdiciando espacio vertical.
+Hoy el enunciado de cada pregunta se imprime entero en negrita (la regla CSS `.pa-question-header { font-weight: bold }` afecta todo el texto, no solo el número). Tampoco hay forma de destacar palabras dentro del enunciado.
 
-La regla pedida: **la imagen no puede ser más alta que el conjunto de opciones del lado izquierdo**.
+## Solución
 
-## 1) Preview web + PDF (`src/lib/assessment-render.tsx`)
+1. **Quitar negrita global** del enunciado: solo el número `N)` y el puntaje quedan en negrita; el texto del enunciado va en peso normal.
+2. **Convertir el campo `prompt`** en un editor de texto enriquecido **mínimo** (negrita, cursiva, subrayado) que guarda HTML simple. Aplica solo al `prompt` de preguntas contables (`multiple-choice`, `true-false`, `short-answer`). El título del enunciado y el resto de campos siguen siendo texto plano.
 
-Aprovechar que la `<table class="pa-mc-split">` ya alinea ambas celdas con `vertical-align: top`. Necesitamos que la celda de imagen actúe como contenedor con altura limitada y la imagen se ajuste dentro.
+## 1) Schema (`src/lib/assessment-schema.ts`)
 
-**Estrategia CSS — sin medir alturas en JS:**
-- La fila de la tabla impone que ambas celdas tengan la **misma altura** automáticamente (comportamiento nativo de tablas HTML).
-- La celda de imagen pasa a ser `position: relative` con altura determinada por la celda de texto.
-- El contenido de la celda de imagen se envuelve en un contenedor con `position: absolute; inset: 0;` y la imagen interna usa `max-height: 100%; max-width: 100%; object-fit: contain;` para preservar proporción dentro de los límites.
+- Sin cambio de tipos: `prompt` sigue siendo `string`. Pasa a contener HTML reducido (subset permitido: `<b>`, `<strong>`, `<i>`, `<em>`, `<u>`, `<br>`).
+- Compatibilidad: textos planos antiguos siguen renderizándose tal cual (no se escapan los caracteres ya válidos; ver siguiente punto).
 
-**Cambios concretos:**
-- En `renderImageHtml`, si recibe un flag adicional `containMode` (nuevo), genera el wrapper sin `aspect-ratio` y la `<img>` con `max-height: 100%; max-width: 100%; height: auto; width: auto; object-fit: contain;`. Para imágenes con crop, el wrapper interno (`pa-image-crop`) mantiene su `aspect-ratio` pero lleva además `max-height: 100%`, y se envuelve dentro de un contenedor flex con `align-items: flex-start` para que respete el límite vertical.
-- Más simple: en lugar de tocar `renderImageHtml`, agregar una variante específica para split. Crear helper `renderImageHtmlContained(img)` que devuelve un wrapper con la lógica de crop (mismo cálculo de aspect-ratio y márgenes negativos) pero envuelto en un contenedor con `max-height: 100%` y la celda con `height: 1px` (truco clásico de tablas para que `height: 100%` funcione en hijos).
-- Actualizar `ASSESSMENT_CSS`:
+## 2) Sanitización (`src/lib/assessment-render.tsx` y `assessment-docx.ts`)
+
+Crear helper `sanitizeRichText(s: string): string` en un nuevo archivo `src/lib/rich-text.ts`:
+- Acepta solo tags de la whitelist: `b, strong, i, em, u, br`. Cualquier otro tag y atributo se elimina.
+- Escapa el resto del texto para evitar XSS.
+- Retorna HTML seguro para inyectar.
+
+Helper adicional `richTextToRuns(html: string, baseStyle): TextRun[]` para DOCX:
+- Parsea el HTML mínimo y produce un array de `TextRun` con flags `bold`, `italics`, `underline` según los tags activos.
+- `<br>` produce un `TextRun({ break: 1 })`.
+
+## 3) Mini editor (`src/components/test-builder/RichTextInput.tsx` — nuevo)
+
+Componente ligero basado en `contenteditable` (sin librerías externas):
+- Toolbar con 4 botones: **B**, *I*, U, "limpiar formato". Cada uno usa `document.execCommand('bold' | 'italic' | 'underline' | 'removeFormat')`.
+- `<div contenteditable="true">` con clases tailwind para verse igual que un `Textarea` (mismo borde, padding, focus ring).
+- `onInput` extrae `innerHTML`, lo pasa por `sanitizeRichText`, y dispara `onChange(html)`.
+- Soporta `placeholder` con un `:empty::before { content: attr(data-placeholder) }`.
+- Acepta `value` (HTML) y monta el contenido inicial; preserva la posición del cursor durante edición (no reinicializa el DOM si `value` no cambió externamente).
+- Props: `{ value, onChange, placeholder, rows?: number }`.
+
+## 4) Editor de pregunta (`src/components/test-builder/QuestionEditor.tsx`)
+
+- Reemplazar el `Textarea` del campo "Enunciado" (líneas 119–123) por `<RichTextInput value={question.prompt} onChange={(html) => update({ prompt: html })} placeholder="..." rows={3} />`.
+- El resto del editor (título, opciones, afirmaciones V/F, etc.) **no cambia** — siguen siendo texto plano. (Si más adelante se quiere extender a opciones, es trivial.)
+
+## 5) Renderer web/PDF (`src/lib/assessment-render.tsx`)
+
+**CSS:**
+- `.pa-question-header { font-weight: normal; ... }` (quitar `bold` global).
+- Nueva clase `.pa-question-number { font-weight: bold; }` para el `N)`.
+- `.pa-question-points { font-weight: normal; ... }` (ya estaba).
+- El texto del enunciado mantiene `b/strong/i/em/u` que respetan el peso/estilo solo en las palabras marcadas.
+
+**HTML:**
+- Línea 153: cambiar `${escape(q.prompt)}` por `${sanitizeRichText(q.prompt)}` y envolver el número:
   ```
-  .pa-mc-split { table-layout: fixed; }
-  .pa-mc-split td.pa-mc-image { height: 1px; vertical-align: top; }
-  .pa-mc-image .pa-image-wrap { height: 100%; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; }
-  .pa-mc-image .pa-image-crop { max-height: 100%; max-width: 100%; aspect-ratio: var(--ratio); }
-  .pa-mc-image .pa-image-plain { max-height: 100%; max-width: 100%; height: auto; width: auto; object-fit: contain; }
+  <div class="pa-question-header">${pts}<span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>
   ```
-- En la rama `isSplit` del render, llamar a una función `renderContainedImage(img)` que produce el HTML con `--ratio` como CSS variable inline para mantener la proporción del crop, y sin forzar `width: 100%` que rompería el ajuste vertical.
 
-**Resultado esperado:** la imagen se escala (manteniendo proporción y crop) hasta llenar como máximo el alto de la columna de opciones. Si las opciones son cortas, la imagen se ve más pequeña; si son largas, la imagen crece hasta su tamaño natural respetando el ancho del 20%.
+## 6) DOCX (`src/lib/assessment-docx.ts`)
 
-## 2) DOCX (`src/lib/assessment-docx.ts`)
+En la construcción de `headerRuns` (línea 267):
+- Mantener `new TextRun({ text: ${qNumber}), bold: true, size: baseSize })` para el número.
+- Reemplazar el `TextRun` plano del prompt por `...richTextToRuns(q.prompt, { size: baseSize, bold: false })` que expande a múltiples `TextRun` con los formatos correspondientes.
+- Para `info-block` (línea 249) **no aplicar** rich text — sigue siendo texto plano (ya que el editor del bloque informativo es un Textarea simple). Si se quiere extender en el futuro, se reusa el mismo helper.
 
-Word/docx-js no tiene equivalente directo a `object-fit: contain` ni a "altura igual a otra celda". Las imágenes se insertan con dimensiones fijas en píxeles vía `transformation: { width, height }`.
+## 7) Migración
 
-**Estrategia: estimación de altura disponible basada en el conteo de opciones.**
+- Borradores existentes con `prompt` en texto plano siguen renderizándose: `sanitizeRichText` deja el texto como está (escapando `<`, `>`, `&`).
+- Si el texto antiguo contiene caracteres `<` literales, ahora se escapan correctamente — no se rompe nada.
 
-- Calcular una altura aproximada en cm para el bloque de opciones:
-  - Línea base de opción: `optionLineCm ≈ template.typography.bodySize * 0.0353 cm/pt * 1.35 (line-height) ≈ 0.48 cm` para 10pt.
-  - Altura total estimada: `optionsCount * optionLineCm + 0.2cm de holgura`.
-- En `buildImageRun`, aceptar un parámetro opcional `maxHeightCm`. Si se proporciona, calcular `maxHeightPx = maxHeightCm * 37.8` y, si la altura calculada (`heightPx`) excede ese máximo, escalar **ambas** dimensiones proporcionalmente para no deformar:
-  ```
-  if (heightPx > maxHeightPx) {
-    const scale = maxHeightPx / heightPx;
-    widthPx = Math.round(widthPx * scale);
-    heightPx = maxHeightPx;
-  }
-  ```
-- En la rama split de `questionParagraphs`, pasar `maxHeightCm = optionsCount * optionLineCm` al construir el `ImageRun` de la celda derecha/izquierda.
+## Archivos a crear/modificar
 
-**Limitación honesta:** la estimación es aproximada — opciones con texto largo (que envuelven a 2 líneas) ocupan más alto del estimado. Para acercar más la realidad, contar líneas estimadas por opción con `Math.ceil(optionText.length / charsPerLine)` donde `charsPerLine ≈ 60` para una columna del 80% en 10pt. Sumar esas líneas y multiplicar por `optionLineCm`. No es perfecto pero evita las desproporciones más notorias.
-
-## 3) Archivos a modificar
-
-- `src/lib/assessment-render.tsx`:
-  - Añadir reglas CSS al `ASSESSMENT_CSS` para celda de imagen con altura igualada.
-  - Crear helper `renderContainedImageHtml(img)` para uso exclusivo en split.
-  - En la rama `isSplit`, sustituir `renderImageHtml({ ...q.image, widthPct: 100 })` por `renderContainedImageHtml(q.image)`.
-- `src/lib/assessment-docx.ts`:
-  - Añadir parámetro opcional `maxHeightCm?: number` a `buildImageRun`.
-  - Aplicar escalado proporcional cuando excede.
-  - En la rama split, calcular `maxHeightCm` desde el número y largo de opciones, y pasarlo a `buildImageRun`.
-
-## 4) Consideraciones técnicas
-
-- **Crop preservado:** el aspect-ratio del área visible se respeta en ambos casos. En CSS por `aspect-ratio` del wrapper; en DOCX por escalado proporcional de `widthPx`/`heightPx`.
-- **Compatibilidad:** layout `block` (imagen arriba) no se ve afectado — sigue usando `renderImageHtml` normal.
-- **Borradores existentes:** sin cambios de schema; solo cambia el renderizado.
-- **Print/PDF:** las reglas `max-height: 100%` y la igualación de altura por tabla funcionan en motor de impresión de Chromium (usado por la exportación PDF).
+- **Crear** `src/lib/rich-text.ts` — helpers `sanitizeRichText` y `richTextToRuns`.
+- **Crear** `src/components/test-builder/RichTextInput.tsx` — editor `contenteditable` con toolbar B/I/U.
+- **Modificar** `src/components/test-builder/QuestionEditor.tsx` — usar `RichTextInput` para el campo enunciado.
+- **Modificar** `src/lib/assessment-render.tsx` — quitar bold global, separar `.pa-question-number`, inyectar HTML sanitizado.
+- **Modificar** `src/lib/assessment-docx.ts` — usar `richTextToRuns` para el prompt en `headerRuns`.
 
 ## Resultado esperado
 
-- En preview y PDF, la imagen del split nunca sobrepasa verticalmente al bloque de opciones — se reduce manteniendo proporción si es necesario.
-- En DOCX, la imagen se escala proporcionalmente para no exceder la altura estimada del bloque de opciones.
-- Si las opciones son más altas que la imagen natural a 20% de ancho, la imagen mantiene su tamaño natural (no se estira).
+- El enunciado se ve en peso normal; el número de pregunta y el puntaje se mantienen en negrita.
+- El docente puede seleccionar palabras dentro del enunciado y aplicar **negrita**, *cursiva* o subrayado con la toolbar.
+- El énfasis aparece idéntico en preview, PDF y DOCX.
+- Sin librerías externas; el editor pesa unos pocos KB.
 
