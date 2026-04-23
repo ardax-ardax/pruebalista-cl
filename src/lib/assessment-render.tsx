@@ -37,8 +37,8 @@ export const ASSESSMENT_CSS = `
     vertical-align: middle;
     font-size: 9pt;
   }
-  .pa-banner .pa-logo-cell { width: 22%; text-align: center; }
-  .pa-banner .pa-logo-cell img { max-width: 90%; max-height: 60pt; }
+  .pa-banner .pa-logo-cell { width: 22%; text-align: center; vertical-align: middle; }
+  .pa-banner .pa-logo-cell img { max-width: 90%; max-height: 60pt; display: inline-block; vertical-align: middle; }
   .pa-banner .pa-info-cell { width: 56%; }
   .pa-banner .pa-grade-cell { width: 22%; text-align: center; font-weight: bold; }
   .pa-banner .pa-info-cell .pa-inst-name {
