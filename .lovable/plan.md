@@ -1,33 +1,75 @@
 
 
-# Imagen centrada hasta 50% + centrado dentro de columna
+# Fix línea separadora inconsistente + recorte de imagen en Word
 
-## Cambios
+## Problema 1: Separador entre preguntas inconsistente
 
-### 1) Schema (`src/lib/assessment-schema.ts`)
-- Añadir constante `MAX_IMAGE_WIDTH_CENTER_PCT = 50` (sigue 20% para left/right).
-- Nueva función `clampWidthPctByAlign(n, alignment)` que devuelve el clamp adecuado: 50% si `center`, 20% en otro caso.
-- `clampWidthPct` se mantiene (compat).
+La regla actual:
+```css
+.pa-question { border-bottom: 0.4pt dashed #b8b8b8; }
+.pa-question:last-child { border-bottom: none; }
+```
 
-### 2) Editor (`src/components/test-builder/ImageCropEditor.tsx`)
-- El campo "Ancho (%)" usa `max` dinámico según `value.alignment`: 50 si centro, 20 si no.
-- Texto de ayuda muestra el límite efectivo (`Máx. 50%` / `Máx. 20%`).
-- Al cambiar alignment, si el `widthPct` actual excede el nuevo máximo, se re-clampa automáticamente con `clampWidthPctByAlign`.
-- Usar `clampWidthPctByAlign` en el `onChange` del input numérico.
+Causas de la inconsistencia visual:
+1. **`section-title` e `info-block` NO están dentro de `.pa-question`** — son divs hermanos. Cuando una pregunta va seguida de un `section-title` (que ya tiene su propio `border-bottom: 0.75pt solid`) o un `info-block` (con fondo gris y borde izquierdo), visualmente el separador dashed o se duplica o se pierde junto a esos elementos.
+2. **`0.4pt` es sub-pixel en muchos motores de impresión** → desaparece en algunas posiciones según el zoom/redondeo.
+3. **`page-break-inside: avoid`** puede dejar el `border-bottom` justo en el límite inferior de la página, donde el motor lo recorta.
 
-### 3) Renderer web/PDF (`src/lib/assessment-render.tsx`)
-- En `renderImageHtml`: el clamp `Math.max(10, Math.min(20, img.widthPct))` pasa a depender de la alineación → `Math.min(img.alignment === "center" ? 50 : 20, ...)`.
-- El layout split (`renderContainedImageHtml`) **centra** la imagen dentro de la celda: añadir `pa-align-center` por defecto al wrapper independientemente del `alignment` original. Es decir, dentro de la celda del split, ignoramos el alignment y siempre centramos.
-- CSS sin cambios estructurales (ya existe `.pa-align-center`).
+### Solución
+- Subir el grosor a `0.75pt` (igual que el banner) para garantizar render consistente en print.
+- Cambiar a línea continua `solid` color `#d0d0d0` (mejor que dashed para grosores delgados; dashed con 0.4pt se renderiza como puntos irregulares).
+- Reemplazar `:last-child` por una clase explícita `.pa-question.pa-no-sep` aplicada cuando la **siguiente pregunta** sea `section-title` o `info-block` (porque esos ya aportan su propia separación visual fuerte) o cuando sea la última pregunta del documento. Así nunca aparece doble separador.
 
-### 4) DOCX (`src/lib/assessment-docx.ts`)
-- En `buildImageRun`: el clamp `Math.min(20, ...)` pasa a `Math.min(img.alignment === "center" ? 50 : 20, ...)` cuando `allowFullWidth` es false.
-- En la rama `isSplit` (split layout), forzar `AlignmentType.CENTER` en el párrafo de la celda de imagen, ignorando `q.image.alignment`.
+Cambios en `src/lib/assessment-render.tsx`:
+- En el CSS: `.pa-question { ... border-bottom: 0.5pt solid #d0d0d0; }` y eliminar la regla `:last-child`.
+- En el bucle de render (`assessment.questions.map`): mirar `assessment.questions[i+1]`. Si no existe, o su `type` es `section-title` o `info-block`, agregar `pa-no-sep` a la clase del wrapper. Definir `.pa-no-sep { border-bottom: none; padding-bottom: 0; }`.
+
+## Problema 2: Imágenes deformadas / sin crop visible al descargar el .docx
+
+Causa raíz: `buildImageRun` calcula `widthPx`/`heightPx` con la proporción del **área visible** del crop, pero embebe la imagen **completa, sin recortar**. Word recibe la imagen original y la escala a esas dimensiones — resultado: la imagen entera se aplasta dentro del rectángulo del crop, deformándose y mostrando todo el contenido (no el recorte).
+
+`docx-js` genera `<a:srcRect/>` vacío y **no expone API pública** para configurar el recorte nativo de Word, así que no podemos delegar el crop al motor de Word vía la librería.
+
+### Solución
+Pre-recortar la imagen con un `<canvas>` antes de embedirla. Función nueva `cropImageDataUrl(img: QuestionImage): Promise<{ data: Uint8Array; type; naturalW; naturalH }>`:
+1. Cargar el `dataURL` en un `Image`.
+2. Crear un canvas con dimensiones `natW * visibleW/100` × `natH * visibleH/100`.
+3. `ctx.drawImage(img, -L%*natW, -T%*natH, natW, natH)` para volcar solo el área visible.
+4. Exportar a PNG (`canvas.toDataURL("image/png")`) y devolver bytes + nuevas dimensiones naturales (las del recorte).
+5. Cachear por `(src + crop)` para no re-procesar la misma imagen.
+
+Refactor en `src/lib/assessment-docx.ts`:
+- `buildImageRun` pasa a ser `async` (o se hace el pre-crop antes y se le pasa el resultado ya recortado).
+- Como `Document`/`ImageRun` se construyen sincrónicamente, la solución limpia es: **antes** de armar `children`, recorrer todas las imágenes del assessment (pregunta principal, opciones, statements V/F, logo) y pre-procesar las que tengan crop, almacenando el resultado en un `Map<imgRef, ProcessedImage>`. Luego `buildImageRun` lee del map en vez de `dataUrlToUint8Array(img.src)` directo.
+- Las imágenes sin crop (`L=R=T=B=0`) se mantienen tal cual, usando `naturalW/H` originales — sin pasar por canvas (más rápido).
+- El cálculo de `heightPx` queda simple: `widthPx * (naturalH / naturalW)` con las dimensiones del recorte ya aplicado.
+
+### Helper a crear
+`src/lib/image-crop.ts` con:
+- `cropImageDataUrl(img: QuestionImage): Promise<{ data: Uint8Array; type: "png"; width: number; height: number }>`
+- `processAssessmentImages(assessment): Promise<Map<string, ProcessedImage>>` — recorre y procesa todas las imágenes con crop, key = `img.src + JSON.stringify(crop)`.
+
+### Flujo nuevo en `exportAssessmentToDocx`
+```
+1. const imageCache = await processAssessmentImages(assessment)
+2. (resto del armado igual, pero buildImageRun consulta imageCache)
+```
+
+## Archivos a modificar/crear
+
+- **Modificar** `src/lib/assessment-render.tsx`:
+  - CSS: separador `0.5pt solid #d0d0d0`, nueva clase `.pa-no-sep`.
+  - Loop de render: detectar siguiente pregunta y aplicar `pa-no-sep` cuando corresponda.
+- **Crear** `src/lib/image-crop.ts`:
+  - `cropImageDataUrl` y `processAssessmentImages`.
+- **Modificar** `src/lib/assessment-docx.ts`:
+  - `exportAssessmentToDocx` arma `imageCache` con `await processAssessmentImages(assessment)` antes de construir el documento.
+  - `buildImageRun` recibe el `imageCache` (o el `ProcessedImage` ya resuelto) y usa esos bytes/dimensiones cuando hay crop. Para imágenes sin crop, comportamiento actual.
+  - El cálculo de `heightPx` se simplifica al usar las dimensiones reales post-crop.
 
 ## Resultado esperado
 
-- Cuando el usuario elige alineación "Centro", el slider/input de ancho permite hasta 50% del ancho útil.
-- Para "Izquierda" o "Derecha" el tope sigue siendo 20%.
-- En layout dos columnas (`side-right`/`side-left`), la imagen siempre se centra horizontalmente dentro de su columna, sin importar el `alignment` configurado.
-- Borradores existentes con widthPct ≤ 20 siguen funcionando; al cambiar a centro, el usuario puede subir hasta 50.
+- Todas las preguntas muestran una línea separadora consistente y visible. Cuando la siguiente pregunta es un título de sección o bloque informativo (que ya aporta separación visual fuerte), no se duplica.
+- En el .docx descargado, las imágenes aparecen efectivamente recortadas (no deformadas), idénticas al preview/PDF.
+- Sin cambios de schema; borradores existentes siguen funcionando.
 
