@@ -190,7 +190,9 @@ function renderImageHtml(img: QuestionImage): string {
   const { left: L, right: R, top: T, bottom: B } = img.crop;
   const visibleW = Math.max(1, 100 - L - R);
   const visibleH = Math.max(1, 100 - T - B);
-  const wrapperWidth = `${img.widthPct}%`;
+  // Clamp a 20% del ancho disponible (compat con borradores antiguos).
+  const safeWidthPct = Math.max(10, Math.min(20, img.widthPct));
+  const wrapperWidth = `${safeWidthPct}%`;
   const natW = img.naturalW ?? 4;
   const natH = img.naturalH ?? 3;
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
