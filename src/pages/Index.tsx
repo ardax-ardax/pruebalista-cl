@@ -33,8 +33,10 @@ import {
   loadInstitutionName,
   type FormatTemplate,
 } from "@/lib/templates";
-import { applyTemplate, type ChangeReport } from "@/lib/docx-processor";
+import { applyTemplate, type ChangeReport, type DocDiagnostics } from "@/lib/docx-processor";
 import { exportHtmlToPdf } from "@/lib/pdf-export";
+import { DocumentPreview } from "@/components/DocumentPreview";
+import { DiscrepancyAlert } from "@/components/DiscrepancyAlert";
 import {
   loadGrades,
   loadSubjects,
