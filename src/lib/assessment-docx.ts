@@ -204,10 +204,12 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   // excepto el último que solo lleva keepLines (para no pegarse a la siguiente pregunta).
   type Item =
     | { kind: "p"; opts: ConstructorParameters<typeof Paragraph>[0] }
+    | { kind: "pre"; paragraph: Paragraph }
     | { kind: "t"; table: Table };
   const items: Item[] = [];
   const pushP = (opts: ConstructorParameters<typeof Paragraph>[0]) => items.push({ kind: "p", opts });
   const pushT = (table: Table) => items.push({ kind: "t", table });
+  const pushPre = (paragraph: Paragraph) => items.push({ kind: "pre", paragraph });
 
   const baseSize = ptToHalfPt(ctx.template.typography.bodySize);
   const contentWidthCm =
@@ -338,7 +340,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       );
     } else {
       for (const p of buildOptionParagraphs(contentWidthCm, 360)) {
-        items.push({ kind: "p", opts: { __preBuilt: p } as unknown as ConstructorParameters<typeof Paragraph>[0] });
+        pushPre(p);
       }
     }
   } else if (q.type === "true-false") {
@@ -378,10 +380,11 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     }
   }
 
-  // Identificar el índice del último ítem tipo párrafo para no aplicarle keepNext.
+  // Identificar el índice del último ítem que aporta un párrafo (p o pre)
+  // para no aplicarle keepNext y evitar que se pegue a la siguiente pregunta.
   let lastPIdx = -1;
   for (let i = items.length - 1; i >= 0; i--) {
-    if (items[i].kind === "p") {
+    if (items[i].kind === "p" || items[i].kind === "pre") {
       lastPIdx = i;
       break;
     }
@@ -389,11 +392,10 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
   const out: Array<Paragraph | Table> = items.map((it, idx) => {
     if (it.kind === "t") return it.table;
-    const opts = it.opts as ConstructorParameters<typeof Paragraph>[0] & { __preBuilt?: Paragraph };
-    if (opts.__preBuilt) return opts.__preBuilt;
+    if (it.kind === "pre") return it.paragraph;
     const isLast = idx === lastPIdx;
     return new Paragraph({
-      ...opts,
+      ...it.opts,
       keepLines: true,
       keepNext: !isLast,
     });
