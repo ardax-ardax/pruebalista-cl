@@ -985,6 +985,18 @@ export async function applyTemplate(
         description: `Se redimensionaron ${imageRescales} imagen(es) que excedían el área imprimible.`,
       });
     }
+    if (blankParagraphsRemoved > 0) {
+      changes.push({
+        category: "Espaciado",
+        description: `Se colapsaron ${blankParagraphsRemoved} línea(s) en blanco entre preguntas para mejorar la densidad.`,
+      });
+    }
+    if (questionsRhythm > 0 || optionsRhythm > 0) {
+      changes.push({
+        category: "Espaciado",
+        description: `Ritmo visual aplicado: ${questionsRhythm} pregunta(s) separadas y ${optionsRhythm} opción(es) compactadas a su pregunta.`,
+      });
+    }
     void originalDocXml;
   }
 
