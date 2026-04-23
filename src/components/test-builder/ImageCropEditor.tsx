@@ -10,6 +10,7 @@ import type { ImageCrop, QuestionImage } from "@/lib/assessment-schema";
 interface Props {
   value: QuestionImage | null | undefined;
   onChange: (img: QuestionImage | null) => void;
+  compact?: boolean;
 }
 
 const fileToDataUrl = (f: File) =>
@@ -20,7 +21,44 @@ const fileToDataUrl = (f: File) =>
     r.readAsDataURL(f);
   });
 
-export const ImageCropEditor = ({ value, onChange }: Props) => {
+const measureImage = (src: string) =>
+  new Promise<{ w: number; h: number }>((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+    img.onerror = () => resolve({ w: 1, h: 1 });
+    img.src = src;
+  });
+
+// Miniatura sin deformación: usa aspect-ratio basado en dimensiones naturales y crop.
+const CroppedThumb = ({ img, maxW = 160 }: { img: QuestionImage; maxW?: number }) => {
+  const { left: L, right: R, top: T, bottom: B } = img.crop;
+  const visibleW = Math.max(1, 100 - L - R);
+  const visibleH = Math.max(1, 100 - T - B);
+  const natW = img.naturalW ?? 4;
+  const natH = img.naturalH ?? 3;
+  const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
+  return (
+    <div
+      className="border border-border rounded overflow-hidden bg-muted relative"
+      style={{ width: maxW, aspectRatio: `${ratio}`, maxHeight: 200 }}
+    >
+      <img
+        src={img.src}
+        alt={img.alt ?? ""}
+        style={{
+          display: "block",
+          width: `${(100 / visibleW) * 100}%`,
+          height: "auto",
+          marginLeft: `${-(L / visibleW) * 100}%`,
+          marginTop: `${-(T / visibleH) * 100}%`,
+          maxWidth: "none",
+        }}
+      />
+    </div>
+  );
+};
+
+export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [showCrop, setShowCrop] = useState(false);
   const [localCrop, setLocalCrop] = useState<ImageCrop>(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
@@ -31,18 +69,21 @@ export const ImageCropEditor = ({ value, onChange }: Props) => {
 
   const onPick = async (f: File) => {
     const src = await fileToDataUrl(f);
+    const { w, h } = await measureImage(src);
     onChange({
       src,
       alt: f.name,
-      widthPct: 60,
+      widthPct: compact ? 80 : 60,
       alignment: "center",
       crop: { left: 0, right: 0, top: 0, bottom: 0 },
+      naturalW: w,
+      naturalH: h,
     });
   };
 
   if (!value) {
     return (
-      <div className="rounded-md border border-dashed border-border p-3">
+      <div className={compact ? "" : "rounded-md border border-dashed border-border p-3"}>
         <input
           ref={inputRef}
           type="file"
@@ -55,37 +96,16 @@ export const ImageCropEditor = ({ value, onChange }: Props) => {
           }}
         />
         <Button variant="outline" size="sm" type="button" onClick={() => inputRef.current?.click()}>
-          <Upload className="h-4 w-4" /> Agregar imagen
+          <Upload className="h-4 w-4" /> {compact ? "Imagen" : "Agregar imagen"}
         </Button>
       </div>
     );
   }
 
-  const { left: L, right: R, top: T, bottom: B } = localCrop;
-  const visibleW = Math.max(1, 100 - L - R);
-  const visibleH = Math.max(1, 100 - T - B);
-
   return (
-    <div className="rounded-md border border-border p-3 space-y-3">
+    <div className={compact ? "space-y-2" : "rounded-md border border-border p-3 space-y-3"}>
       <div className="flex items-start gap-3">
-        <div
-          className="border border-border rounded overflow-hidden bg-muted relative"
-          style={{ width: 160, height: 120 }}
-        >
-          <img
-            src={value.src}
-            alt={value.alt ?? ""}
-            style={{
-              position: "absolute",
-              top: `-${(T / visibleH) * 120}px`,
-              left: `-${(L / visibleW) * 160}px`,
-              width: `${(160 / visibleW) * 100}px`,
-              height: `${(120 / visibleH) * 100}px`,
-              objectFit: "cover",
-              maxWidth: "none",
-            }}
-          />
-        </div>
+        <CroppedThumb img={value} maxW={compact ? 120 : 160} />
         <div className="flex-1 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div>

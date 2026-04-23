@@ -4,8 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Copy, Trash2 } from "lucide-react";
-import { newId, QUESTION_TYPE_LABEL, type Option, type Question } from "@/lib/assessment-schema";
+import { ChevronDown, ChevronUp, Copy, Plus, Trash2 } from "lucide-react";
+import {
+  newId,
+  newStatement,
+  QUESTION_TYPE_LABEL,
+  type Option,
+  type Question,
+  type TfStatement,
+} from "@/lib/assessment-schema";
 import { ImageCropEditor } from "./ImageCropEditor";
 
 interface Props {
@@ -41,7 +48,21 @@ export const QuestionEditor = ({
     update({ options: opts });
   };
 
+  const updateStatement = (id: string, patch: Partial<TfStatement>) => {
+    const sts = (question.statements ?? []).map((s) => (s.id === id ? { ...s, ...patch } : s));
+    update({ statements: sts });
+  };
+
+  const addStatement = () => {
+    update({ statements: [...(question.statements ?? []), newStatement("V")] });
+  };
+
+  const removeStatement = (id: string) => {
+    update({ statements: (question.statements ?? []).filter((s) => s.id !== id) });
+  };
+
   const isCounted = question.type !== "section-title" && question.type !== "info-block";
+  const isTf = question.type === "true-false";
 
   return (
     <Card className="shadow-card">
@@ -87,67 +108,133 @@ export const QuestionEditor = ({
               <div>
                 <Label className="text-xs">Enunciado</Label>
                 <Textarea
-                  placeholder="Escribe la pregunta…"
+                  placeholder={isTf ? "Instrucción del ítem (ej: Marca V o F según corresponda)" : "Escribe la pregunta…"}
                   value={question.prompt}
                   onChange={(e) => update({ prompt: e.target.value })}
                 />
               </div>
-              <div>
-                <Label className="text-xs">Puntaje</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.5"
-                  value={question.points ?? 0}
-                  onChange={(e) => update({ points: Number(e.target.value) || 0 })}
-                />
-              </div>
+              {!isTf && (
+                <div>
+                  <Label className="text-xs">Puntaje</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.5"
+                    value={question.points ?? 0}
+                    onChange={(e) => update({ points: Number(e.target.value) || 0 })}
+                  />
+                </div>
+              )}
             </div>
             <div>
-              <Label className="text-xs mb-1 block">Imagen (opcional)</Label>
+              <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
               <ImageCropEditor value={question.image} onChange={(img) => update({ image: img })} />
             </div>
           </>
         )}
 
-        {(question.type === "multiple-choice" || question.type === "true-false") && (
-          <div className="space-y-2">
+        {question.type === "multiple-choice" && (
+          <div className="space-y-3">
             <Label className="text-xs">Opciones</Label>
             {(question.options ?? []).map((o, i) => (
-              <div key={o.id} className="flex items-center gap-2">
-                <span className="w-6 text-center text-xs font-semibold text-muted-foreground">
-                  {String.fromCharCode(97 + i)})
-                </span>
-                <Input
-                  value={o.text}
-                  onChange={(e) => updateOption(o.id, { text: e.target.value })}
-                  placeholder="Texto de la opción"
-                  disabled={question.type === "true-false"}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={o.correct ? "default" : "outline"}
-                  onClick={() => {
-                    // exclusivo: solo una correcta
-                    const opts = (question.options ?? []).map((x) => ({ ...x, correct: x.id === o.id }));
-                    update({ options: opts });
-                  }}
-                >
-                  {o.correct ? "Correcta" : "Marcar"}
-                </Button>
-                {question.type === "multiple-choice" && (
+              <div key={o.id} className="rounded-md border border-border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 text-center text-xs font-semibold text-muted-foreground">
+                    {String.fromCharCode(97 + i)})
+                  </span>
+                  <Input
+                    value={o.text}
+                    onChange={(e) => updateOption(o.id, { text: e.target.value })}
+                    placeholder="Texto de la opción"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={o.correct ? "default" : "outline"}
+                    onClick={() => {
+                      const opts = (question.options ?? []).map((x) => ({ ...x, correct: x.id === o.id }));
+                      update({ options: opts });
+                    }}
+                  >
+                    {o.correct ? "Correcta" : "Marcar"}
+                  </Button>
                   <Button type="button" size="icon" variant="ghost" onClick={() => removeOption(o.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                )}
+                </div>
+                <div className="pl-8">
+                  <ImageCropEditor compact value={o.image} onChange={(img) => updateOption(o.id, { image: img })} />
+                </div>
               </div>
             ))}
-            {question.type === "multiple-choice" && (
-              <Button type="button" size="sm" variant="outline" onClick={addOption}>
-                Agregar opción
-              </Button>
-            )}
+            <Button type="button" size="sm" variant="outline" onClick={addOption}>
+              <Plus className="h-4 w-4" /> Agregar opción
+            </Button>
+          </div>
+        )}
+
+        {isTf && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Afirmaciones</Label>
+              <span className="text-xs text-muted-foreground">
+                Total: {(question.statements ?? []).reduce((s, st) => s + (st.points ?? 0), 0)} pts
+              </span>
+            </div>
+            {(question.statements ?? []).map((st, i) => (
+              <div key={st.id} className="rounded-md border border-border p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="w-8 pt-2 text-center text-xs font-semibold text-muted-foreground">
+                    {i + 1}.
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={st.answer === "V" ? "default" : "outline"}
+                      onClick={() => updateStatement(st.id, { answer: "V" })}
+                    >
+                      V
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={st.answer === "F" ? "default" : "outline"}
+                      onClick={() => updateStatement(st.id, { answer: "F" })}
+                    >
+                      F
+                    </Button>
+                  </div>
+                  <div className="flex-1">
+                    <Textarea
+                      value={st.text}
+                      onChange={(e) => updateStatement(st.id, { text: e.target.value })}
+                      placeholder="Escribe la afirmación…"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="w-20">
+                    <Label className="text-xs">Pts</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={st.points ?? 0}
+                      onChange={(e) => updateStatement(st.id, { points: Number(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <Button type="button" size="icon" variant="ghost" onClick={() => removeStatement(st.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="pl-10">
+                  <ImageCropEditor compact value={st.image} onChange={(img) => updateStatement(st.id, { image: img })} />
+                </div>
+              </div>
+            ))}
+            <Button type="button" size="sm" variant="outline" onClick={addStatement}>
+              <Plus className="h-4 w-4" /> Agregar afirmación
+            </Button>
           </div>
         )}
 
