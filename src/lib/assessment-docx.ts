@@ -358,14 +358,20 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         margins: { top: 0, bottom: 0, left: 0, right: 120 },
         children: buildOptionParagraphs(textColCm, 0),
       });
+      const splitImgAlign =
+        q.image.alignment === "left"
+          ? AlignmentType.LEFT
+          : q.image.alignment === "right"
+            ? AlignmentType.RIGHT
+            : AlignmentType.CENTER;
       const imgCell = new TableCell({
         borders,
         width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
         children: [
           new Paragraph({
-            // En layout split siempre centramos la imagen dentro de la columna.
-            alignment: AlignmentType.CENTER,
+            // Respeta la alineación elegida por el usuario dentro de la columna.
+            alignment: splitImgAlign,
             spacing: { before: 60, after: 60 },
             children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, imageCache, maxImgHeightCm, true)],
           }),
