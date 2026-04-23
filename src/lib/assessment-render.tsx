@@ -163,7 +163,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           })
           .join("")}</ol>`;
         if (isSplit && q.image) {
-          const imgCell = `<td class="pa-mc-image">${renderImageHtml({ ...q.image, widthPct: 100 })}</td>`;
+          const imgCell = `<td class="pa-mc-image">${renderContainedImageHtml(q.image)}</td>`;
           const txtCell = `<td class="pa-mc-text">${optionsList}</td>`;
           body = `<table class="pa-mc-split"><tr>${layout === "side-left" ? imgCell + txtCell : txtCell + imgCell}</tr></table>`;
         } else {
