@@ -12,17 +12,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+import schoolLogo from "@/assets/logo-colegio.jpg";
 
 import {
   loadTemplates,
   loadLogo,
+  saveLogo,
+  saveInstitutionName,
+  loadInstitutionName,
   type FormatTemplate,
 } from "@/lib/templates";
 import { applyTemplate, type ChangeReport } from "@/lib/docx-processor";
 import { exportHtmlToPdf } from "@/lib/pdf-export";
 
 type Stage = "idle" | "processing" | "ready";
+
+const SCHOOL_DEFAULT_NAME = "New Little College La Florida";
 
 const Index = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
@@ -38,9 +47,34 @@ const Index = () => {
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [changes, setChanges] = useState<ChangeReport[]>([]);
 
+  // Campos para componer el nombre de archivo según la convención del colegio:
+  // {prefijo}_N°{n}_{Asignatura}_{Curso}
+  const [docNumber, setDocNumber] = useState("1");
+  const [subject, setSubject] = useState("");
+  const [grade, setGrade] = useState("");
+
+  // Auto-cargar logo institucional la primera vez que se abre la app
   useEffect(() => {
     setTemplates(loadTemplates());
-    setLogo(loadLogo());
+    const existing = loadLogo();
+    if (existing) {
+      setLogo(existing);
+    } else {
+      // Convertir el logo importado a dataURL y guardarlo
+      fetch(schoolLogo)
+        .then((r) => r.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            saveLogo(dataUrl);
+            setLogo(dataUrl);
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch(() => {});
+    }
+    if (!loadInstitutionName()) saveInstitutionName(SCHOOL_DEFAULT_NAME);
   }, []);
 
   const selected = useMemo(
@@ -91,16 +125,28 @@ const Index = () => {
     if (originalFile && workingTemplate) await processDocument(originalFile, workingTemplate);
   };
 
+  // Construir el nombre estandarizado del archivo según la convención del colegio
+  const buildStandardFileName = (): string => {
+    const prefix = workingTemplate?.fileNaming?.prefix;
+    if (prefix && (subject.trim() || grade.trim() || docNumber.trim())) {
+      const n = docNumber.trim() || "1";
+      const subj = subject.trim().replace(/\s+/g, "");
+      const grd = grade.trim().replace(/\s+/g, "");
+      const parts = [prefix, `N°${n}`, subj || "Asignatura", grd || "Curso"];
+      return parts.join("_");
+    }
+    return (originalFile?.name.replace(/\.docx$/i, "") ?? "documento") + " - estandarizado";
+  };
+
   const handleDownloadDocx = () => {
-    if (!resultBlob || !originalFile) return;
-    const baseName = originalFile.name.replace(/\.docx$/i, "");
-    saveAs(resultBlob, `${baseName} - estandarizado.docx`);
+    if (!resultBlob) return;
+    saveAs(resultBlob, `${buildStandardFileName()}.docx`);
   };
 
   const handleDownloadPdf = () => {
-    if (!previewHtml || !originalFile) return;
+    if (!previewHtml) return;
     try {
-      exportHtmlToPdf(previewHtml, originalFile.name.replace(/\.docx$/i, ""));
+      exportHtmlToPdf(previewHtml, buildStandardFileName());
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -120,22 +166,29 @@ const Index = () => {
       {/* Hero */}
       <section className="mb-8 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Estandariza documentos Word del colegio
-            </h1>
-            <p className="text-muted-foreground mt-1.5">
-              Elige una plantilla, sube un .docx y descárgalo con el formato unificado.
-            </p>
+          <div className="flex items-center gap-4">
+            {logo && (
+              <img
+                src={logo}
+                alt="Logo del colegio"
+                className="h-14 w-14 object-contain rounded-md border border-border bg-white p-1"
+              />
+            )}
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                Estandarizador de documentos
+              </h1>
+              <p className="text-muted-foreground mt-1.5">
+                Elige una plantilla, sube un .docx y descárgalo con el formato unificado del colegio.
+              </p>
+            </div>
           </div>
-          {!logo && (
-            <Link to="/configuracion">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Configurar logo del colegio
-              </Button>
-            </Link>
-          )}
+          <Link to="/configuracion">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Configuración
+            </Button>
+          </Link>
         </div>
       </section>
 
@@ -145,7 +198,7 @@ const Index = () => {
           <Badge className="bg-primary text-primary-foreground">1</Badge>
           <h2 className="text-lg font-semibold text-foreground">Elige una plantilla</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((t) => (
             <TemplateCard
               key={t.id}
@@ -179,11 +232,63 @@ const Index = () => {
         </section>
       )}
 
-      {/* Step 3: Upload + result */}
-      {workingTemplate && (
+      {/* Step 3: Datos para nombre de archivo (convención del colegio) */}
+      {workingTemplate?.fileNaming?.enabled && (
         <section className="mb-8 animate-fade-in">
           <div className="flex items-center gap-2 mb-4">
             <Badge className="bg-primary text-primary-foreground">3</Badge>
+            <h2 className="text-lg font-semibold text-foreground">Nombre del archivo</h2>
+          </div>
+          <Card className="shadow-card">
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="docnum" className="text-xs">Número</Label>
+                  <Input
+                    id="docnum"
+                    value={docNumber}
+                    onChange={(e) => setDocNumber(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="1"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="subject" className="text-xs">Asignatura</Label>
+                  <Input
+                    id="subject"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Historia"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="grade" className="text-xs">Curso</Label>
+                  <Input
+                    id="grade"
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    placeholder="7Básico"
+                  />
+                </div>
+              </div>
+              <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Nombre final:</span>{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {buildStandardFileName()}.docx
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">{workingTemplate.fileNaming.hint}</p>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Step 4: Upload + result */}
+      {workingTemplate && (
+        <section className="mb-8 animate-fade-in">
+          <div className="flex items-center gap-2 mb-4">
+            <Badge className="bg-primary text-primary-foreground">
+              {workingTemplate.fileNaming?.enabled ? 4 : 3}
+            </Badge>
             <h2 className="text-lg font-semibold text-foreground">Sube el documento</h2>
           </div>
 
@@ -224,7 +329,10 @@ const Index = () => {
                   <div className="rounded-lg border border-border bg-white shadow-inner overflow-hidden">
                     <div
                       className="docx-preview p-8 max-h-[640px] overflow-y-auto prose prose-sm max-w-none"
-                      style={{ fontFamily: workingTemplate.typography.bodyFont }}
+                      style={{
+                        fontFamily: workingTemplate.typography.bodyFont,
+                        textAlign: workingTemplate.body.alignment,
+                      }}
                       dangerouslySetInnerHTML={{ __html: previewHtml }}
                     />
                   </div>

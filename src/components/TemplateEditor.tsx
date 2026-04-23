@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FONT_OPTIONS, type FormatTemplate, type Alignment } from "@/lib/templates";
+import { FONT_OPTIONS, SCHOOL_PAGE_SIZE, A4_PAGE_SIZE, LETTER_PAGE_SIZE, type FormatTemplate, type Alignment } from "@/lib/templates";
 
 interface Props {
   template: FormatTemplate;
@@ -30,8 +30,9 @@ export const TemplateEditor = ({ template, onChange }: Props) => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="typography">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="typography">Tipografía</TabsTrigger>
+            <TabsTrigger value="page">Hoja</TabsTrigger>
             <TabsTrigger value="spacing">Espaciado</TabsTrigger>
             <TabsTrigger value="header">Encabezado</TabsTrigger>
             <TabsTrigger value="footer">Pie</TabsTrigger>
@@ -129,6 +130,72 @@ export const TemplateEditor = ({ template, onChange }: Props) => {
                 </Field>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="page" className="space-y-4 mt-4">
+            <Field label="Tamaño de hoja predefinido">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Oficio (colegio)", size: SCHOOL_PAGE_SIZE },
+                  { label: "Carta", size: LETTER_PAGE_SIZE },
+                  { label: "A4", size: A4_PAGE_SIZE },
+                ].map((p) => {
+                  const active =
+                    Math.abs(template.pageSize.widthCm - p.size.widthCm) < 0.01 &&
+                    Math.abs(template.pageSize.heightCm - p.size.heightCm) < 0.01;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => update("pageSize", { ...p.size })}
+                      className={`rounded-md border px-3 py-2 text-sm transition-smooth ${
+                        active
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border hover:border-primary/40 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="font-medium">{p.label}</div>
+                      <div className="text-[10px] tabular-nums">
+                        {p.size.widthCm} × {p.size.heightCm} cm
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <SliderField
+                label="Ancho"
+                unit="cm"
+                value={template.pageSize.widthCm}
+                min={10} max={30} step={0.01}
+                onChange={(v) =>
+                  update("pageSize", { ...template.pageSize, widthCm: parseFloat(v.toFixed(2)) })
+                }
+              />
+              <SliderField
+                label="Alto"
+                unit="cm"
+                value={template.pageSize.heightCm}
+                min={10} max={45} step={0.01}
+                onChange={(v) =>
+                  update("pageSize", { ...template.pageSize, heightCm: parseFloat(v.toFixed(2)) })
+                }
+              />
+            </div>
+            <Field label="Alineación del cuerpo">
+              <Select
+                value={template.body.alignment}
+                onValueChange={(v) => update("body", { alignment: v as Alignment })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALIGNMENTS.map((a) => (
+                    <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           </TabsContent>
 
           <TabsContent value="spacing" className="space-y-4 mt-4">

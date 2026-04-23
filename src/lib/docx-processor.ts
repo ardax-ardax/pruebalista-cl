@@ -134,12 +134,20 @@ export async function applyTemplate(
     zip.file("word/document.xml", serializeXml(docDoc));
 
     changes.push({
-      category: "Márgenes",
-      description: `Márgenes: sup ${template.spacing.marginTop}cm, inf ${template.spacing.marginBottom}cm, izq ${template.spacing.marginLeft}cm, der ${template.spacing.marginRight}cm`,
+      category: "Tamaño de hoja",
+      description: `Hoja ${template.pageSize.widthCm} × ${template.pageSize.heightCm} cm`,
     });
     changes.push({
-      category: "Espaciado",
-      description: `Interlineado ${template.spacing.lineSpacing.toFixed(2)}, espacio después de párrafo ${template.spacing.paragraphSpacingAfter}pt`,
+      category: "Márgenes",
+      description: `Sup ${template.spacing.marginTop} cm, inf ${template.spacing.marginBottom} cm, izq ${template.spacing.marginLeft} cm, der ${template.spacing.marginRight} cm`,
+    });
+    changes.push({
+      category: "Alineación",
+      description: `Cuerpo ${
+        template.body.alignment === "justify" ? "justificado" :
+        template.body.alignment === "center" ? "centrado" :
+        template.body.alignment === "right" ? "a la derecha" : "a la izquierda"
+      }, interlineado ${template.spacing.lineSpacing.toFixed(2)}`,
     });
   }
 
@@ -305,6 +313,15 @@ function applyMargins(docDoc: Document, t: FormatTemplate) {
     pgMar.setAttributeNS(W_NS, "w:header", "720");
     pgMar.setAttributeNS(W_NS, "w:footer", "720");
     pgMar.setAttributeNS(W_NS, "w:gutter", "0");
+
+    // Tamaño de hoja personalizado (Oficio 21.59 x 33.02 cm en el caso del colegio)
+    let pgSz = sectPr.getElementsByTagNameNS(W_NS, "pgSz")[0];
+    if (!pgSz) {
+      pgSz = docDoc.createElementNS(W_NS, "w:pgSz");
+      sectPr.insertBefore(pgSz, pgMar);
+    }
+    pgSz.setAttributeNS(W_NS, "w:w", cmToTwips(t.pageSize.widthCm).toString());
+    pgSz.setAttributeNS(W_NS, "w:h", cmToTwips(t.pageSize.heightCm).toString());
   }
 }
 
@@ -331,8 +348,11 @@ function applyParagraphFormatting(docDoc: Document, t: FormatTemplate) {
     const styleVal = pStyle?.getAttributeNS(W_NS, "val") ?? "";
     const isHeading = /^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal);
 
-    // Reformatear runs del cuerpo (no headings) para fuente y tamaño consistentes
     if (!isHeading) {
+      // Alineación del cuerpo (justificada para el colegio)
+      setAlignment(docDoc, pPr, t.body.alignment);
+
+      // Reformatear runs del cuerpo para fuente, tamaño y color consistentes
       const runs = Array.from(p.children).filter((c) => c.localName === "r") as Element[];
       for (const r of runs) {
         let rPr = Array.from(r.children).find((c) => c.localName === "rPr") as Element | undefined;
