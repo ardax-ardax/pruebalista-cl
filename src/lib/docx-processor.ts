@@ -151,6 +151,11 @@ export async function applyTemplate(
   if (documentFile) {
     let docContent = await documentFile.async("string");
     originalStats = computeDocStats(docContent);
+    const originalDocXml = docContent;
+
+    // Contar inconsistencias de numeración ANTES de cualquier normalización
+    const beforeCounts = countNumberingInconsistencies(docContent);
+
     const marginsRes = applyMarginsString(docContent, template);
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
@@ -164,8 +169,85 @@ export async function applyTemplate(
     // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
     // para que Word no use la fuente original almacenada en cada <w:rPr>.
     docContent = forceDirectFontFormatting(docContent, template);
+
+    // Normalización de numeración (texto plano + numbering.xml)
+    const numberingFile = zip.file("word/numbering.xml");
+    let numberingXml = numberingFile ? await numberingFile.async("string") : null;
+    const normRes = normalizeNumbering(docContent, numberingXml);
+    docContent = normRes.documentXml;
+    numberingXml = normRes.numberingXml;
+    if (numberingFile && numberingXml) {
+      zip.file("word/numbering.xml", numberingXml);
+    }
+
     processedStats = computeDocStats(docContent);
     zip.file("word/document.xml", docContent);
+
+    // Auto-QA: comparar antes/después y generar warnings + fixes legibles
+    const afterCounts = countNumberingInconsistencies(docContent);
+    const autoFixesApplied: string[] = [];
+    const warnings: string[] = [];
+
+    const optionsFixed = Math.max(0, beforeCounts.options - afterCounts.options);
+    const questionsFixed = Math.max(0, beforeCounts.questions - afterCounts.questions);
+    if (normRes.optionsTextFixed > 0 || optionsFixed > 0 || normRes.optionsListFixed > 0) {
+      const total = Math.max(optionsFixed, normRes.optionsTextFixed + normRes.optionsListFixed);
+      autoFixesApplied.push(
+        `Se uniformó la numeración de ${total} opción(es) de respuesta a formato \`a)\`, \`b)\`, \`c)\`.`,
+      );
+      changes.push({
+        category: "Numeración",
+        description: `Opciones de respuesta uniformadas a formato \`a)\` (${total} ítem(s)).`,
+      });
+    }
+    if (normRes.questionsTextFixed > 0 || questionsFixed > 0 || normRes.questionsListFixed > 0) {
+      const total = Math.max(questionsFixed, normRes.questionsTextFixed + normRes.questionsListFixed);
+      autoFixesApplied.push(
+        `Se uniformó la numeración de ${total} pregunta(s) a formato \`1)\`, \`2)\`, \`3)\`.`,
+      );
+      changes.push({
+        category: "Numeración",
+        description: `Preguntas uniformadas a formato \`1)\` (${total} ítem(s)).`,
+      });
+    }
+
+    // Warnings estructurales
+    const addedPageBreaks = Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks);
+    // El banner añade un párrafo, no un page break duro; cualquier salto extra es notable
+    if (addedPageBreaks > 0) {
+      warnings.push(
+        `Se añadieron ${addedPageBreaks} salto(s) de página al procesar (probablemente por el banner institucional).`,
+      );
+    }
+    const extraPages = processedStats.pages - originalStats.pages;
+    if (extraPages > 1) {
+      warnings.push(
+        `El documento creció en ${extraPages} página(s) respecto al original. Revisa si una imagen o tabla quedó al inicio de una página nueva.`,
+      );
+    }
+    if (processedStats.images < originalStats.images) {
+      warnings.push(
+        `Faltan ${originalStats.images - processedStats.images} imagen(es) respecto al original.`,
+      );
+    }
+    if (processedStats.tables < originalStats.tables) {
+      warnings.push(
+        `Se eliminó/aplanó ${originalStats.tables - processedStats.tables} tabla(s) respecto al original.`,
+      );
+    }
+    if (afterCounts.options > 0) {
+      warnings.push(
+        `Quedan ${afterCounts.options} opción(es) con formato no canónico que no se pudieron normalizar automáticamente.`,
+      );
+    }
+
+    // Guardar diagnósticos extendidos para uso posterior
+    extendedDiagnostics = {
+      optionFormatInconsistencies: { before: beforeCounts.options, after: afterCounts.options },
+      questionFormatInconsistencies: { before: beforeCounts.questions, after: afterCounts.questions },
+      autoFixesApplied,
+      warnings,
+    };
 
     changes.push({
       category: "Tamaño de hoja",
@@ -195,6 +277,7 @@ export async function applyTemplate(
         description: `Se redimensionaron ${imageRescales} imagen(es) que excedían el área imprimible.`,
       });
     }
+    void originalDocXml;
   }
 
   // 3. Encabezado y pie de página
