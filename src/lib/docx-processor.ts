@@ -123,7 +123,7 @@ export async function applyTemplate(
 
     changes.push({
       category: "Tamaño de hoja",
-      description: `Hoja ${template.pageSize.widthCm} × ${template.pageSize.heightCm} cm`,
+      description: `Hoja ${template.pageSize.widthCm} × ${template.pageSize.heightCm} cm${sectionCreated ? " (sección creada)" : ""}`,
     });
     changes.push({
       category: "Márgenes",
@@ -137,6 +137,18 @@ export async function applyTemplate(
         template.body.alignment === "right" ? "a la derecha" : "a la izquierda"
       }, interlineado ${template.spacing.lineSpacing.toFixed(2)}`,
     });
+    if (tableOptimizations > 0) {
+      changes.push({
+        category: "Tablas",
+        description: `Se optimizaron ${tableOptimizations} ajuste(s) en tablas para permitir división entre páginas y aprovechar mejor el espacio.`,
+      });
+    }
+    if (imageRescales > 0) {
+      changes.push({
+        category: "Imágenes",
+        description: `Se redimensionaron ${imageRescales} imagen(es) que excedían el área imprimible.`,
+      });
+    }
   }
 
   // 3. Encabezado y pie de página
