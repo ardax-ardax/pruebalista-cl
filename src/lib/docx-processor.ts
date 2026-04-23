@@ -969,7 +969,7 @@ export async function applyTemplate(
   const isBanner = headerStyle === "banner-evaluacion" || headerStyle === "banner-guia";
 
   if (isBanner) {
-    await insertInstitutionBanner(
+    const bannerRes = await insertInstitutionBanner(
       zip,
       template,
       bannerData?.teacherLabel ?? "",
@@ -984,6 +984,24 @@ export async function applyTemplate(
         template.header.showLogo && logoDataUrl ? " con logo del colegio" : ""
       }${headerStyle === "banner-evaluacion" ? " y recuadro de Calificación" : ""}.`,
     });
+    if (bannerRes.replaced) {
+      changes.push({
+        category: "Encabezado",
+        description: `Se reemplazó la tabla de portada existente del documento por el banner institucional.`,
+      });
+    }
+    if (bannerRes.coverRemoved > 0) {
+      changes.push({
+        category: "Encabezado",
+        description: `Se eliminaron ${bannerRes.coverRemoved} párrafo(s) de portada del original (título de evaluación) para evitar duplicación.`,
+      });
+    }
+    if (bannerRes.titlesRemoved > 0) {
+      changes.push({
+        category: "Encabezado",
+        description: `Se eliminaron ${bannerRes.titlesRemoved} título(s) duplicado(s) inmediatamente después del banner.`,
+      });
+    }
   } else if (template.header.enabled) {
     await applyHeader(zip, template, logoDataUrl);
     changes.push({
