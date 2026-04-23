@@ -199,41 +199,55 @@ function studentRow(ctx: BuildContext): Table {
 }
 
 function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext): Array<Paragraph | Table> {
-  const out: Array<Paragraph | Table> = [];
+  // Acumulamos descriptores y al final aplicamos keepLines/keepNext.
+  // Para mantener cada pregunta como bloque indivisible: todos los párrafos llevan keepLines+keepNext,
+  // excepto el último que solo lleva keepLines (para no pegarse a la siguiente pregunta).
+  type POpts = Record<string, unknown>;
+  type Item =
+    | { kind: "p"; opts: POpts }
+    | { kind: "pre"; paragraph: Paragraph }
+    | { kind: "t"; table: Table };
+  const items: Item[] = [];
+  const pushP = (opts: POpts) => items.push({ kind: "p", opts });
+  const pushT = (table: Table) => items.push({ kind: "t", table });
+  const pushPre = (paragraph: Paragraph) => items.push({ kind: "pre", paragraph });
+
   const baseSize = ptToHalfPt(ctx.template.typography.bodySize);
   const contentWidthCm =
     ctx.template.pageSize.widthCm - ctx.template.spacing.marginLeft - ctx.template.spacing.marginRight;
 
   if (q.type === "section-title") {
-    out.push(
+    // section-title se mantiene junto con la pregunta siguiente.
+    return [
       new Paragraph({
         spacing: { before: 240, after: 120 },
         border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 1 } },
+        keepLines: true,
+        keepNext: true,
         children: [new TextRun({ text: (q.prompt || "Sección").toUpperCase(), bold: true, size: ptToHalfPt(11) })],
       }),
-    );
-    return out;
+    ];
   }
   if (q.type === "info-block") {
-    out.push(
+    // info-block se mantiene junto con la pregunta siguiente.
+    return [
       new Paragraph({
         spacing: { before: 120, after: 120 },
         shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" },
         border: { left: { style: BorderStyle.SINGLE, size: 12, color: "000000", space: 4 } },
+        keepLines: true,
+        keepNext: true,
         children: [new TextRun({ text: q.prompt, italics: true, size: baseSize })],
       }),
-    );
-    return out;
+    ];
   }
 
   // Título opcional del enunciado
   if (q.title) {
-    out.push(
-      new Paragraph({
-        spacing: { before: 120, after: 0 },
-        children: [new TextRun({ text: q.title, bold: true, size: baseSize })],
-      }),
-    );
+    pushP({
+      spacing: { before: 120, after: 0 },
+      children: [new TextRun({ text: q.title, bold: true, size: baseSize })],
+    });
   }
 
   // Cabecera de pregunta
@@ -248,19 +262,27 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   if (totalPts) {
     headerRuns.push(new TextRun({ text: `   (${totalPts} pt${totalPts === 1 ? "" : "s"})`, italics: true, size: baseSize }));
   }
-  out.push(
-    new Paragraph({
-      alignment: AlignmentType.JUSTIFIED,
-      spacing: { before: q.title ? 0 : 120, after: 60 },
-      children: headerRuns,
-    }),
-  );
+  pushP({
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { before: q.title ? 0 : 120, after: 60 },
+    children: headerRuns,
+  });
 
   const layout = q.imageLayout ?? "block";
   const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
 
   if (q.image && !isSplit) {
-    out.push(imageParagraph(q.image, contentWidthCm));
+    const align =
+      q.image.alignment === "left"
+        ? AlignmentType.LEFT
+        : q.image.alignment === "right"
+          ? AlignmentType.RIGHT
+          : AlignmentType.CENTER;
+    pushP({
+      alignment: align,
+      spacing: { before: 60, after: 60 },
+      children: [buildImageRun(q.image, contentWidthCm)],
+    });
   }
 
   if (q.type === "multiple-choice") {
@@ -272,6 +294,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
           new Paragraph({
             indent: indent ? { left: indent } : undefined,
             spacing: { before: 0, after: 40 },
+            keepLines: true,
+            keepNext: true,
             children: [
               new TextRun({ text: `${letters[i] ?? i + 1}) `, bold: true, size: baseSize }),
               new TextRun({ text: o.text, size: baseSize }),
@@ -303,49 +327,80 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
         children: [imageParagraph({ ...q.image, widthPct: 100 }, imgColCm)],
       });
-      out.push(
+      pushT(
         new Table({
           width: { size: contentWidthTwip, type: WidthType.DXA },
           columnWidths: [Math.round(contentWidthTwip * 0.8), Math.round(contentWidthTwip * 0.2)],
           rows: [
             new TableRow({
+              cantSplit: true,
               children: layout === "side-left" ? [imgCell, textCell] : [textCell, imgCell],
             }),
           ],
         }),
       );
     } else {
-      for (const p of buildOptionParagraphs(contentWidthCm, 360)) out.push(p);
+      for (const p of buildOptionParagraphs(contentWidthCm, 360)) {
+        pushPre(p);
+      }
     }
   } else if (q.type === "true-false") {
     (q.statements ?? []).forEach((st, i) => {
-      out.push(
-        new Paragraph({
-          indent: { left: 360 },
-          spacing: { before: 60, after: 40 },
-          children: [
-            new TextRun({ text: "( V ) ( F )   ", bold: true, size: baseSize }),
-            new TextRun({ text: `${qNumber}.${i + 1} `, bold: true, size: baseSize }),
-            new TextRun({ text: st.text, size: baseSize }),
-          ],
-        }),
-      );
+      pushP({
+        indent: { left: 360 },
+        spacing: { before: 60, after: 40 },
+        children: [
+          new TextRun({ text: "( V ) ( F )   ", bold: true, size: baseSize }),
+          new TextRun({ text: `${qNumber}.${i + 1} `, bold: true, size: baseSize }),
+          new TextRun({ text: st.text, size: baseSize }),
+        ],
+      });
       if (st.image) {
-        out.push(imageParagraph(st.image, contentWidthCm, 720));
+        const align =
+          st.image.alignment === "left"
+            ? AlignmentType.LEFT
+            : st.image.alignment === "right"
+              ? AlignmentType.RIGHT
+              : AlignmentType.CENTER;
+        pushP({
+          alignment: align,
+          indent: { left: 720 },
+          spacing: { before: 60, after: 60 },
+          children: [buildImageRun(st.image, contentWidthCm)],
+        });
       }
     });
   } else if (q.type === "short-answer") {
     const lines = Math.max(1, q.answerLines ?? 3);
     for (let i = 0; i < lines; i++) {
-      out.push(
-        new Paragraph({
-          spacing: { before: 0, after: 80 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 1 } },
-          children: [new TextRun({ text: "", size: baseSize })],
-        }),
-      );
+      pushP({
+        spacing: { before: 0, after: 80 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 1 } },
+        children: [new TextRun({ text: "", size: baseSize })],
+      });
     }
   }
+
+  // Identificar el índice del último ítem que aporta un párrafo (p o pre)
+  // para no aplicarle keepNext y evitar que se pegue a la siguiente pregunta.
+  let lastPIdx = -1;
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].kind === "p" || items[i].kind === "pre") {
+      lastPIdx = i;
+      break;
+    }
+  }
+
+  const out: Array<Paragraph | Table> = items.map((it, idx) => {
+    if (it.kind === "t") return it.table;
+    if (it.kind === "pre") return it.paragraph;
+    const isLast = idx === lastPIdx;
+    return new Paragraph({
+      ...it.opts,
+      keepLines: true,
+      keepNext: !isLast,
+    } as ConstructorParameters<typeof Paragraph>[0]);
+  });
 
   return out;
 }
