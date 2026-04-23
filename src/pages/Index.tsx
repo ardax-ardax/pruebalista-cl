@@ -245,7 +245,17 @@ const Index = () => {
       setChanges(result.changes);
       setProgress(100);
       setStage("ready");
-      toast.success("Documento estandarizado correctamente");
+
+      const validationWarnings = (result.diagnostics.warnings ?? []).filter((w) =>
+        w.startsWith("Validación final"),
+      );
+      if (validationWarnings.length > 0) {
+        toast.warning(
+          `Documento procesado con ${validationWarnings.length} aviso(s) de validación. Si Word lo rechaza, revisa la consola para el detalle técnico.`,
+        );
+      } else {
+        toast.success("Documento estandarizado correctamente");
+      }
     } catch (e) {
       console.error(e);
       showProcessingError(e);
