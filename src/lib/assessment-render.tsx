@@ -62,8 +62,8 @@ export const ASSESSMENT_CSS = `
   .pa-title { font-size: 12pt; font-weight: bold; text-align: center; margin: 6pt 0 4pt; text-transform: uppercase; }
   .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
   .pa-instructions strong { font-weight: bold; }
-  .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.4pt dashed #b8b8b8; page-break-inside: avoid; break-inside: avoid; }
-  .pa-question:last-child { border-bottom: none; }
+  .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.5pt solid #d0d0d0; page-break-inside: avoid; break-inside: avoid; }
+  .pa-question.pa-no-sep { border-bottom: none; padding-bottom: 0; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-header { font-weight: normal; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-header b, .pa-question-header strong { font-weight: bold; }
@@ -139,7 +139,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
 
   let qNum = 0;
   const questionsHtml = assessment.questions
-    .map((q) => {
+    .map((q, i) => {
       if (q.type === "section-title") {
         return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>`;
       }
@@ -147,6 +147,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         return `<div class="pa-info-block">${escape(q.prompt)}</div>`;
       }
       qNum += 1;
+      const next = assessment.questions[i + 1];
+      const noSep = !next || next.type === "section-title" || next.type === "info-block";
       const totalPts =
         q.type === "true-false"
           ? (q.statements ?? []).reduce((s, st) => s + (st.points ?? 0), 0)
@@ -188,7 +190,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           .map(() => `<div class="pa-answer-line"></div>`)
           .join("");
       }
-      return `<div class="pa-question">${header}${headerImg}${body}</div>`;
+      return `<div class="pa-question${noSep ? " pa-no-sep" : ""}">${header}${headerImg}${body}</div>`;
     })
     .join("");
 

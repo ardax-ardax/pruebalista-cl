@@ -22,6 +22,7 @@ import { saveAs } from "file-saver";
 import type { Assessment, Question, QuestionImage } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
+import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
 
 interface BuildContext {
   assessment: Assessment;
@@ -48,10 +49,21 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
   return { data: u8, type };
 }
 
-// ImageRun manteniendo proporción real: usa naturalW/H y porcentajes de crop
-// para calcular height a partir de width preservando aspect ratio.
-function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?: number, allowFullWidth?: boolean): ImageRun {
-  const { data, type } = dataUrlToUint8Array(img.src);
+// ImageRun manteniendo proporción real. Si la imagen tiene crop, recibe los
+// bytes ya recortados desde imageCache (procesados con <canvas>); en caso
+// contrario usa el dataURL original.
+function buildImageRun(
+  img: QuestionImage,
+  contentWidthCm: number,
+  imageCache: Map<string, ProcessedImage>,
+  maxHeightCm?: number,
+  allowFullWidth?: boolean,
+): ImageRun {
+  const cropped = hasCrop(img) ? imageCache.get(imageCacheKey(img)) : undefined;
+  const { data, type } = cropped
+    ? { data: cropped.data, type: "png" as const }
+    : dataUrlToUint8Array(img.src);
+
   // Clamp: full width si se pide; en otro caso centro=50%, left/right=20%.
   const maxByAlign = img.alignment === "center" ? 50 : 20;
   const safeWidthPct = allowFullWidth
@@ -60,13 +72,10 @@ function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?:
   const targetWidthCm = contentWidthCm * (safeWidthPct / 100);
   let widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
 
-  const { left: L, right: R, top: T, bottom: B } = img.crop;
-  const visibleW = Math.max(1, 100 - L - R) / 100;
-  const visibleH = Math.max(1, 100 - T - B) / 100;
-  const natW = img.naturalW ?? 4;
-  const natH = img.naturalH ?? 3;
-  // Aspect ratio del área visible post-crop
-  const ratio = (natH * visibleH) / Math.max(1, natW * visibleW);
+  // Dimensiones efectivas: del recorte (si existe) o las naturales originales.
+  const effW = cropped ? cropped.width : (img.naturalW ?? 4);
+  const effH = cropped ? cropped.height : (img.naturalH ?? 3);
+  const ratio = effH / Math.max(1, effW);
   let heightPx = Math.max(1, Math.round(widthPx * ratio));
 
   if (maxHeightCm && maxHeightCm > 0) {
@@ -86,7 +95,12 @@ function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?:
   });
 }
 
-function imageParagraph(img: QuestionImage, contentWidthCm: number, indentLeft = 0): Paragraph {
+function imageParagraph(
+  img: QuestionImage,
+  contentWidthCm: number,
+  imageCache: Map<string, ProcessedImage>,
+  indentLeft = 0,
+): Paragraph {
   const align =
     img.alignment === "left"
       ? AlignmentType.LEFT
@@ -97,7 +111,7 @@ function imageParagraph(img: QuestionImage, contentWidthCm: number, indentLeft =
     alignment: align,
     indent: indentLeft ? { left: indentLeft } : undefined,
     spacing: { before: 60, after: 60 },
-    children: [buildImageRun(img, contentWidthCm)],
+    children: [buildImageRun(img, contentWidthCm, imageCache)],
   });
 }
 
@@ -211,7 +225,7 @@ function studentRow(ctx: BuildContext): Table {
   });
 }
 
-function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext): Array<Paragraph | Table> {
+function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext, imageCache: Map<string, ProcessedImage>): Array<Paragraph | Table> {
   // Acumulamos descriptores y al final aplicamos keepLines/keepNext.
   // Para mantener cada pregunta como bloque indivisible: todos los párrafos llevan keepLines+keepNext,
   // excepto el último que solo lleva keepLines (para no pegarse a la siguiente pregunta).
@@ -294,7 +308,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     pushP({
       alignment: align,
       spacing: { before: 60, after: 60 },
-      children: [buildImageRun(q.image, contentWidthCm)],
+      children: [buildImageRun(q.image, contentWidthCm, imageCache)],
     });
   }
 
@@ -316,7 +330,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
           }),
         );
         if (o.image) {
-          ps.push(imageParagraph(o.image, colWidthCm, indent));
+          ps.push(imageParagraph(o.image, colWidthCm, imageCache, indent));
         }
       });
       return ps;
@@ -353,7 +367,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
             // En layout split siempre centramos la imagen dentro de la columna.
             alignment: AlignmentType.CENTER,
             spacing: { before: 60, after: 60 },
-            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm, true)],
+            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, imageCache, maxImgHeightCm, true)],
           }),
         ],
       });
@@ -396,7 +410,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
           alignment: align,
           indent: { left: 720 },
           spacing: { before: 60, after: 60 },
-          children: [buildImageRun(st.image, contentWidthCm)],
+          children: [buildImageRun(st.image, contentWidthCm, imageCache)],
         });
       }
     });
@@ -437,6 +451,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
 export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string) {
   const { template, assessment } = ctx;
+  // Pre-procesar imágenes con crop a PNG recortado para evitar deformación en Word.
+  const imageCache = await processAssessmentImages(assessment);
   const children: Array<Paragraph | Table> = [];
 
   if (template.header?.enabled) children.push(bannerTable(ctx));
@@ -468,7 +484,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
   for (const q of assessment.questions) {
     const isCounted = q.type !== "section-title" && q.type !== "info-block";
     if (isCounted) qN += 1;
-    for (const p of questionParagraphs(q, isCounted ? qN : null, ctx)) children.push(p);
+    for (const p of questionParagraphs(q, isCounted ? qN : null, ctx, imageCache)) children.push(p);
   }
 
   const doc = new Document({
