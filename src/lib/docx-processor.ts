@@ -286,6 +286,49 @@ function runPass<T>(
   }
 }
 
+/**
+ * Variante de runPass para transformaciones XML: valida balance de tags
+ * <w:body>, <w:p>, <w:r> después de la pasada. Si la pasada deja el XML
+ * desbalanceado (típico de regex no codiciosa que cierra en un <w:p> anidado),
+ * descarta el resultado y mantiene el original con un warning legible.
+ */
+function runXmlPass(
+  stage: string,
+  warnings: string[],
+  inputXml: string,
+  fn: (xml: string) => string,
+): string {
+  const before = tagBalance(inputXml);
+  let result: string;
+  try {
+    result = fn(inputXml);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    const tagHint = detail.match(/<\/?[\w:]+/)?.[0];
+    const suffix = tagHint ? ` (cerca de \`${tagHint}\`)` : "";
+    warnings.push(`No se pudo aplicar "${stage}"${suffix}. Se mantuvo el contenido original de esa pasada.`);
+    console.warn(`[docx-processor] Pasada "${stage}" falló:`, e);
+    return inputXml;
+  }
+  const after = tagBalance(result);
+  if (after.body !== before.body || after.p !== before.p || after.r !== before.r) {
+    // Buscar dónde aparece el primer desbalance para dar pista en el warning
+    let hint = "";
+    const firstDelta = after.p !== before.p ? "<w:p>" : after.r !== before.r ? "<w:r>" : "<w:body>";
+    const idx = result.indexOf(`${firstDelta}`);
+    if (idx >= 0) {
+      const start = Math.max(0, idx - 60);
+      hint = ` Fragmento: ${result.slice(start, start + 120).replace(/\s+/g, " ")}`;
+    }
+    warnings.push(
+      `La pasada "${stage}" dejó el XML desbalanceado (${firstDelta}: ${before.p}→${after.p} p, ${before.r}→${after.r} r). Se revirtió.${hint}`,
+    );
+    console.warn(`[docx-processor] Pasada "${stage}" desbalanceó tags`, { before, after });
+    return inputXml;
+  }
+  return result;
+}
+
 function countOccurrences(xml: string, regex: RegExp): number {
   const matches = xml.match(regex);
   return matches ? matches.length : 0;
