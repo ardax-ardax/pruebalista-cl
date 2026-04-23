@@ -340,8 +340,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
     if (isSplit && q.image) {
       const contentWidthTwip = cmToTwip(contentWidthCm);
-      const textColCm = contentWidthCm * 0.8;
-      const imgColCm = contentWidthCm * 0.2;
+      const textColCm = contentWidthCm * 0.6;
+      const imgColCm = contentWidthCm * 0.4;
       // Estimar altura del bloque de opciones para limitar la altura de la imagen.
       // optionLineCm ≈ bodySize(pt) * 0.0353 cm/pt * 1.35 (line-height)
       const optionLineCm = ctx.template.typography.bodySize * 0.0353 * 1.35;
@@ -356,29 +356,29 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
       const textCell = new TableCell({
         borders,
-        width: { size: Math.round(contentWidthTwip * 0.8), type: WidthType.DXA },
+        width: { size: Math.round(contentWidthTwip * 0.6), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 0, right: 120 },
         children: buildOptionParagraphs(textColCm, 0),
       });
       // En MC split la imagen siempre se centra en su columna.
       const splitImgAlign = AlignmentType.CENTER;
+      const safeImgPct = Math.max(10, Math.min(100, q.image.widthPct || 100));
       const imgCell = new TableCell({
         borders,
-        width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
+        width: { size: Math.round(contentWidthTwip * 0.4), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
         children: [
           new Paragraph({
-            // Respeta la alineación elegida por el usuario dentro de la columna.
             alignment: splitImgAlign,
             spacing: { before: 60, after: 60 },
-            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, imageCache, maxImgHeightCm, true)],
+            children: [buildImageRun({ ...q.image, widthPct: safeImgPct }, imgColCm, imageCache, maxImgHeightCm, true)],
           }),
         ],
       });
       pushT(
         new Table({
           width: { size: contentWidthTwip, type: WidthType.DXA },
-          columnWidths: [Math.round(contentWidthTwip * 0.8), Math.round(contentWidthTwip * 0.2)],
+          columnWidths: [Math.round(contentWidthTwip * 0.6), Math.round(contentWidthTwip * 0.4)],
           rows: [
             new TableRow({
               cantSplit: true,

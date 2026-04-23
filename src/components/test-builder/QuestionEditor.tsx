@@ -141,6 +141,7 @@ export const QuestionEditor = ({
               <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
               <ImageCropEditor
                 value={question.image}
+                allowFullWidth={question.type === "multiple-choice"}
                 onChange={(img) => {
                   // En selección múltiple con imagen, forzamos layout en columna (imagen derecha).
                   if (question.type === "multiple-choice" && img) {
@@ -152,7 +153,7 @@ export const QuestionEditor = ({
               />
               {question.type === "multiple-choice" && question.image && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  En selección múltiple la imagen se ubica automáticamente a la derecha de las opciones, centrada en su columna.
+                  En selección múltiple la imagen ocupa una columna a la derecha de las opciones; usá el control de ancho para ajustar su tamaño dentro de la columna.
                 </p>
               )}
             </div>
