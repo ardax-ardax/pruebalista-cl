@@ -407,6 +407,9 @@ const Index = () => {
                       dangerouslySetInnerHTML={{ __html: previewHtml }}
                     />
                   </div>
+                  <p className="text-[11px] text-muted-foreground mt-2 italic">
+                    Nota: la vista previa puede mostrar imágenes sin los recortes aplicados en Word. El .docx descargado conserva los recortes originales del archivo.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                     <Button onClick={handleDownloadDocx} className="gap-2 bg-gradient-primary">
                       <Download className="h-4 w-4" />
