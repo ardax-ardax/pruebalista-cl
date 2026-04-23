@@ -94,10 +94,10 @@ export const ASSESSMENT_CSS = `
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
   .pa-mc-split .pa-mc-text { width: 80%; padding-right: 8pt; }
   .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; height: 1px; }
-  .pa-mc-image .pa-image-wrap { height: 100%; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; margin: 0; }
-  .pa-mc-image .pa-image-crop { max-height: 100%; max-width: 100%; }
+  .pa-mc-image .pa-image-wrap { width: 100%; height: 100%; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; margin: 0; }
+  .pa-mc-image .pa-image-crop { width: 100%; max-width: 100%; max-height: 100%; }
   .pa-mc-image .pa-image-crop-inner { width: 100%; height: 100%; overflow: hidden; position: relative; }
-  .pa-mc-image .pa-image-plain { max-height: 100%; max-width: 100%; height: auto; width: auto; object-fit: contain; }
+  .pa-mc-image .pa-image-plain { width: 100%; max-width: 100%; max-height: 100%; height: auto; object-fit: contain; }
 `;
 
 const escape = (s: string) =>
