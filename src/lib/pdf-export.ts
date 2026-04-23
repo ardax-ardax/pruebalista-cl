@@ -2,6 +2,7 @@
 // la ventana de impresión del navegador. Es una solución cliente sin
 // servidor que respeta la privacidad de los documentos.
 
+import DOMPurify from "dompurify";
 import type { ImageCropInfo } from "./docx-processor";
 
 /**
@@ -78,6 +79,9 @@ export function exportHtmlToPdf(html: string, fileName: string) {
   if (!printWindow) {
     throw new Error("No se pudo abrir la ventana de impresión. Permite ventanas emergentes.");
   }
+  // Sanitizar antes de inyectar en el popup (mismo origen): evita ejecución
+  // de <script>/handlers/javascript: provenientes de .docx subidos.
+  const safeHtml = DOMPurify.sanitize(html);
   printWindow.document.write(`<!doctype html>
 <html lang="es">
 <head>
@@ -94,7 +98,7 @@ export function exportHtmlToPdf(html: string, fileName: string) {
     table, th, td { border: 1px solid #cbd5e1; padding: 4px 8px; }
   </style>
 </head>
-<body>${html}</body>
+<body>${safeHtml}</body>
 </html>`);
   printWindow.document.close();
   printWindow.focus();
