@@ -134,12 +134,20 @@ export async function applyTemplate(
     zip.file("word/document.xml", serializeXml(docDoc));
 
     changes.push({
-      category: "Márgenes",
-      description: `Márgenes: sup ${template.spacing.marginTop}cm, inf ${template.spacing.marginBottom}cm, izq ${template.spacing.marginLeft}cm, der ${template.spacing.marginRight}cm`,
+      category: "Tamaño de hoja",
+      description: `Hoja ${template.pageSize.widthCm} × ${template.pageSize.heightCm} cm`,
     });
     changes.push({
-      category: "Espaciado",
-      description: `Interlineado ${template.spacing.lineSpacing.toFixed(2)}, espacio después de párrafo ${template.spacing.paragraphSpacingAfter}pt`,
+      category: "Márgenes",
+      description: `Sup ${template.spacing.marginTop} cm, inf ${template.spacing.marginBottom} cm, izq ${template.spacing.marginLeft} cm, der ${template.spacing.marginRight} cm`,
+    });
+    changes.push({
+      category: "Alineación",
+      description: `Cuerpo ${
+        template.body.alignment === "justify" ? "justificado" :
+        template.body.alignment === "center" ? "centrado" :
+        template.body.alignment === "right" ? "a la derecha" : "a la izquierda"
+      }, interlineado ${template.spacing.lineSpacing.toFixed(2)}`,
     });
   }
 
