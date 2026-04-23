@@ -36,14 +36,16 @@ import {
 import {
   applyTemplate,
   validateDocxStructure,
+  extractImageCrops,
   type ChangeReport,
   type DocDiagnostics,
   type PreflightFinding,
 } from "@/lib/docx-processor";
 import { PreflightDialog } from "@/components/PreflightDialog";
-import { exportHtmlToPdf } from "@/lib/pdf-export";
+import { exportHtmlToPdf, applyCropsToHtml } from "@/lib/pdf-export";
 import { DocumentPreview } from "@/components/DocumentPreview";
 import { DiscrepancyAlert } from "@/components/DiscrepancyAlert";
+import JSZip from "jszip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   loadGrades,
