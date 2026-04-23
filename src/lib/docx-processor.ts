@@ -1789,6 +1789,9 @@ function collapseBlankParagraphs(xml: string): { xml: string; removed: number } 
         },
       );
 
+      // Restaurar tablas
+      newBodyInner = masked2.replace(/__COLLAPSE_TBL_(\d+)__/g, (_m, idx) => tablePlaceholders[Number(idx)]);
+
       return full.replace(bodyInner, newBodyInner);
     });
   });
