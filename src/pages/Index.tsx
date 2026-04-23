@@ -173,12 +173,18 @@ const Index = () => {
       if (tch) parts.push(tch);
       return parts.join("_");
     }
-    return (originalFile?.name.replace(/\.docx$/i, "") ?? "documento") + " - estandarizado";
+    // Sin datos del paso 3: añadir marca de tiempo para evitar colisiones de caché
+    const base = (originalFile?.name.replace(/\.docx$/i, "") ?? "documento") + " - estandarizado";
+    const now = new Date();
+    const stamp = `${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
+    return `${base} ${stamp}`;
   };
 
   const handleDownloadDocx = () => {
     if (!resultBlob) return;
-    saveAs(resultBlob, `${buildStandardFileName()}.docx`);
+    // Crear un Blob nuevo siempre para evitar caché del navegador
+    const fresh = new Blob([resultBlob], { type: resultBlob.type });
+    saveAs(fresh, `${buildStandardFileName()}.docx`);
   };
 
   const handleDownloadPdf = () => {
