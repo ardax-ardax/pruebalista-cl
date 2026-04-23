@@ -22,12 +22,24 @@ export interface QuestionImage {
   widthPct: number; // 10–100, ancho relativo al área de contenido
   alignment: "left" | "center" | "right";
   crop: ImageCrop;
+  // Dimensiones naturales (px) — necesarias para preservar proporción al recortar.
+  naturalW?: number;
+  naturalH?: number;
 }
 
 export interface Option {
   id: string;
   text: string;
   correct?: boolean;
+  image?: QuestionImage | null;
+}
+
+export interface TfStatement {
+  id: string;
+  text: string;
+  answer: "V" | "F";
+  image?: QuestionImage | null;
+  points?: number;
 }
 
 export interface Question {
@@ -36,7 +48,8 @@ export interface Question {
   prompt: string; // texto principal o título de sección
   points?: number;
   image?: QuestionImage | null;
-  options?: Option[]; // para multiple-choice / true-false
+  options?: Option[]; // para multiple-choice
+  statements?: TfStatement[]; // para true-false (lista de afirmaciones)
   answerLines?: number; // para short-answer
 }
 
@@ -81,12 +94,19 @@ export const emptyAssessment = (templateId: string): Assessment => ({
   questions: [],
 });
 
+export const newStatement = (answer: "V" | "F" = "V"): TfStatement => ({
+  id: newId(),
+  text: "",
+  answer,
+  points: 1,
+});
+
 export const newQuestion = (type: QuestionType): Question => {
   const base: Question = {
     id: newId(),
     type,
     prompt: "",
-    points: type === "info-block" || type === "section-title" ? undefined : 1,
+    points: type === "info-block" || type === "section-title" || type === "true-false" ? undefined : 1,
   };
   if (type === "multiple-choice") {
     base.options = ["a", "b", "c", "d"].map((_, i) => ({
@@ -96,10 +116,7 @@ export const newQuestion = (type: QuestionType): Question => {
     }));
   }
   if (type === "true-false") {
-    base.options = [
-      { id: newId(), text: "Verdadero", correct: true },
-      { id: newId(), text: "Falso", correct: false },
-    ];
+    base.statements = [newStatement("V")];
   }
   if (type === "short-answer") {
     base.answerLines = 3;
@@ -107,8 +124,21 @@ export const newQuestion = (type: QuestionType): Question => {
   return base;
 };
 
+// Migra preguntas V/F antiguas (con options Verdadero/Falso) al modelo de statements.
+export const migrateQuestion = (q: Question): Question => {
+  if (q.type === "true-false" && (!q.statements || q.statements.length === 0)) {
+    return { ...q, statements: [newStatement("V")], options: undefined };
+  }
+  return q;
+};
+
 export const computeTotalPoints = (qs: Question[]): number =>
-  qs.reduce((acc, q) => acc + (q.points ?? 0), 0);
+  qs.reduce((acc, q) => {
+    if (q.type === "true-false") {
+      return acc + (q.statements ?? []).reduce((s, st) => s + (st.points ?? 0), 0);
+    }
+    return acc + (q.points ?? 0);
+  }, 0);
 
 export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   "multiple-choice": "Selección múltiple",

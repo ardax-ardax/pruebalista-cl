@@ -5,7 +5,6 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeadingLevel,
   ImageRun,
   PageOrientation,
   Packer,
@@ -33,7 +32,7 @@ interface BuildContext {
   teacherLabel: string;
 }
 
-const cmToTwip = (cm: number) => Math.round(cm * 567); // 1 cm = ~567 twips
+const cmToTwip = (cm: number) => Math.round(cm * 567);
 const ptToHalfPt = (pt: number) => Math.round(pt * 2);
 
 function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" | "jpg" | "gif" | "bmp" } {
@@ -48,22 +47,42 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
   return { data: u8, type };
 }
 
-// Crea un ImageRun con tamaño aproximado, aplicando crop por reescalado.
-// Estrategia: usamos ImageRun con dimensiones objetivo, y aceptamos que el
-// crop visible se aproxima por reescalado proporcional. Para crops complejos
-// el preview/PDF sigue siendo la fuente exacta; el .docx queda inline limpio.
+// ImageRun manteniendo proporción real: usa naturalW/H y porcentajes de crop
+// para calcular height a partir de width preservando aspect ratio.
 function buildImageRun(img: QuestionImage, contentWidthCm: number): ImageRun {
   const { data, type } = dataUrlToUint8Array(img.src);
   const targetWidthCm = contentWidthCm * (img.widthPct / 100);
-  // Asumimos aspect 4:3 si no podemos medir; docx-js requiere width/height.
-  // El usuario define width%; height se aproxima manteniendo proporciones razonables.
   const widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
-  const heightPx = Math.round(widthPx * 0.75);
+
+  const { left: L, right: R, top: T, bottom: B } = img.crop;
+  const visibleW = Math.max(1, 100 - L - R) / 100;
+  const visibleH = Math.max(1, 100 - T - B) / 100;
+  const natW = img.naturalW ?? 4;
+  const natH = img.naturalH ?? 3;
+  // Aspect ratio del área visible post-crop
+  const ratio = (natH * visibleH) / Math.max(1, natW * visibleW);
+  const heightPx = Math.max(1, Math.round(widthPx * ratio));
+
   return new ImageRun({
     type,
     data,
     transformation: { width: widthPx, height: heightPx },
     altText: { title: img.alt ?? "Imagen", description: img.alt ?? "Imagen", name: "image" },
+  });
+}
+
+function imageParagraph(img: QuestionImage, contentWidthCm: number, indentLeft = 0): Paragraph {
+  const align =
+    img.alignment === "left"
+      ? AlignmentType.LEFT
+      : img.alignment === "right"
+        ? AlignmentType.RIGHT
+        : AlignmentType.CENTER;
+  return new Paragraph({
+    alignment: align,
+    indent: indentLeft ? { left: indentLeft } : undefined,
+    spacing: { before: 60, after: 60 },
+    children: [buildImageRun(img, contentWidthCm)],
   });
 }
 
@@ -180,6 +199,8 @@ function studentRow(ctx: BuildContext): Table {
 function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildContext): Array<Paragraph | Table> {
   const out: Array<Paragraph | Table> = [];
   const baseSize = ptToHalfPt(ctx.template.typography.bodySize);
+  const contentWidthCm =
+    ctx.template.pageSize.widthCm - ctx.template.spacing.marginLeft - ctx.template.spacing.marginRight;
 
   if (q.type === "section-title") {
     out.push(
@@ -204,12 +225,16 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   }
 
   // Cabecera de pregunta
+  const totalPts =
+    q.type === "true-false"
+      ? (q.statements ?? []).reduce((s, st) => s + (st.points ?? 0), 0)
+      : (q.points ?? 0);
   const headerRuns: TextRun[] = [
     new TextRun({ text: `${qNumber}) `, bold: true, size: baseSize }),
     new TextRun({ text: q.prompt, bold: false, size: baseSize }),
   ];
-  if (typeof q.points === "number") {
-    headerRuns.push(new TextRun({ text: `   (${q.points} pt${q.points === 1 ? "" : "s"})`, italics: true, size: baseSize }));
+  if (totalPts) {
+    headerRuns.push(new TextRun({ text: `   (${totalPts} pt${totalPts === 1 ? "" : "s"})`, italics: true, size: baseSize }));
   }
   out.push(
     new Paragraph({
@@ -220,18 +245,10 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   );
 
   if (q.image) {
-    const contentWidthCm =
-      ctx.template.pageSize.widthCm - ctx.template.spacing.marginLeft - ctx.template.spacing.marginRight;
-    const align =
-      q.image.alignment === "left"
-        ? AlignmentType.LEFT
-        : q.image.alignment === "right"
-          ? AlignmentType.RIGHT
-          : AlignmentType.CENTER;
-    out.push(new Paragraph({ alignment: align, spacing: { before: 60, after: 60 }, children: [buildImageRun(q.image, contentWidthCm)] }));
+    out.push(imageParagraph(q.image, contentWidthCm));
   }
 
-  if (q.type === "multiple-choice" || q.type === "true-false") {
+  if (q.type === "multiple-choice") {
     const letters = ["a", "b", "c", "d", "e", "f"];
     (q.options ?? []).forEach((o, i) => {
       out.push(
@@ -244,6 +261,26 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
           ],
         }),
       );
+      if (o.image) {
+        out.push(imageParagraph(o.image, contentWidthCm, 720));
+      }
+    });
+  } else if (q.type === "true-false") {
+    (q.statements ?? []).forEach((st, i) => {
+      out.push(
+        new Paragraph({
+          indent: { left: 360 },
+          spacing: { before: 60, after: 40 },
+          children: [
+            new TextRun({ text: "( V ) ( F )   ", bold: true, size: baseSize }),
+            new TextRun({ text: `${qNumber}.${i + 1} `, bold: true, size: baseSize }),
+            new TextRun({ text: st.text, size: baseSize }),
+          ],
+        }),
+      );
+      if (st.image) {
+        out.push(imageParagraph(st.image, contentWidthCm, 720));
+      }
     });
   } else if (q.type === "short-answer") {
     const lines = Math.max(1, q.answerLines ?? 3);

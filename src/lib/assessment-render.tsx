@@ -16,9 +16,6 @@ export interface RenderContext {
 }
 
 // === CSS común para preview y print ===
-// Usa unidades absolutas (cm/pt) para que el render web se acerque a la hoja
-// imprimible. La tipografía va en Arial fallback porque Century Gothic no está
-// garantizado en navegador, pero el .docx sí usará Century Gothic.
 export const ASSESSMENT_CSS = `
   .pa-page {
     font-family: "Century Gothic", "Apple Gothic", "URW Gothic", "Avenir", Arial, sans-serif;
@@ -71,6 +68,10 @@ export const ASSESSMENT_CSS = `
   .pa-options { margin: 4pt 0 0 14pt; padding: 0; list-style: none; }
   .pa-options li { margin: 2pt 0; }
   .pa-option-letter { font-weight: bold; margin-right: 4pt; }
+  .pa-statements { margin: 4pt 0 0 0; padding: 0; list-style: none; }
+  .pa-statements li { margin: 4pt 0; }
+  .pa-statement-vf { display: inline-block; font-weight: bold; margin-right: 6pt; letter-spacing: 1pt; }
+  .pa-statement-num { font-weight: bold; margin-right: 4pt; }
   .pa-answer-line { border-bottom: 0.5pt solid #000; height: 14pt; margin: 4pt 0; }
   .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; }
   .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; }
@@ -78,8 +79,9 @@ export const ASSESSMENT_CSS = `
   .pa-image-wrap.pa-align-left { text-align: left; }
   .pa-image-wrap.pa-align-center { text-align: center; }
   .pa-image-wrap.pa-align-right { text-align: right; }
-  .pa-image-crop { display: inline-block; overflow: hidden; vertical-align: top; }
-  .pa-image-crop img { display: block; max-width: none; }
+  .pa-image-crop { display: inline-block; overflow: hidden; vertical-align: top; position: relative; }
+  .pa-image-crop img { display: block; max-width: none; height: auto; }
+  .pa-image-plain { display: inline-block; height: auto; }
 `;
 
 const escape = (s: string) =>
@@ -129,20 +131,30 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         return `<div class="pa-info-block">${escape(q.prompt)}</div>`;
       }
       qNum += 1;
-      const pts =
-        typeof q.points === "number"
-          ? `<span class="pa-question-points">(${q.points} pt${q.points === 1 ? "" : "s"})</span>`
-          : "";
+      const totalPts =
+        q.type === "true-false"
+          ? (q.statements ?? []).reduce((s, st) => s + (st.points ?? 0), 0)
+          : (q.points ?? 0);
+      const pts = totalPts
+        ? `<span class="pa-question-points">(${totalPts} pt${totalPts === 1 ? "" : "s"})</span>`
+        : "";
       const header = `<div class="pa-question-header">${pts}${qNum}) ${escape(q.prompt)}</div>`;
       const img = q.image ? renderImageHtml(q.image) : "";
       let body = "";
-      if (q.type === "multiple-choice" || q.type === "true-false") {
+      if (q.type === "multiple-choice") {
         const letters = ["a", "b", "c", "d", "e", "f"];
         body = `<ol class="pa-options">${(q.options ?? [])
-          .map(
-            (o, i) =>
-              `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}</li>`,
-          )
+          .map((o, i) => {
+            const optImg = o.image ? renderImageHtml(o.image) : "";
+            return `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}${optImg}</li>`;
+          })
+          .join("")}</ol>`;
+      } else if (q.type === "true-false") {
+        body = `<ol class="pa-statements">${(q.statements ?? [])
+          .map((st, i) => {
+            const stImg = st.image ? renderImageHtml(st.image) : "";
+            return `<li><span class="pa-statement-vf">( V ) ( F )</span><span class="pa-statement-num">${qNum}.${i + 1}</span>${escape(st.text)}${stImg}</li>`;
+          })
           .join("")}</ol>`;
       } else if (q.type === "short-answer") {
         const lines = Math.max(1, q.answerLines ?? 3);
@@ -157,25 +169,32 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
   return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${questionsHtml}</div>`;
 }
 
+// Render imagen sin deformación: wrapper con aspect-ratio basado en dimensiones
+// naturales y porcentajes de crop. <img> solo recibe width; height es auto.
 function renderImageHtml(img: QuestionImage): string {
   const { left: L, right: R, top: T, bottom: B } = img.crop;
   const visibleW = Math.max(1, 100 - L - R);
   const visibleH = Math.max(1, 100 - T - B);
   const wrapperWidth = `${img.widthPct}%`;
-  const cropStyles =
-    L > 0 || R > 0 || T > 0 || B > 0
-      ? `<span class="pa-image-crop" style="width:${wrapperWidth};aspect-ratio:auto;"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="width:${(100 / visibleW) * 100}%;height:auto;margin-left:${-(L / visibleW) * 100}%;margin-top:${-(T / visibleH) * 100}%;" /></span>`
-      : `<img src="${img.src}" alt="${escape(img.alt ?? "")}" style="width:${wrapperWidth};height:auto;display:inline-block;" />`;
-  return `<div class="pa-image-wrap pa-align-${img.alignment}">${cropStyles}</div>`;
+  const natW = img.naturalW ?? 4;
+  const natH = img.naturalH ?? 3;
+  const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
+
+  if (!hasCrop) {
+    // Sin crop: imagen libre con aspect-ratio natural.
+    return `<div class="pa-image-wrap pa-align-${img.alignment}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" style="width:${wrapperWidth};" /></div>`;
+  }
+
+  // Con crop: aspect-ratio del wrapper = (natW * visibleW%) / (natH * visibleH%)
+  const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
+  const inner = `<img src="${img.src}" alt="${escape(img.alt ?? "")}" style="width:${(100 / visibleW) * 100}%;height:auto;margin-left:${-(L / visibleW) * 100}%;margin-top:${-(T / visibleH) * 100}%;" />`;
+  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="width:${wrapperWidth};aspect-ratio:${ratio};">${inner}</span></div>`;
 }
 
 // ====================== React render (para preview en pantalla) ======================
-// Implementado como componente con dangerouslySetInnerHTML para mantener una sola
-// fuente de truth: el renderer HTML. Esto asegura que el preview sea idéntico al PDF.
 
 export function AssessmentPreviewRender({ ctx }: { ctx: RenderContext }) {
   const html = renderAssessmentHtml(ctx);
-  // Inyectamos el CSS como style scope-less; lo aislamos visualmente por el contenedor .pa-page.
   const wrapperStyle: CSSProperties = {
     background: "white",
     color: "black",
@@ -208,5 +227,4 @@ export function renderQuestionNumber(questions: Question[], index: number): numb
 
 export const _internal = { renderImageHtml };
 
-// node import-friendly export to satisfy ReactNode type usage
 export type AssessmentChildren = ReactNode;

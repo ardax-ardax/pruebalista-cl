@@ -1,5 +1,5 @@
 // Persistencia simple de borradores de evaluación en localStorage.
-import type { Assessment } from "./assessment-schema";
+import { migrateQuestion, type Assessment } from "./assessment-schema";
 
 const KEY = "estandarizador.assessment.draft.v1";
 
@@ -15,7 +15,10 @@ export const loadDraft = (): Assessment | null => {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as Assessment;
+    const parsed = JSON.parse(raw) as Assessment;
+    // Migrar preguntas V/F antiguas al modelo de statements
+    parsed.questions = (parsed.questions ?? []).map(migrateQuestion);
+    return parsed;
   } catch {
     return null;
   }
