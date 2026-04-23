@@ -10,6 +10,12 @@ export interface ChangeReport {
   description: string;
 }
 
+export interface BannerData {
+  teacherLabel?: string;
+  subjectLabel?: string;
+  gradeLabel?: string;
+}
+
 export interface ProcessResult {
   blob: Blob;
   changes: ChangeReport[];
