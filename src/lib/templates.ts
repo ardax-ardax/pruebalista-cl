@@ -43,6 +43,13 @@ export interface FormatTemplate {
     institutionName: string;
     showLogo: boolean;
     alignment: Alignment;
+    /**
+     * Estilo del encabezado:
+     *  - "banner-evaluacion": tabla 3 columnas con logo + Profesor/Asignatura/Curso + recuadro Calificación
+     *  - "banner-guia": igual al anterior pero SIN recuadro Calificación
+     *  - "classic": header de Word tradicional (texto centrado)
+     */
+    style?: "banner-evaluacion" | "banner-guia" | "classic";
   };
   footer: {
     enabled: boolean;
