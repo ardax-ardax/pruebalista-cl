@@ -30,8 +30,9 @@ export const TemplateEditor = ({ template, onChange }: Props) => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="typography">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="typography">Tipografía</TabsTrigger>
+            <TabsTrigger value="page">Hoja</TabsTrigger>
             <TabsTrigger value="spacing">Espaciado</TabsTrigger>
             <TabsTrigger value="header">Encabezado</TabsTrigger>
             <TabsTrigger value="footer">Pie</TabsTrigger>
