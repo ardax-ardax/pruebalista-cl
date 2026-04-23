@@ -61,7 +61,8 @@ export const ASSESSMENT_CSS = `
   .pa-title { font-size: 12pt; font-weight: bold; text-align: center; margin: 6pt 0 4pt; text-transform: uppercase; }
   .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
   .pa-instructions strong { font-weight: bold; }
-  .pa-question { margin: 0 0 10pt; page-break-inside: avoid; break-inside: avoid; }
+  .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.4pt dashed #b8b8b8; page-break-inside: avoid; break-inside: avoid; }
+  .pa-question:last-child { border-bottom: none; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-header { font-weight: bold; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-prompt { text-align: justify; }
@@ -266,7 +267,7 @@ function renderContainedImageHtml(img: QuestionImage): string {
   // Para crop con object-fit no funciona; usamos wrapper con aspect-ratio + overflow hidden
   // y la <img> escalada con margenes negativos relativos al wrapper.
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
-  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:auto;">${inner}</span></div>`;
+  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };
