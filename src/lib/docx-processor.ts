@@ -438,6 +438,7 @@ export async function applyTemplate(
         category: "Numeración",
         description: `Preguntas uniformadas a formato \`1)\` (${total} ítem(s)).`,
       });
+    }
     if (normRes.duplicateNumberingStripped > 0) {
       autoFixesApplied.push(
         `Se eliminó numeración manual duplicada en ${normRes.duplicateNumberingStripped} párrafo(s) (Word ya pintaba la numeración nativa).`,
