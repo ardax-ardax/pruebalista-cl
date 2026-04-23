@@ -72,6 +72,8 @@ const Index = () => {
   // Auto-cargar logo institucional la primera vez que se abre la app
   useEffect(() => {
     setTemplates(loadTemplates());
+    setSubjects(loadSubjects());
+    setGrades(loadGrades());
     const existing = loadLogo();
     if (existing) {
       setLogo(existing);
