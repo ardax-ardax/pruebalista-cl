@@ -442,6 +442,15 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       }
     }
   } else if (q.type === "short-answer") {
+    const lines = Math.max(1, q.answerLines ?? 3);
+    for (let i = 0; i < lines; i++) {
+      pushP({
+        spacing: { before: 0, after: 80 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 1 } },
+        children: [new TextRun({ text: "", size: baseSize })],
+      });
+    }
+  }
 
   // Identificar el índice del último ítem que aporta un párrafo (p o pre)
   // para no aplicarle keepNext y evitar que se pegue a la siguiente pregunta.
