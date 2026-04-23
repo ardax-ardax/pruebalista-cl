@@ -1,83 +1,66 @@
 
 
-# Recortador visual estilo Lightbox + layout dos columnas (opciones a la izquierda, imagen a la derecha)
+# Título por enunciado + tope de 20% de ancho para imágenes
 
-## 1) Editor visual de recorte (estilo Lightbox)
-
-Hoy el recorte se hace con 4 sliders numéricos (top/bottom/left/right %) y se ve solo en una miniatura. No hay manipulación directa sobre la imagen.
-
-**Nuevo componente** `src/components/test-builder/ImageCropDialog.tsx`:
-- Se abre como `Dialog` modal grande (max-w-4xl) al pulsar "Recortar".
-- Muestra la imagen completa en grande, sobre fondo oscuro semi-transparente (estilo lightbox).
-- Encima dibuja un **rectángulo de recorte arrastrable y redimensionable** con 8 manijas (esquinas + lados).
-- El área **fuera** del rectángulo se ve oscurecida (overlay con `box-shadow: 0 0 0 9999px rgba(0,0,0,.6)` o 4 divs perimetrales).
-- Cursor: `move` dentro, `nwse-resize`/`nesw-resize`/`ns-resize`/`ew-resize` en manijas.
-- Footer: **Cancelar**, **Restablecer** (limpia crop), **Aplicar** (guarda los % al `QuestionImage`).
-- Internamente trabaja en píxeles del contenedor mostrado y al "Aplicar" convierte a porcentajes (0–100) usando las dimensiones renderizadas.
-- Implementación con eventos pointer (no librería externa): `onPointerDown` en manija/área → `onPointerMove` actualiza rect → `onPointerUp` finaliza. Restringe el rect dentro de los límites de la imagen y respeta tamaño mínimo (5%).
-
-**`ImageCropEditor.tsx`** se modifica:
-- El botón "Recortar" abre el `ImageCropDialog` en vez de mostrar/ocultar 4 sliders.
-- Se mantienen los sliders como modo avanzado/colapsable opcional (acordeón "Ajustes finos") por si el usuario quiere precisión numérica.
-- La miniatura existente sigue mostrando el resultado del crop (ya sin deformación, gracias al fix previo).
-
-## 2) Layout de dos columnas en selección múltiple
-
-Hoy, en `multiple-choice` con imagen de pregunta, la imagen va arriba (sobre las opciones, ocupando ancho completo). Cuando es una imagen pequeña/media (ej. mapa, gráfico), desperdicia espacio.
+## 1) Título obligatorio por enunciado
 
 **Schema (`src/lib/assessment-schema.ts`)**
-- `Question` gana campo opcional `imageLayout?: "block" | "side-right" | "side-left"`. Default: `"block"` (comportamiento actual).
-- Solo aplica visualmente cuando `type === "multiple-choice"` y existe `q.image`.
+- `Question` gana campo `title?: string` (opcional para no romper borradores existentes, pero la UI lo trata como recomendado).
+- Aplica solo a tipos contables: `multiple-choice`, `true-false`, `short-answer`. No a `section-title` ni `info-block` (que ya son títulos/contexto).
 
 **Editor (`QuestionEditor.tsx`)**
-- Cuando hay imagen y la pregunta es selección múltiple, aparece un selector adicional debajo del control de alineación: **"Disposición"** con opciones:
-  - Imagen arriba (block)
-  - Imagen a la derecha (opciones a la izquierda)
-  - Imagen a la izquierda (opciones a la derecha)
+- Sobre el `Textarea` "Enunciado" se agrega un `Input` "Título del enunciado" (placeholder: "Ej: Comprensión de lectura · Texto 1"). Más compacto y en negrita visual.
+- Misma posición en los tres tipos contables.
 
-**Renderer (`assessment-render.tsx`)**
-- Si `q.type === "multiple-choice"` y `q.image` y `q.imageLayout` ∈ `{side-right, side-left}`:
-  - Usar una `<table class="pa-mc-split">` de dos columnas (60% texto / 40% imagen, o invertido), `vertical-align: top`, sin bordes.
-  - La columna de texto contiene el `<ol class="pa-options">`.
-  - La columna de imagen contiene el bloque `pa-image-wrap` ya existente (con su crop correcto).
-  - El enunciado de la pregunta sigue arriba, ocupando ancho completo.
-- Si no, comportamiento actual (imagen arriba, opciones debajo).
-- CSS nuevo en `ASSESSMENT_CSS`:
+**Renderer web (`assessment-render.tsx`)**
+- Si `q.title` existe, se imprime antes de la línea numerada de la pregunta como un sub-encabezado:
   ```
-  .pa-mc-split { width:100%; border-collapse:collapse; margin-top:4pt; }
-  .pa-mc-split td { vertical-align:top; padding:0; border:0; }
-  .pa-mc-split .pa-mc-text { width:60%; padding-right:8pt; }
-  .pa-mc-split .pa-mc-image { width:40%; }
+  <div class="pa-question-title">{title}</div>
+  <div class="pa-question-header">N) {prompt} (X pts)</div>
   ```
-  Para `side-left`, intercambiar el orden de las celdas.
+- Nuevo CSS:
+  ```
+  .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; text-transform: none; }
+  ```
 
 **DOCX (`assessment-docx.ts`)**
-- Replicar misma estructura con `Table` de dos columnas, sin bordes, columna texto y columna imagen.
-- Las opciones se generan como `Paragraph[]` dentro de la celda izquierda; la imagen como `Paragraph` con `ImageRun` en la derecha.
-- Anchos: 60/40 del `contentWidthCm`. La imagen recibe como `contentWidthCm` solo el ancho de su columna para que el `widthPct` siga siendo relativo a esa columna.
+- En `questionParagraphs`, si `q.title` existe, push un `Paragraph` previo al header con `TextRun({ text: q.title, bold: true })` y `spacing.before: 120, after: 0`.
 
-## 3) Archivos a modificar/crear
+**Migración**: pruebas guardadas sin `title` siguen funcionando; el campo simplemente no se renderiza si está vacío.
 
-- **Nuevo**: `src/components/test-builder/ImageCropDialog.tsx` — modal de recorte interactivo.
-- `src/components/test-builder/ImageCropEditor.tsx` — botón "Recortar" abre el diálogo; sliders pasan a sección "Ajustes finos" colapsable.
-- `src/lib/assessment-schema.ts` — `Question.imageLayout` opcional.
-- `src/components/test-builder/QuestionEditor.tsx` — selector de "Disposición" cuando aplica.
-- `src/lib/assessment-render.tsx` — layout split + CSS nuevo.
-- `src/lib/assessment-docx.ts` — tabla de dos columnas para split en multiple-choice.
+## 2) Tope de 20% del ancho para imágenes
 
-## 4) Consideraciones técnicas
+**Regla**
+- El campo `widthPct` de `QuestionImage` se acota a `[10, 20]` en vez de `[10, 100]`.
+- Aplica a imagen de pregunta, de opción y de afirmación V/F.
 
-- **Recorte sobre imagen ya recortada**: el diálogo abre siempre la imagen original (`img.src`) y muestra el rect actual reconstruido desde `img.crop`. Editar reemplaza, no acumula.
-- **Miniatura post-crop**: ya correcta tras el fix previo de aspect-ratio.
-- **Imagen muy alta**: el diálogo limita altura del visor a `70vh` y escala la imagen a `object-fit: contain`; los % se calculan sobre el tamaño renderizado, no sobre el natural — son independientes del zoom.
-- **Touch / pointer**: usar `setPointerCapture` para arrastres confiables en táctil.
-- **Responsive del diálogo**: en pantallas pequeñas, sliders accesibles también dentro del modal como fallback.
-- **Layout split + recorte**: el `widthPct` de la imagen se mantiene; en modo split la columna ya define el ancho disponible, así que un `widthPct: 100` llena la columna del 40%, y se ve correctamente proporcionada.
-- **Compatibilidad**: borradores/pruebas guardadas sin `imageLayout` siguen funcionando (fallback a `"block"`).
+**Editor (`ImageCropEditor.tsx`)**
+- `Input type="number"` de Ancho cambia a `min={10} max={20}`, default al subir nueva imagen pasa a `20` (en vez de 60/80).
+- Texto de ayuda corto: "Máx. 20% del ancho disponible".
+
+**Schema/Helpers**
+- Helper `clampWidthPct(n) => Math.max(10, Math.min(20, n))` aplicado al cambiar widthPct y al cargar imágenes nuevas.
+- Migración suave: al cargar una prueba existente con `widthPct > 20`, se acota a 20 al editarla (sin tocar storage hasta que el usuario edite).
+
+**Layout split (multiple-choice `side-right`/`side-left`)**
+- Hoy en split la imagen se renderiza con `widthPct: 100` forzado para llenar la columna del 40%. Eso ya da ~40% del ancho total. Para respetar el tope:
+  - En split, la columna de imagen pasa de 40% a **20% del ancho total** y la columna de texto sube a **80%**. La imagen sigue ocupando el 100% de su columna, así el tope queda respetado.
+  - Aplica simétricamente en preview HTML (`pa-mc-split` con `width: 80%/20%`) y en DOCX (`columnWidths` 0.8/0.2).
+
+**Resultado visual**
+- Las imágenes nunca exceden el 20% del ancho de contenido de la página, lo que las mantiene compactas y deja espacio para texto. El recorte sigue funcionando igual; lo que cambia es solo el ancho final de salida.
+
+## Archivos a modificar
+
+- `src/lib/assessment-schema.ts` — añadir `title?: string` a `Question`; añadir helper `clampWidthPct`.
+- `src/components/test-builder/QuestionEditor.tsx` — input de título; sin más cambios.
+- `src/components/test-builder/ImageCropEditor.tsx` — acotar widthPct a 20%; ajustar default y placeholder.
+- `src/lib/assessment-render.tsx` — renderizar `q.title`; ajustar `.pa-mc-split` a 80/20; CSS `.pa-question-title`.
+- `src/lib/assessment-docx.ts` — emitir párrafo de título; ajustar `columnWidths` de la tabla split a 0.8/0.2; usar `imgColCm = contentWidthCm * 0.2` para `buildImageRun` en split.
 
 ## Resultado esperado
 
-- Recortar una imagen se hace **arrastrando** sobre la imagen real, no escribiendo porcentajes.
-- En selección múltiple, el docente puede colocar la imagen al costado de las opciones, ahorrando una franja vertical importante de página.
-- Preview, PDF y DOCX reflejan exactamente lo mismo.
+- Cada pregunta puede llevar un título corto en negrita por encima del enunciado, visible en preview, PDF y DOCX.
+- Ninguna imagen (de pregunta, opción o afirmación V/F) supera el 20% del ancho útil de la página, ni siquiera en layouts a dos columnas.
+- El comportamiento existente de recorte y proporción se mantiene intacto.
 
