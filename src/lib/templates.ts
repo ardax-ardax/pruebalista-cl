@@ -26,6 +26,18 @@ export interface FormatTemplate {
     paragraphSpacingBefore: number; // pt
     paragraphSpacingAfter: number;
   };
+  pageSize: {
+    widthCm: number;  // ancho hoja en cm
+    heightCm: number; // alto hoja en cm
+  };
+  body: {
+    alignment: Alignment; // alineación por defecto del cuerpo
+  };
+  fileNaming?: {
+    enabled: boolean;
+    prefix: string; // ej: "Ev_Sumativa"
+    hint: string;   // texto guía mostrado al usuario
+  };
   header: {
     enabled: boolean;
     institutionName: string;
@@ -47,6 +59,7 @@ export interface FormatTemplate {
 }
 
 export const FONT_OPTIONS = [
+  "Century Gothic",
   "Arial",
   "Calibri",
   "Times New Roman",
@@ -56,6 +69,11 @@ export const FONT_OPTIONS = [
   "Garamond",
   "Tahoma",
 ] as const;
+
+// Tamaño Oficio personalizado del colegio (21.59 x 33.02 cm)
+export const SCHOOL_PAGE_SIZE = { widthCm: 21.59, heightCm: 33.02 };
+export const A4_PAGE_SIZE = { widthCm: 21, heightCm: 29.7 };
+export const LETTER_PAGE_SIZE = { widthCm: 21.59, heightCm: 27.94 };
 
 export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
   {
