@@ -267,7 +267,7 @@ function renderContainedImageHtml(img: QuestionImage): string {
   // Para crop con object-fit no funciona; usamos wrapper con aspect-ratio + overflow hidden
   // y la <img> escalada con margenes negativos relativos al wrapper.
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
-  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:auto;">${inner}</span></div>`;
+  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };
