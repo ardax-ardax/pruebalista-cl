@@ -202,12 +202,13 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   // Acumulamos descriptores y al final aplicamos keepLines/keepNext.
   // Para mantener cada pregunta como bloque indivisible: todos los párrafos llevan keepLines+keepNext,
   // excepto el último que solo lleva keepLines (para no pegarse a la siguiente pregunta).
+  type POpts = Record<string, unknown>;
   type Item =
-    | { kind: "p"; opts: ConstructorParameters<typeof Paragraph>[0] }
+    | { kind: "p"; opts: POpts }
     | { kind: "pre"; paragraph: Paragraph }
     | { kind: "t"; table: Table };
   const items: Item[] = [];
-  const pushP = (opts: ConstructorParameters<typeof Paragraph>[0]) => items.push({ kind: "p", opts });
+  const pushP = (opts: POpts) => items.push({ kind: "p", opts });
   const pushT = (table: Table) => items.push({ kind: "t", table });
   const pushPre = (paragraph: Paragraph) => items.push({ kind: "pre", paragraph });
 
@@ -398,7 +399,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       ...it.opts,
       keepLines: true,
       keepNext: !isLast,
-    });
+    } as ConstructorParameters<typeof Paragraph>[0]);
   });
 
   return out;
