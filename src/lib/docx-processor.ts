@@ -1,6 +1,6 @@
 // Procesador de documentos .docx en el navegador.
-// Descomprime el .docx, modifica los XML internos según los parámetros,
-// y vuelve a empaquetar. Genera un reporte de cambios aplicados.
+// Usa edición de strings con regex para preservar namespaces OOXML
+// (mc:AlternateContent, drawings, tablas, etc.) sin corromper el archivo.
 
 import JSZip from "jszip";
 import type { FormatTemplate, Alignment } from "./templates";
@@ -20,19 +20,8 @@ export interface ProcessResult {
 }
 
 const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-const R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-const REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships";
-
-function parseXml(content: string): Document {
-  return new DOMParser().parseFromString(content, "application/xml");
-}
-
-function serializeXml(doc: Document): string {
-  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + new XMLSerializer().serializeToString(doc);
-}
 
 function cmToTwips(cm: number): number {
-  // 1 cm = 567 twips (aprox), 1 inch = 1440 twips, 1 inch = 2.54 cm
   return Math.round((cm / 2.54) * 1440);
 }
 
@@ -46,20 +35,20 @@ function alignmentToWord(a: Alignment): string {
 }
 
 function lineSpacingToTwips(spacing: number): number {
-  // En OOXML, line value es 240 = simple
   return Math.round(spacing * 240);
 }
 
-function ensureChild(parent: Element, ns: string, localName: string, doc: Document): Element {
-  const existing = Array.from(parent.children).find((c) => c.localName === localName && c.namespaceURI === ns);
-  if (existing) return existing;
-  const el = doc.createElementNS(ns, `w:${localName}`);
-  parent.appendChild(el);
-  return el;
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
-function getOrCreateDirect(parent: Element, localName: string, doc: Document): Element {
-  return ensureChild(parent, W_NS, localName, doc);
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -74,37 +63,21 @@ export async function applyTemplate(
   const changes: ChangeReport[] = [];
   const originalSummary: ProcessResult["originalSummary"] = {};
 
-  // 1. Procesar styles.xml — fuentes, tamaños, colores y estilos de títulos
+  // 1. styles.xml — fuentes, tamaños y colores con DOMParser (es seguro aquí)
   const stylesFile = zip.file("word/styles.xml");
   if (stylesFile) {
     const stylesContent = await stylesFile.async("string");
-    const stylesDoc = parseXml(stylesContent);
+    const detected = detectOriginalFont(stylesContent);
+    originalSummary.bodyFont = detected.font;
+    originalSummary.bodySize = detected.size;
 
-    // Detectar fuente original
-    const docDefaults = stylesDoc.getElementsByTagNameNS(W_NS, "docDefaults")[0];
-    if (docDefaults) {
-      const rPrDefault = docDefaults.getElementsByTagNameNS(W_NS, "rPrDefault")[0];
-      if (rPrDefault) {
-        const rPr = rPrDefault.getElementsByTagNameNS(W_NS, "rPr")[0];
-        if (rPr) {
-          const rFonts = rPr.getElementsByTagNameNS(W_NS, "rFonts")[0];
-          if (rFonts) originalSummary.bodyFont = rFonts.getAttributeNS(W_NS, "ascii") || undefined;
-          const sz = rPr.getElementsByTagNameNS(W_NS, "sz")[0];
-          if (sz) {
-            const v = sz.getAttributeNS(W_NS, "val");
-            if (v) originalSummary.bodySize = parseInt(v, 10) / 2;
-          }
-        }
-      }
-    }
+    const newStyles = applyStylesString(stylesContent, template);
+    zip.file("word/styles.xml", newStyles);
 
-    applyStyles(stylesDoc, template);
-    zip.file("word/styles.xml", serializeXml(stylesDoc));
-
-    if (originalSummary.bodyFont && originalSummary.bodyFont !== template.typography.bodyFont) {
+    if (detected.font && detected.font !== template.typography.bodyFont) {
       changes.push({
         category: "Tipografía",
-        description: `Fuente del cuerpo cambiada de ${originalSummary.bodyFont} a ${template.typography.bodyFont}`,
+        description: `Fuente del cuerpo cambiada de ${detected.font} a ${template.typography.bodyFont}`,
       });
     } else {
       changes.push({
@@ -122,16 +95,13 @@ export async function applyTemplate(
     });
   }
 
-  // 2. Procesar document.xml — márgenes, interlineado, runs/parrafos
+  // 2. document.xml — márgenes, tamaño de hoja, alineación e interlineado vía regex
   const documentFile = zip.file("word/document.xml");
   if (documentFile) {
-    const docContent = await documentFile.async("string");
-    const docDoc = parseXml(docContent);
-
-    applyMargins(docDoc, template);
-    applyParagraphFormatting(docDoc, template);
-
-    zip.file("word/document.xml", serializeXml(docDoc));
+    let docContent = await documentFile.async("string");
+    docContent = applyMarginsString(docContent, template);
+    docContent = applyParagraphFormattingString(docContent, template);
+    zip.file("word/document.xml", docContent);
 
     changes.push({
       category: "Tamaño de hoja",
@@ -151,7 +121,7 @@ export async function applyTemplate(
     });
   }
 
-  // 3. Encabezado y pie de página + logo
+  // 3. Encabezado y pie de página
   if (template.header.enabled) {
     await applyHeader(zip, template, logoDataUrl);
     changes.push({
@@ -179,196 +149,257 @@ export async function applyTemplate(
   return { blob, changes, originalSummary };
 }
 
-function applyStyles(stylesDoc: Document, t: FormatTemplate) {
-  // docDefaults — fuente y tamaño del cuerpo
-  let docDefaults = stylesDoc.getElementsByTagNameNS(W_NS, "docDefaults")[0];
-  const root = stylesDoc.documentElement;
-  if (!docDefaults) {
-    docDefaults = stylesDoc.createElementNS(W_NS, "w:docDefaults");
-    root.insertBefore(docDefaults, root.firstChild);
-  }
-  let rPrDefault = docDefaults.getElementsByTagNameNS(W_NS, "rPrDefault")[0];
-  if (!rPrDefault) {
-    rPrDefault = stylesDoc.createElementNS(W_NS, "w:rPrDefault");
-    docDefaults.appendChild(rPrDefault);
-  }
-  let rPr = rPrDefault.getElementsByTagNameNS(W_NS, "rPr")[0];
-  if (!rPr) {
-    rPr = stylesDoc.createElementNS(W_NS, "w:rPr");
-    rPrDefault.appendChild(rPr);
-  }
-  setRunFont(stylesDoc, rPr, t.typography.bodyFont);
-  setRunSize(stylesDoc, rPr, t.typography.bodySize);
-  setRunColor(stylesDoc, rPr, t.typography.bodyColor);
+// ===================== styles.xml (DOMParser, seguro) =====================
 
-  // Estilos Heading1, Heading2, Heading3
-  const headingConfigs: Array<{
-    id: string;
-    size: number;
-    align: Alignment;
-  }> = [
+function detectOriginalFont(stylesXml: string): { font?: string; size?: number } {
+  const result: { font?: string; size?: number } = {};
+  const fontMatch = stylesXml.match(
+    /<w:docDefaults>[\s\S]*?<w:rPrDefault>[\s\S]*?<w:rFonts[^/]*?w:ascii="([^"]+)"/,
+  );
+  if (fontMatch) result.font = fontMatch[1];
+  const sizeMatch = stylesXml.match(
+    /<w:docDefaults>[\s\S]*?<w:rPrDefault>[\s\S]*?<w:sz\s+w:val="(\d+)"/,
+  );
+  if (sizeMatch) result.size = parseInt(sizeMatch[1], 10) / 2;
+  return result;
+}
+
+function applyStylesString(stylesXml: string, t: FormatTemplate): string {
+  let out = stylesXml;
+  const font = t.typography.bodyFont;
+  const sz = ptToHalfPoints(t.typography.bodySize).toString();
+  const color = t.typography.bodyColor.replace("#", "").toUpperCase();
+
+  // 1. Asegurar/forzar docDefaults > rPrDefault > rPr con la fuente del cuerpo
+  const newRPrDefault =
+    `<w:rPrDefault><w:rPr>` +
+    `<w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}" w:eastAsia="${font}"/>` +
+    `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>` +
+    `<w:color w:val="${color}"/>` +
+    `<w:lang w:val="es-ES"/>` +
+    `</w:rPr></w:rPrDefault>`;
+
+  if (/<w:docDefaults>[\s\S]*?<\/w:docDefaults>/.test(out)) {
+    if (/<w:rPrDefault>[\s\S]*?<\/w:rPrDefault>/.test(out)) {
+      out = out.replace(/<w:rPrDefault>[\s\S]*?<\/w:rPrDefault>/, newRPrDefault);
+    } else {
+      out = out.replace(/<w:docDefaults>/, `<w:docDefaults>${newRPrDefault}`);
+    }
+  } else {
+    // Insertar docDefaults justo después de <w:styles ...>
+    out = out.replace(
+      /(<w:styles\b[^>]*>)/,
+      `$1<w:docDefaults>${newRPrDefault}</w:docDefaults>`,
+    );
+  }
+
+  // 2. Forzar el estilo "Normal" para que use la fuente del cuerpo
+  out = forceStyleRPr(out, "Normal", font, sz, color, false);
+
+  // 3. Forzar Heading1/2/3 con la fuente y tamaños de títulos
+  const headingColor = t.typography.headingColor.replace("#", "").toUpperCase();
+  const headings: Array<{ id: string; size: number; align: Alignment }> = [
     { id: "Heading1", size: t.typography.h1Size, align: t.headings.h1Alignment },
     { id: "Heading2", size: t.typography.h2Size, align: t.headings.h2Alignment },
     { id: "Heading3", size: t.typography.h3Size, align: t.headings.h3Alignment },
   ];
-
-  for (const cfg of headingConfigs) {
-    let style = findStyleById(stylesDoc, cfg.id);
-    if (!style) {
-      style = stylesDoc.createElementNS(W_NS, "w:style");
-      style.setAttributeNS(W_NS, "w:type", "paragraph");
-      style.setAttributeNS(W_NS, "w:styleId", cfg.id);
-      const name = stylesDoc.createElementNS(W_NS, "w:name");
-      name.setAttributeNS(W_NS, "w:val", `heading ${cfg.id.replace("Heading", "")}`);
-      style.appendChild(name);
-      root.appendChild(style);
-    }
-    // pPr
-    let pPr = Array.from(style.children).find((c) => c.localName === "pPr") as Element | undefined;
-    if (!pPr) {
-      pPr = stylesDoc.createElementNS(W_NS, "w:pPr");
-      style.appendChild(pPr);
-    }
-    setAlignment(stylesDoc, pPr, cfg.align);
-
-    // rPr del estilo
-    let sRPr = Array.from(style.children).find((c) => c.localName === "rPr") as Element | undefined;
-    if (!sRPr) {
-      sRPr = stylesDoc.createElementNS(W_NS, "w:rPr");
-      style.appendChild(sRPr);
-    }
-    setRunFont(stylesDoc, sRPr, t.typography.headingFont);
-    setRunSize(stylesDoc, sRPr, cfg.size);
-    setRunColor(stylesDoc, sRPr, t.typography.headingColor);
-    setRunBold(stylesDoc, sRPr, t.headings.bold);
+  for (const h of headings) {
+    const hsz = ptToHalfPoints(h.size).toString();
+    out = forceHeadingStyle(out, h.id, t.typography.headingFont, hsz, headingColor, t.headings.bold, h.align);
   }
+
+  return out;
 }
 
-function findStyleById(doc: Document, id: string): Element | null {
-  const styles = doc.getElementsByTagNameNS(W_NS, "style");
-  for (let i = 0; i < styles.length; i++) {
-    if (styles[i].getAttributeNS(W_NS, "styleId") === id) return styles[i];
+function forceStyleRPr(
+  xml: string,
+  styleId: string,
+  font: string,
+  sz: string,
+  color: string,
+  bold: boolean,
+): string {
+  const newRPr =
+    `<w:rPr>` +
+    `<w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}" w:eastAsia="${font}"/>` +
+    (bold ? `<w:b/><w:bCs/>` : "") +
+    `<w:color w:val="${color}"/>` +
+    `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>` +
+    `</w:rPr>`;
+
+  const styleRegex = new RegExp(
+    `(<w:style\\s+[^>]*w:styleId="${escapeRegex(styleId)}"[^>]*>)([\\s\\S]*?)(</w:style>)`,
+  );
+  const m = xml.match(styleRegex);
+  if (!m) return xml;
+  let inner = m[2];
+  if (/<w:rPr>[\s\S]*?<\/w:rPr>/.test(inner)) {
+    inner = inner.replace(/<w:rPr>[\s\S]*?<\/w:rPr>/, newRPr);
+  } else {
+    inner = inner + newRPr;
   }
-  return null;
+  return xml.replace(styleRegex, `${m[1]}${inner}${m[3]}`);
 }
 
-function setRunFont(doc: Document, rPr: Element, font: string) {
-  const existing = rPr.getElementsByTagNameNS(W_NS, "rFonts")[0];
-  const el = existing ?? doc.createElementNS(W_NS, "w:rFonts");
-  el.setAttributeNS(W_NS, "w:ascii", font);
-  el.setAttributeNS(W_NS, "w:hAnsi", font);
-  el.setAttributeNS(W_NS, "w:cs", font);
-  el.setAttributeNS(W_NS, "w:eastAsia", font);
-  if (!existing) rPr.insertBefore(el, rPr.firstChild);
-}
+function forceHeadingStyle(
+  xml: string,
+  styleId: string,
+  font: string,
+  sz: string,
+  color: string,
+  bold: boolean,
+  align: Alignment,
+): string {
+  const styleRegex = new RegExp(
+    `(<w:style\\s+[^>]*w:styleId="${escapeRegex(styleId)}"[^>]*>)([\\s\\S]*?)(</w:style>)`,
+  );
+  const newRPr =
+    `<w:rPr>` +
+    `<w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}" w:eastAsia="${font}"/>` +
+    (bold ? `<w:b/><w:bCs/>` : "") +
+    `<w:color w:val="${color}"/>` +
+    `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>` +
+    `</w:rPr>`;
+  const newPPr = `<w:pPr><w:jc w:val="${alignmentToWord(align)}"/></w:pPr>`;
 
-function setRunSize(doc: Document, rPr: Element, sizePt: number) {
-  const halfPts = ptToHalfPoints(sizePt).toString();
-  const sz = rPr.getElementsByTagNameNS(W_NS, "sz")[0] ?? doc.createElementNS(W_NS, "w:sz");
-  sz.setAttributeNS(W_NS, "w:val", halfPts);
-  if (!sz.parentNode) rPr.appendChild(sz);
-  const szCs = rPr.getElementsByTagNameNS(W_NS, "szCs")[0] ?? doc.createElementNS(W_NS, "w:szCs");
-  szCs.setAttributeNS(W_NS, "w:val", halfPts);
-  if (!szCs.parentNode) rPr.appendChild(szCs);
-}
-
-function setRunColor(doc: Document, rPr: Element, hex: string) {
-  const color = rPr.getElementsByTagNameNS(W_NS, "color")[0] ?? doc.createElementNS(W_NS, "w:color");
-  color.setAttributeNS(W_NS, "w:val", hex.replace("#", "").toUpperCase());
-  if (!color.parentNode) rPr.appendChild(color);
-}
-
-function setRunBold(doc: Document, rPr: Element, bold: boolean) {
-  const existing = rPr.getElementsByTagNameNS(W_NS, "b")[0];
-  if (bold) {
-    if (!existing) {
-      const b = doc.createElementNS(W_NS, "w:b");
-      rPr.appendChild(b);
+  const m = xml.match(styleRegex);
+  if (m) {
+    let inner = m[2];
+    if (/<w:rPr>[\s\S]*?<\/w:rPr>/.test(inner)) {
+      inner = inner.replace(/<w:rPr>[\s\S]*?<\/w:rPr>/, newRPr);
+    } else {
+      inner = inner + newRPr;
     }
-  } else if (existing) {
-    existing.parentNode?.removeChild(existing);
+    if (/<w:pPr>[\s\S]*?<\/w:pPr>/.test(inner)) {
+      inner = inner.replace(
+        /<w:pPr>([\s\S]*?)<\/w:pPr>/,
+        (_full, innerP) => {
+          let p = innerP;
+          if (/<w:jc\s+[^/]*\/>/.test(p)) {
+            p = p.replace(/<w:jc\s+[^/]*\/>/, `<w:jc w:val="${alignmentToWord(align)}"/>`);
+          } else {
+            p = p + `<w:jc w:val="${alignmentToWord(align)}"/>`;
+          }
+          return `<w:pPr>${p}</w:pPr>`;
+        },
+      );
+    } else {
+      inner = newPPr + inner;
+    }
+    return xml.replace(styleRegex, `${m[1]}${inner}${m[3]}`);
   }
+
+  // Crear estilo si no existe — insertar antes de </w:styles>
+  const headingNum = styleId.replace("Heading", "");
+  const newStyle =
+    `<w:style w:type="paragraph" w:styleId="${styleId}">` +
+    `<w:name w:val="heading ${headingNum}"/>` +
+    `<w:basedOn w:val="Normal"/>` +
+    `<w:next w:val="Normal"/>` +
+    newPPr +
+    newRPr +
+    `</w:style>`;
+  return xml.replace(/<\/w:styles>/, `${newStyle}</w:styles>`);
 }
 
-function setAlignment(doc: Document, pPr: Element, align: Alignment) {
-  const jc = pPr.getElementsByTagNameNS(W_NS, "jc")[0] ?? doc.createElementNS(W_NS, "w:jc");
-  jc.setAttributeNS(W_NS, "w:val", alignmentToWord(align));
-  if (!jc.parentNode) pPr.appendChild(jc);
+// ===================== document.xml (regex puro) =====================
+
+function applyMarginsString(xml: string, t: FormatTemplate): string {
+  const top = cmToTwips(t.spacing.marginTop).toString();
+  const bottom = cmToTwips(t.spacing.marginBottom).toString();
+  const left = cmToTwips(t.spacing.marginLeft).toString();
+  const right = cmToTwips(t.spacing.marginRight).toString();
+  const w = cmToTwips(t.pageSize.widthCm).toString();
+  const h = cmToTwips(t.pageSize.heightCm).toString();
+
+  const newPgMar = `<w:pgMar w:top="${top}" w:right="${right}" w:bottom="${bottom}" w:left="${left}" w:header="720" w:footer="720" w:gutter="0"/>`;
+  const newPgSz = `<w:pgSz w:w="${w}" w:h="${h}"/>`;
+
+  return xml.replace(/<w:sectPr\b[^>]*>([\s\S]*?)<\/w:sectPr>/g, (full, inner) => {
+    let updated = inner as string;
+
+    // pgSz
+    if (/<w:pgSz\b[^/]*\/>/.test(updated)) {
+      updated = updated.replace(/<w:pgSz\b[^/]*\/>/, newPgSz);
+    } else if (/<w:pgSz\b[^>]*>[\s\S]*?<\/w:pgSz>/.test(updated)) {
+      updated = updated.replace(/<w:pgSz\b[^>]*>[\s\S]*?<\/w:pgSz>/, newPgSz);
+    } else {
+      updated = newPgSz + updated;
+    }
+
+    // pgMar
+    if (/<w:pgMar\b[^/]*\/>/.test(updated)) {
+      updated = updated.replace(/<w:pgMar\b[^/]*\/>/, newPgMar);
+    } else if (/<w:pgMar\b[^>]*>[\s\S]*?<\/w:pgMar>/.test(updated)) {
+      updated = updated.replace(/<w:pgMar\b[^>]*>[\s\S]*?<\/w:pgMar>/, newPgMar);
+    } else {
+      // Insertar pgMar después de pgSz
+      updated = updated.replace(
+        new RegExp(escapeRegex(newPgSz)),
+        newPgSz + newPgMar,
+      );
+    }
+
+    return full.replace(inner, updated);
+  });
 }
 
-function applyMargins(docDoc: Document, t: FormatTemplate) {
-  // sectPr puede estar en body o en último párrafo
-  const sectPrs = docDoc.getElementsByTagNameNS(W_NS, "sectPr");
-  for (let i = 0; i < sectPrs.length; i++) {
-    const sectPr = sectPrs[i];
-    let pgMar = sectPr.getElementsByTagNameNS(W_NS, "pgMar")[0];
-    if (!pgMar) {
-      pgMar = docDoc.createElementNS(W_NS, "w:pgMar");
-      sectPr.appendChild(pgMar);
-    }
-    pgMar.setAttributeNS(W_NS, "w:top", cmToTwips(t.spacing.marginTop).toString());
-    pgMar.setAttributeNS(W_NS, "w:bottom", cmToTwips(t.spacing.marginBottom).toString());
-    pgMar.setAttributeNS(W_NS, "w:left", cmToTwips(t.spacing.marginLeft).toString());
-    pgMar.setAttributeNS(W_NS, "w:right", cmToTwips(t.spacing.marginRight).toString());
-    pgMar.setAttributeNS(W_NS, "w:header", "720");
-    pgMar.setAttributeNS(W_NS, "w:footer", "720");
-    pgMar.setAttributeNS(W_NS, "w:gutter", "0");
+function applyParagraphFormattingString(xml: string, t: FormatTemplate): string {
+  const jcVal = alignmentToWord(t.body.alignment);
+  const lineTwips = lineSpacingToTwips(t.spacing.lineSpacing).toString();
+  const beforeTwips = Math.round(t.spacing.paragraphSpacingBefore * 20).toString();
+  const afterTwips = Math.round(t.spacing.paragraphSpacingAfter * 20).toString();
 
-    // Tamaño de hoja personalizado (Oficio 21.59 x 33.02 cm en el caso del colegio)
-    let pgSz = sectPr.getElementsByTagNameNS(W_NS, "pgSz")[0];
-    if (!pgSz) {
-      pgSz = docDoc.createElementNS(W_NS, "w:pgSz");
-      sectPr.insertBefore(pgSz, pgMar);
-    }
-    pgSz.setAttributeNS(W_NS, "w:w", cmToTwips(t.pageSize.widthCm).toString());
-    pgSz.setAttributeNS(W_NS, "w:h", cmToTwips(t.pageSize.heightCm).toString());
-  }
-}
+  const newSpacing = `<w:spacing w:before="${beforeTwips}" w:after="${afterTwips}" w:line="${lineTwips}" w:lineRule="auto"/>`;
 
-function applyParagraphFormatting(docDoc: Document, t: FormatTemplate) {
-  const paragraphs = docDoc.getElementsByTagNameNS(W_NS, "p");
-  for (let i = 0; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    let pPr = Array.from(p.children).find((c) => c.localName === "pPr") as Element | undefined;
-    if (!pPr) {
-      pPr = docDoc.createElementNS(W_NS, "w:pPr");
-      p.insertBefore(pPr, p.firstChild);
-    }
-
-    // spacing
-    const spacing = pPr.getElementsByTagNameNS(W_NS, "spacing")[0] ?? docDoc.createElementNS(W_NS, "w:spacing");
-    spacing.setAttributeNS(W_NS, "w:before", ptToHalfPoints(t.spacing.paragraphSpacingBefore * 10).toString());
-    spacing.setAttributeNS(W_NS, "w:after", ptToHalfPoints(t.spacing.paragraphSpacingAfter * 10).toString());
-    spacing.setAttributeNS(W_NS, "w:line", lineSpacingToTwips(t.spacing.lineSpacing).toString());
-    spacing.setAttributeNS(W_NS, "w:lineRule", "auto");
-    if (!spacing.parentNode) pPr.appendChild(spacing);
-
-    // Detectar si es heading
-    const pStyle = pPr.getElementsByTagNameNS(W_NS, "pStyle")[0];
-    const styleVal = pStyle?.getAttributeNS(W_NS, "val") ?? "";
+  // Procesar solo párrafos — <w:p ...> ... </w:p>
+  return xml.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
+    // Detectar si tiene pStyle de heading
+    const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
+    const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
+    const styleVal = pStyleMatch?.[1] ?? "";
     const isHeading = /^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal);
 
-    if (!isHeading) {
-      // Alineación del cuerpo (justificada para el colegio)
-      setAlignment(docDoc, pPr, t.body.alignment);
+    let updatedInner = inner as string;
 
-      // Reformatear runs del cuerpo para fuente, tamaño y color consistentes
-      const runs = Array.from(p.children).filter((c) => c.localName === "r") as Element[];
-      for (const r of runs) {
-        let rPr = Array.from(r.children).find((c) => c.localName === "rPr") as Element | undefined;
-        if (!rPr) {
-          rPr = docDoc.createElementNS(W_NS, "w:rPr");
-          r.insertBefore(rPr, r.firstChild);
-        }
-        setRunFont(docDoc, rPr, t.typography.bodyFont);
-        setRunSize(docDoc, rPr, t.typography.bodySize);
-        setRunColor(docDoc, rPr, t.typography.bodyColor);
-      }
+    if (pPrMatch) {
+      // Reemplazar/insertar spacing y jc dentro del pPr existente
+      updatedInner = updatedInner.replace(
+        /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+        (_f, pAttrs, pInner) => {
+          let p = pInner as string;
+          // spacing
+          if (/<w:spacing\b[^/]*\/>/.test(p)) {
+            p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing);
+          } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+            p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing);
+          } else {
+            p = p + newSpacing;
+          }
+          // jc — solo para el cuerpo, no headings
+          if (!isHeading) {
+            const jcTag = `<w:jc w:val="${jcVal}"/>`;
+            if (/<w:jc\s+[^/]*\/>/.test(p)) {
+              p = p.replace(/<w:jc\s+[^/]*\/>/, jcTag);
+            } else {
+              p = p + jcTag;
+            }
+          }
+          return `<w:pPr${pAttrs}>${p}</w:pPr>`;
+        },
+      );
+    } else {
+      // Crear pPr al inicio del párrafo
+      const jcTag = !isHeading ? `<w:jc w:val="${jcVal}"/>` : "";
+      const newPPr = `<w:pPr>${newSpacing}${jcTag}</w:pPr>`;
+      updatedInner = newPPr + updatedInner;
     }
-  }
+
+    return `<w:p${attrs}>${updatedInner}</w:p>`;
+  });
 }
 
-// --- Encabezado / Pie ---
+// ===================== Encabezado / Pie =====================
 
 const CONTENT_TYPES_PATH = "[Content_Types].xml";
 const RELS_PATH = "word/_rels/document.xml.rels";
@@ -376,42 +407,34 @@ const RELS_PATH = "word/_rels/document.xml.rels";
 async function ensureRel(zip: JSZip, target: string, type: string): Promise<string> {
   const relsFile = zip.file(RELS_PATH);
   if (!relsFile) throw new Error("Faltan relaciones del documento");
-  const content = await relsFile.async("string");
-  const doc = parseXml(content);
-  const rels = doc.documentElement;
-  const existing = Array.from(rels.getElementsByTagNameNS(REL_NS, "Relationship")).find(
-    (r) => r.getAttribute("Target") === target,
-  );
-  if (existing) return existing.getAttribute("Id")!;
+  let content = await relsFile.async("string");
 
-  const ids = Array.from(rels.getElementsByTagNameNS(REL_NS, "Relationship")).map(
-    (r) => parseInt((r.getAttribute("Id") ?? "rId0").replace("rId", ""), 10) || 0,
+  // Buscar relación existente con el mismo target
+  const existing = content.match(
+    new RegExp(`<Relationship\\s+[^>]*Target="${escapeRegex(target)}"[^>]*Id="([^"]+)"`),
+  ) || content.match(
+    new RegExp(`<Relationship\\s+[^>]*Id="([^"]+)"[^>]*Target="${escapeRegex(target)}"`),
   );
-  const nextId = `rId${Math.max(0, ...ids) + 1}`;
-  const rel = doc.createElementNS(REL_NS, "Relationship");
-  rel.setAttribute("Id", nextId);
-  rel.setAttribute("Type", type);
-  rel.setAttribute("Target", target);
-  rels.appendChild(rel);
-  zip.file(RELS_PATH, serializeXml(doc));
+  if (existing) return existing[1];
+
+  // Calcular siguiente Id
+  const ids = Array.from(content.matchAll(/Id="rId(\d+)"/g)).map((m) => parseInt(m[1], 10));
+  const nextId = `rId${(ids.length ? Math.max(...ids) : 0) + 1}`;
+  const rel = `<Relationship Id="${nextId}" Type="${type}" Target="${target}"/>`;
+  content = content.replace(/<\/Relationships>/, `${rel}</Relationships>`);
+  zip.file(RELS_PATH, content);
   return nextId;
 }
 
 async function ensureContentType(zip: JSZip, partName: string, contentType: string) {
   const file = zip.file(CONTENT_TYPES_PATH);
   if (!file) return;
-  const content = await file.async("string");
-  const doc = parseXml(content);
-  const ns = "http://schemas.openxmlformats.org/package/2006/content-types";
-  const overrides = doc.getElementsByTagNameNS(ns, "Override");
-  for (let i = 0; i < overrides.length; i++) {
-    if (overrides[i].getAttribute("PartName") === partName) return;
-  }
-  const override = doc.createElementNS(ns, "Override");
-  override.setAttribute("PartName", partName);
-  override.setAttribute("ContentType", contentType);
-  doc.documentElement.appendChild(override);
-  zip.file(CONTENT_TYPES_PATH, serializeXml(doc));
+  let content = await file.async("string");
+  const partEscaped = escapeRegex(partName);
+  if (new RegExp(`<Override\\s+[^>]*PartName="${partEscaped}"`).test(content)) return;
+  const override = `<Override PartName="${partName}" ContentType="${contentType}"/>`;
+  content = content.replace(/<\/Types>/, `${override}</Types>`);
+  zip.file(CONTENT_TYPES_PATH, content);
 }
 
 function dataUrlToUint8(dataUrl: string): { bytes: Uint8Array; ext: string } {
@@ -430,15 +453,14 @@ function buildHeaderXml(t: FormatTemplate, logoRelId: string | null): string {
 
   let logoRun = "";
   if (logoRelId && t.header.showLogo) {
-    // Imagen inline 3cm x 3cm aprox (914400 EMU = 1 inch, 1 inch = 2.54 cm)
     const cx = Math.round((3 / 2.54) * 914400);
     const cy = Math.round((3 / 2.54) * 914400);
-    logoRun = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="Logo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${logoRelId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r><w:r><w:br/></w:r>`;
+    logoRun = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="Logo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${logoRelId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r><w:r><w:br/></w:r>`;
   }
 
   const text = escapeXml(t.header.institutionName || "");
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:hdr xmlns:w="${W_NS}">
+<w:hdr xmlns:w="${W_NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
   <w:p>
     <w:pPr><w:jc w:val="${align}"/></w:pPr>
     ${logoRun}
@@ -463,22 +485,13 @@ function buildFooterXml(t: FormatTemplate): string {
     : "";
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:ftr xmlns:w="${W_NS}">
+<w:ftr xmlns:w="${W_NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <w:p>
     <w:pPr><w:tabs><w:tab w:val="right" w:pos="9072"/></w:tabs></w:pPr>
     <w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${leftText}</w:t></w:r>
     ${pageNumberRun}
   </w:p>
 </w:ftr>`;
-}
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 async function applyHeader(zip: JSZip, t: FormatTemplate, logoDataUrl: string | null) {
@@ -531,19 +544,16 @@ async function applyFooter(zip: JSZip, t: FormatTemplate) {
 async function linkPartToSections(zip: JSZip, refName: "headerReference" | "footerReference", relId: string) {
   const documentFile = zip.file("word/document.xml");
   if (!documentFile) return;
-  const content = await documentFile.async("string");
-  const doc = parseXml(content);
-  const sectPrs = doc.getElementsByTagNameNS(W_NS, "sectPr");
-  for (let i = 0; i < sectPrs.length; i++) {
-    const sectPr = sectPrs[i];
-    // Eliminar referencias previas del mismo tipo
-    const existing = sectPr.getElementsByTagNameNS(W_NS, refName);
-    while (existing.length > 0) existing[0].parentNode?.removeChild(existing[0]);
+  let content = await documentFile.async("string");
 
-    const ref = doc.createElementNS(W_NS, `w:${refName}`);
-    ref.setAttributeNS(W_NS, "w:type", "default");
-    ref.setAttributeNS(R_NS, "r:id", relId);
-    sectPr.insertBefore(ref, sectPr.firstChild);
-  }
-  zip.file("word/document.xml", serializeXml(doc));
+  const refTag = `<w:${refName} w:type="default" r:id="${relId}"/>`;
+  const removeRegex = new RegExp(`<w:${refName}\\b[^/]*/>`, "g");
+
+  content = content.replace(/<w:sectPr\b[^>]*>([\s\S]*?)<\/w:sectPr>/g, (full, inner) => {
+    let updated = (inner as string).replace(removeRegex, "");
+    updated = refTag + updated;
+    return full.replace(inner, updated);
+  });
+
+  zip.file("word/document.xml", content);
 }
