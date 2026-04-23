@@ -169,7 +169,11 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
   const questionsHtml = assessment.questions
     .map((q, i) => {
       if (q.type === "section-title") {
-        return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>`;
+        qNum = 0;
+        const instr = q.instructions
+          ? `<div class="pa-section-instructions">${escape(q.instructions)}</div>`
+          : "";
+        return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>${instr}`;
       }
       if (q.type === "info-block") {
         return `<div class="pa-info-block">${escape(q.prompt)}</div>`;
