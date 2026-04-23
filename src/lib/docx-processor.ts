@@ -104,10 +104,21 @@ export async function applyTemplate(
 
   // 2. document.xml — márgenes, tamaño de hoja, alineación e interlineado vía regex
   const documentFile = zip.file("word/document.xml");
+  let tableOptimizations = 0;
+  let imageRescales = 0;
+  let sectionCreated = false;
   if (documentFile) {
     let docContent = await documentFile.async("string");
-    docContent = applyMarginsString(docContent, template);
+    const marginsRes = applyMarginsString(docContent, template);
+    docContent = marginsRes.xml;
+    sectionCreated = marginsRes.created;
     docContent = applyParagraphFormattingString(docContent, template);
+    const tablesRes = optimizeTablesString(docContent);
+    docContent = tablesRes.xml;
+    tableOptimizations = tablesRes.count;
+    const imagesRes = fitOversizedImagesString(docContent, template);
+    docContent = imagesRes.xml;
+    imageRescales = imagesRes.count;
     zip.file("word/document.xml", docContent);
 
     changes.push({
