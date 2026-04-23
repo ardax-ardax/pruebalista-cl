@@ -522,6 +522,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
 
   let qN = 0;
   for (const q of assessment.questions) {
+    if (q.type === "section-title") qN = 0;
     const isCounted = q.type !== "section-title" && q.type !== "info-block";
     if (isCounted) qN += 1;
     for (const p of questionParagraphs(q, isCounted ? qN : null, ctx, imageCache)) children.push(p);
