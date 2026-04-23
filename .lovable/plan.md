@@ -1,215 +1,69 @@
 
-## Recomiendo cambiar el enfoque: de “arreglar cualquier Word” a “crear pruebas estructuradas”
 
-Sí: para este caso conviene más una app de creación de pruebas tipo Forms, pero con salida **siempre estandarizada**. El problema de fondo no es solo el PDF recortando mal; es que el flujo actual depende de documentos Word arbitrarios, con imágenes flotantes, crops OOXML, tablas, posiciones y estilos impredecibles. Mientras entremos por `.docx`, siempre habrá casos borde.
+# Imágenes en opciones, V/F múltiple y fin de la deformación
 
-La solución más robusta es agregar un **Constructor de Pruebas** como flujo principal, y dejar el estandarizador actual solo como herramienta secundaria para documentos heredados.
+## 1) Imágenes en opciones de respuesta (con recorte visual)
 
-## Qué se construirá
+Hoy `Option` solo tiene `{ id, text, correct }`. Las imágenes solo existen a nivel pregunta. Hay que extender el modelo y la UI.
 
-### 1) Nuevo módulo “Crear prueba”
-Nueva ruta y navegación:
-- `Procesar Word` (flujo actual, secundario)
-- `Crear prueba` (nuevo flujo principal)
+**Schema (`src/lib/assessment-schema.ts`)**
+- `Option` gana campo opcional `image?: QuestionImage | null`.
 
-La nueva experiencia será un asistente con 4 pasos:
-1. **Datos generales**
-   - plantilla
-   - número
-   - asignatura
-   - curso
-   - docente
-   - título / instrucciones
-   - puntaje total / puntos por pregunta
-2. **Contenido**
-   - agregar preguntas
-   - reordenar
-   - duplicar
-   - eliminar
-   - agrupar por secciones
-3. **Vista previa paginada**
-   - render en hoja Oficio/Carta según plantilla
-   - misma cabecera institucional siempre
-   - misma tipografía/espaciado siempre
-4. **Exportar**
-   - `.docx`
-   - `PDF`
+**Editor (`src/components/test-builder/QuestionEditor.tsx`)**
+- Cada fila de opción muestra, debajo del input de texto, un `ImageCropEditor` colapsable ("Agregar imagen a esta opción"). Si la opción ya tiene imagen, se ve la miniatura recortada (la misma vista visual que ya tiene el editor de imagen de pregunta).
+- Aplica para `multiple-choice` y para el nuevo modo V/F múltiple (cada afirmación puede tener imagen).
 
-### 2) Modelo estructurado de evaluación
-Se reemplaza el origen “Word libre” por un esquema JSON controlado, por ejemplo:
+**Renderer (`src/lib/assessment-render.tsx`)**
+- En el `<ol class="pa-options">`, después del texto de la opción, si `o.image` existe, renderizar el mismo bloque `pa-image-wrap`/`pa-image-crop` que ya se usa en preguntas, respetando `widthPct`, `alignment` y `crop`.
 
-```text
-Assessment
- ├─ meta
- │  ├─ templateId
- │  ├─ subject
- │  ├─ grade
- │  ├─ teacher
- │  ├─ number
- │  ├─ title
- │  └─ instructions
- ├─ sections[]
- └─ questions[]
-     ├─ type
-     ├─ prompt
-     ├─ points
-     ├─ image?
-     ├─ options[]?
-     └─ answerLines?
-```
+**DOCX (`src/lib/assessment-docx.ts`)**
+- Insertar la imagen de la opción como párrafo siguiente a la línea de la opción, con el recorte aplicado (mismo helper que ya genera imágenes de pregunta).
 
-Tipos MVP:
-- selección múltiple
-- verdadero/falso
-- desarrollo corto
-- bloque informativo / instrucción
-- título de sección
+## 2) Verdadero / Falso con múltiples afirmaciones
 
-Esto elimina duplicación de banners, espaciados impredecibles y layouts rotos.
+Hoy `true-false` se modela como una sola pregunta con dos opciones (Verdadero/Falso) — no permite "lista de afirmaciones" típica de un ítem V/F.
 
-### 3) Imágenes con recorte real controlado
-Cada imagen se sube dentro de la pregunta y se guarda con metadata de crop:
-- `src`
-- `crop.left/right/top/bottom`
-- `width`
-- `alignment`
+**Cambio de modelo**
+- Nuevo campo opcional en `Question`: `statements?: TfStatement[]` donde `TfStatement = { id, text, answer: "V" | "F", image?: QuestionImage | null, points?: number }`.
+- Cuando `type === "true-false"`, se usa `statements` en vez de `options`. Migración: si una pregunta vieja V/F llega sin `statements`, se inicializa con un statement vacío `answer: "V"`.
 
-Se agrega un editor visual simple de recorte.
-La misma metadata se usará en:
-- preview
-- PDF
-- DOCX
+**Editor (`QuestionEditor.tsx`)**
+- Para `true-false` se muestra una tabla/lista editable de afirmaciones:
+  - Cada fila: número (1, 2, 3…), botón `V` / `F` (toggle exclusivo), `Textarea` de la afirmación, opcional imagen (con `ImageCropEditor`), eliminar.
+  - Botón "Agregar afirmación".
+- El campo "Puntaje" pasa a ser por afirmación (suma automática reflejada en el total).
 
-Así preview/PDF/DOCX salen desde la **misma fuente**, no desde interpretación parcial de mammoth.
+**Renderer y DOCX**
+- Para `true-false`, render no como `<ol>`, sino como lista numerada de afirmaciones precedidas por un par `( V ) ( F )` o el guion estándar institucional, con la imagen opcional debajo de cada afirmación.
+- Numeración global de preguntas: cada pregunta V/F sigue contando como **una** pregunta numerada (consistente con la nomenclatura de "ítem II"); las afirmaciones se enumeran internamente con letras o números secundarios. Decisión: enumerar internamente con números (1.1, 1.2…) para mantener trazabilidad y total de puntos por afirmación.
 
-### 4) Un solo renderer para preview y exportación
-Se creará un renderer común que transforme la evaluación estructurada en bloques visuales estandarizados:
-- encabezado institucional
-- título
-- instrucciones
-- preguntas
-- opciones
-- imágenes
-- líneas de respuesta
+## 3) Las imágenes se deforman
 
-Ese renderer alimentará:
-- la vista previa web
-- el HTML de impresión para PDF
-- la generación de `.docx`
+**Causa exacta** (en `assessment-render.tsx` `renderImageHtml` y en `ImageCropEditor` la miniatura):
+Cuando hay crop se hace `<img style="width: X%; height: auto;">` envuelto en un `<span>` con `aspect-ratio: auto` pero la imagen interna recibe `width:(100/visibleW)*100%` SIN `height:auto`, y en el preview cuando NO hay crop el `<img>` recibe `width: widthPct%` y `height: auto`, lo cual es correcto — pero al recortar se forzan width y height en porcentajes distintos calculados independientemente, deformando.
 
-Objetivo: que los tres resultados coincidan visualmente.
+**Arreglo del renderer**
+- Sustituir el modelo de "ancho + alto en %" por un wrapper con `aspect-ratio` calculado a partir del `naturalWidth/naturalHeight` de la imagen y los porcentajes de crop, con la imagen interna en `width: 100%; height: auto;` y desplazada por `transform: translate(-L%, -T%) scale(1/(1-L-R), 1/(1-T-B))` o, más simple y robusto: `<span>` con `width: widthPct%`, `aspect-ratio: (origW*visibleW)/(origH*visibleH)`, `overflow:hidden`; dentro `<img>` con `width: (100/visibleW)*100%; height: auto; margin-left: -(L/visibleW)*100%; margin-top: -(T/visibleH)*100%`. Esto preserva proporción porque solo `width` define la escala; `height` se deduce.
+- Para obtener `naturalWidth/Height`, almacenar `naturalW` y `naturalH` dentro de `QuestionImage` al cargar el archivo (en `ImageCropEditor.onPick` usar `new Image(); img.onload`).
 
-### 5) Exportación nativa, no “reparación de Word”
-#### PDF
-Generar desde el renderer HTML paginado, con CSS de impresión estable.
-Ya no dependerá del HTML de mammoth ni de crops interpretados desde un Word ajeno.
+**Arreglo del editor (miniatura)**
+- Reemplazar el cálculo actual basado en `width:160 height:120` fijo por: contenedor con `aspect-ratio` derivado del crop y de la imagen natural; `<img>` solo con `width` calculado y sin `height` forzado. Así el thumbnail se ve fiel al PDF y nunca deformado.
 
-#### DOCX
-Generar un documento nuevo desde el esquema estructurado, en vez de mutar un `.docx` arbitrario.
-Eso permite:
-- cabecera consistente
-- espaciado consistente
-- imágenes inline y recortadas correctamente
-- nombres de archivo estandarizados
+**Arreglo del DOCX**
+- En `assessment-docx.ts`, calcular `cx`/`cy` (EMU) a partir de `naturalW/H` reales y del `visibleW/H` post-crop manteniendo proporción (`cy = cx * (naturalH*visibleH) / (naturalW*visibleW)`). Hoy se usa una proporción fija o se deja a Word, que estira si los porcentajes de crop no coinciden.
 
-## Cómo convivirá con lo actual
+## Archivos a modificar
 
-### Fase 1 — coexistencia
-Mantener el flujo actual para “rescatar” documentos ya existentes:
-- subir `.docx`
-- estandarizar lo que se pueda
-- advertir que el PDF desde Word importado sigue siendo limitado
-
-### Fase 2 — flujo recomendado
-La pantalla principal pasa a priorizar:
-- “Crear prueba nueva”
-- “Procesar Word existente” como opción secundaria
-
-### Fase 3 — reducción de complejidad
-Cuando el constructor cubra la mayoría de los casos reales del colegio, el flujo de importación se mantiene solo para excepciones.
-
-## Archivos y módulos a crear/modificar
-
-### Nuevas rutas
-- `src/pages/CrearPrueba.tsx`
-- `src/App.tsx` — registrar ruta nueva
-- `src/components/AppLayout.tsx` — agregar navegación “Crear prueba”
-
-### Nuevo dominio de datos
-- `src/lib/assessment-schema.ts` — tipos y utilidades
-- `src/lib/assessment-storage.ts` — borradores en localStorage
-- `src/lib/assessment-file-name.ts` — convención de nombre final
-
-### Builder UI
-- `src/components/test-builder/AssessmentMetaForm.tsx`
-- `src/components/test-builder/QuestionList.tsx`
-- `src/components/test-builder/QuestionEditor.tsx`
-- `src/components/test-builder/SectionEditor.tsx`
-- `src/components/test-builder/ImageCropEditor.tsx`
-- `src/components/test-builder/AssessmentPreview.tsx`
-
-### Render y export
-- `src/lib/assessment-render.tsx` — renderer común
-- `src/lib/assessment-pdf.ts` — HTML paginado para impresión
-- `src/lib/assessment-docx.ts` — generación `.docx`
-- `src/lib/assessment-pagination.ts` — reglas de salto de página / bloques
-
-### Reutilización de lo existente
-- `src/lib/templates.ts` — reutilizar plantillas y formato institucional
-- `src/lib/catalog.ts` — reutilizar asignaturas, cursos y docentes
-- `src/pages/Index.tsx` — reposicionar como “Procesar Word”
-
-## Detalles técnicos
-
-### Regla clave
-No más “preview generado por mammoth de un Word arbitrario” como fuente de verdad.
-
-### Nueva arquitectura
-```text
-Formulario estructurado
-   ↓
-JSON de evaluación
-   ↓
-Renderer único
-   ├─ Preview web
-   ├─ PDF
-   └─ DOCX
-```
-
-### Beneficios directos
-- no se duplica el banner
-- no se desordenan preguntas por imágenes flotantes
-- no depende de crops OOXML de terceros
-- el PDF deja de salir distinto al Word
-- el espaciado entre preguntas es controlado por reglas propias
-- se pueden agregar validaciones pedagógicas (puntaje, numeración, secciones)
-
-### Validaciones del MVP
-- numeración automática de preguntas
-- al menos una opción correcta si aplica
-- campos obligatorios de cabecera
-- límite de ancho/alto de imagen
-- aviso si una pregunta rompe página de forma incómoda
-
-## Ajuste inmediato mientras se construye
-Como medida transitoria, el flujo actual de importación debería:
-- mantener `.docx` como descarga principal
-- marcar el PDF importado como “experimental” o esconderlo para documentos con imágenes recortadas/flotantes
-
-Así evitamos prometer fidelidad donde hoy no existe.
+- `src/lib/assessment-schema.ts` — `Option.image`, `TfStatement`, `Question.statements`, `QuestionImage.naturalW/naturalH`, migración de V/F existentes.
+- `src/components/test-builder/ImageCropEditor.tsx` — capturar dimensiones naturales al subir; miniatura con `aspect-ratio` real.
+- `src/components/test-builder/QuestionEditor.tsx` — imagen por opción; UI nueva para statements V/F.
+- `src/lib/assessment-render.tsx` — render de imagen en opciones; render de statements V/F; markup de imagen sin deformación + CSS de `.pa-image-crop` con `aspect-ratio`.
+- `src/lib/assessment-docx.ts` — soporte de imagen por opción y por statement; tamaño EMU proporcional.
+- `src/lib/assessment-pdf.ts` — sin cambios de lógica (sigue tomando el HTML del renderer, hereda los fixes).
 
 ## Resultado esperado
-- El usuario crea una prueba desde cero dentro de la app.
-- El sistema aplica siempre el formato institucional correcto.
-- Las imágenes se ven iguales en preview, PDF y DOCX.
-- Se reduce drásticamente la dependencia de “arreglar” archivos Word problemáticos.
-- El flujo queda más cercano a Forms, pero con salida formal, imprimible y estandarizada para el colegio.
 
-## Orden de implementación recomendado
-1. Crear nueva ruta `Crear prueba` y modelo `Assessment`.
-2. Construir formulario de metadata + preguntas básicas.
-3. Implementar preview paginado con el formato institucional.
-4. Agregar imágenes con crop visual.
-5. Generar PDF desde el renderer.
-6. Generar DOCX desde el mismo esquema.
-7. Reposicionar el flujo actual de importación como herramienta secundaria.
+- Cada opción (a, b, c, d) puede tener su propia imagen recortada, visible en preview y en PDF/DOCX.
+- V/F se vuelve un ítem real de varias afirmaciones, cada una con su V/F correcto y su imagen opcional, totalizando puntos por afirmación.
+- Las imágenes (en pregunta, en opción y en afirmación V/F) conservan proporción tanto en el editor como en preview, PDF y DOCX, incluso con recortes.
+
