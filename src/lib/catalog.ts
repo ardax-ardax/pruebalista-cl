@@ -10,22 +10,49 @@ export interface CatalogOption {
 export type SubjectOption = CatalogOption;
 export type GradeOption = CatalogOption;
 
-// Asignaturas oficiales del colegio (extraídas de los horarios entregados).
+// Asignaturas oficiales del colegio (extraídas de horarios de Básica y Media).
 // El `value` es el token usado en el nombre de archivo (sin espacios ni símbolos).
 export const DEFAULT_SUBJECTS: SubjectOption[] = [
+  // --- Plan de Formación General (Básica y Media) ---
   { label: "Lenguaje y Comunicación", value: "Lenguaje" },
   { label: "Lengua y Literatura", value: "Lengua" },
+  { label: "Taller de Habilidades Lingüísticas", value: "TDHLengua" },
   { label: "Matemática", value: "Matemática" },
   { label: "Taller de Habilidades Matemática", value: "TDHMatemática" },
   { label: "Ciencias Naturales", value: "Ciencias" },
+  { label: "Biología", value: "Biología" },
+  { label: "Física", value: "Física" },
+  { label: "Química", value: "Química" },
   { label: "Historia, Geografía y Ciencias Sociales", value: "Historia" },
+  { label: "Filosofía", value: "Filosofía" },
+  { label: "Ciencias para la Ciudadanía", value: "CienciasCiudadanía" },
+  { label: "Educación Ciudadana", value: "EdCiudadana" },
+  { label: "Mundo Global", value: "MundoGlobal" },
+  { label: "Chile y la Región Latinoamericana", value: "ChileLatam" },
   { label: "Inglés", value: "Inglés" },
   { label: "Tecnología", value: "Tecnología" },
   { label: "Música", value: "Música" },
   { label: "Artes Visuales", value: "Artes" },
+  { label: "Artes (Electivo)", value: "ArtesElectivo" },
   { label: "Educación Física y Salud", value: "EdFísica" },
   { label: "Orientación", value: "Orientación" },
   { label: "Religión", value: "Religión" },
+  { label: "Desarrollo Personal", value: "DesarrolloPersonal" },
+  // --- Electivos de Profundización (III° y IV° Medio) ---
+  { label: "Probabilidades y Estadística", value: "Probabilidades" },
+  { label: "Interpretación y Creación en Teatro", value: "Teatro" },
+  { label: "Comprensión Histórica del Presente", value: "ComprensiónHistórica" },
+  { label: "Biología Celular y Molecular", value: "BiologíaCelular" },
+  { label: "Interpretación Musical", value: "InterpretaciónMusical" },
+  { label: "Economía y Sociedad", value: "Economía" },
+  { label: "Ciencias de la Salud", value: "CienciasSalud" },
+  { label: "Participación y Argumentación en Democracia", value: "ParticipaciónDemocracia" },
+  { label: "Pensamiento Computacional y Programación", value: "Programación" },
+  { label: "Biología de los Ecosistemas", value: "BiologíaEcosistemas" },
+  { label: "Promoción de Estilos de Vida Activos y Saludables", value: "EstilosVidaSaludable" },
+  { label: "Diseño y Arquitectura", value: "DiseñoArquitectura" },
+  { label: "Lectura y Escritura Especializada", value: "LecturaEscritura" },
+  { label: "Límites, Derivadas e Integrales", value: "LímitesDerivadas" },
 ];
 
 // Cursos: Básica con formato "1º Básico", Media con "I Medio A/B" en romanos.
