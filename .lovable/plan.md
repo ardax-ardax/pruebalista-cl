@@ -1,34 +1,50 @@
 
 
-# Forzar layout en columna para selección múltiple con imagen
+# Imagen MC más grande: ampliar columna y respetar `widthPct`
 
-## Cambio de comportamiento
+## Problema
 
-Cuando una pregunta de selección múltiple **tiene imagen**, el layout será **siempre** dos columnas: opciones a la izquierda, imagen a la derecha (centrada en su columna). Se elimina la opción de elegir entre `block`, `side-right` o `side-left` para este caso.
+En selección múltiple con imagen, la columna de imagen está fija en **20%** del ancho de contenido (texto en 80%). Eso vuelve la imagen muy pequeña, sin importar las dimensiones reales o el `widthPct` configurado por el usuario.
 
-Si la pregunta de selección múltiple **no tiene imagen**, no hay layout que elegir (las opciones ocupan el ancho completo, igual que hoy).
+Además, en el render dentro de la columna, el `widthPct` se ignora (se fuerza a 100% de la celda en DOCX y la columna manda en HTML), así que el usuario no tiene control sobre el tamaño.
 
-## Archivos a modificar
+## Solución
 
-### 1) `src/components/test-builder/QuestionEditor.tsx`
-- Quitar el control UI que permite elegir `imageLayout` (selector con `block` / `side-right` / `side-left`) **solo para preguntas de selección múltiple**.
-- Cuando se sube/carga una imagen en una pregunta MC, asignar automáticamente `imageLayout = "side-right"`.
-- Para los demás tipos de pregunta (verdadero/falso, respuesta corta) el control sigue como está.
+### 1) Ampliar la columna de imagen al 40% (texto 60%)
 
-### 2) `src/lib/assessment-render.tsx`
-- En la lógica que decide `isSplit`, para `multiple-choice` con imagen forzar siempre split a la derecha, ignorando `imageLayout` distinto.
-- Forzar la alineación de la imagen dentro de la columna a `center` (sin importar lo configurado), tanto en HTML como en CSS.
+`src/lib/assessment-render.tsx` — CSS `.pa-mc-split`:
+- `.pa-mc-text { width: 60%; }`
+- `.pa-mc-image { width: 40%; }`
 
-### 3) `src/lib/assessment-docx.ts`
-- Misma lógica: en `multiple-choice` con imagen, generar siempre la tabla de dos columnas con la imagen a la derecha y centrada en su celda (`AlignmentType.CENTER`), ignorando `imageLayout` y `alignment` del schema.
+`src/lib/assessment-docx.ts` — en la rama `isSplit`:
+- Cambiar `textColCm = contentWidthCm * 0.6` y `imgColCm = contentWidthCm * 0.4`.
+- Ajustar `columnWidths` y `width` de las celdas a `0.6` / `0.4`.
+- Recalcular `charsPerLine` con la nueva `textColCm` (la fórmula ya es proporcional, solo cambia el insumo).
 
-### 4) Sin cambios de schema
-- `imageLayout` y `alignment` siguen existiendo en el modelo (compatibilidad con borradores y con los otros tipos de pregunta).
-- Para MC simplemente se ignoran al renderizar.
+### 2) Respetar `widthPct` dentro de la columna
+
+El `widthPct` del usuario se interpretará como **porcentaje del ancho de la columna de imagen**, no del ancho de página. Default 100%.
+
+`src/lib/assessment-render.tsx` — `renderContainedImageHtml`:
+- Aplicar `width: ${img.widthPct}%` (clamp 10–100) al wrapper / al `.pa-image-crop` / `.pa-image-plain`, en lugar de `max-width: 100%` puro.
+
+`src/lib/assessment-docx.ts` — rama `isSplit`:
+- Pasar `widthPct: clamp(10, 100, q.image.widthPct)` en lugar de forzar `100`.
+
+### 3) Quitar el clamp restrictivo de `widthPct` para MC con imagen
+
+En `ImageCropEditor` el slider hoy clampa a 20% para `left/right` y 50% para `center`. Para una imagen MC el slider debe permitir 10–100% (ya que se aplica sobre la columna, no sobre la página).
+
+`src/components/test-builder/ImageCropEditor.tsx`:
+- Aceptar un prop opcional `allowFullWidth` (boolean). Cuando es `true`, usar `MAX_IMAGE_WIDTH_PCT` (100) sin importar la alineación.
+
+`src/components/test-builder/QuestionEditor.tsx`:
+- En la imagen del enunciado de una pregunta `multiple-choice`, pasar `allowFullWidth={true}` al `ImageCropEditor`.
+- Actualizar el texto informativo: "En selección múltiple la imagen ocupa una columna a la derecha de las opciones; usá el control de ancho para ajustar su tamaño dentro de la columna".
 
 ## Resultado esperado
 
-- En cualquier pregunta de selección múltiple con imagen: opciones a la izquierda, imagen a la derecha centrada en su columna, en preview, PDF y Word.
-- El editor ya no muestra opciones de layout/alineación de imagen para selección múltiple — se simplifica la UI.
-- Borradores antiguos con `side-left` o `block` se renderizan automáticamente con el nuevo layout fijo.
+- La columna de imagen pasa de 20% a 40% del ancho de contenido — la imagen se ve significativamente más grande por defecto.
+- El usuario puede ajustar el `widthPct` (10–100) para reducirla dentro de su columna si lo desea.
+- Sin cambios de schema. DOCX, PDF y preview quedan consistentes.
 
