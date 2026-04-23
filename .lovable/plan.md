@@ -1,73 +1,91 @@
 
 
-# Diagnóstico del archivo + endurecer el procesador para tolerar este caso
+# Mammoth no encuentra `<w:body>` en el archivo procesado: hay regex que están corrompiendo el XML
 
-## Lo que muestra tu archivo
+## Lo que muestra el error
 
-Inspeccioné el `.docx` que subiste (Ciencias Naturales 2° Básico). El documento es válido — no tiene elementos exóticos como SmartArt, controles de formulario ni text boxes flotantes. Pero sí tiene tres patrones que hoy hacen al procesador frágil:
+El mensaje **"Could not find the body element: are you sure this is a docx file?"** lo lanza **mammoth.js**, no nuestro procesador. En `src/pages/Index.tsx`:
 
-1. **Imágenes reutilizadas en varias celdas**: las imágenes de animales (mosca/perro/murciélago, etc.) usan la misma referencia interna (`r:embed` repetido). Cuando una pasada toca `<w:drawing>` y ya pasó por uno, el siguiente puede quedar sin contexto válido.
-2. **Listas con doble numeración**: hay párrafos con `<w:numPr>` nativo Y además texto plano `1)`, `2)` al inicio (se ve en el parse como `* 1) Identifica...`). La pasada `normalizeNumbering` actual asume uno u otro, no los dos juntos.
-3. **Tablas pegadas entre sí sin párrafo separador**: `</w:tbl>` seguido directamente de `<w:p>` con texto `2) ¿Cuál...` — Word lo permite, pero algunas regex de normalización de párrafos esperan separación.
+- Línea 219: mammoth corre sobre el **buffer original**, pero está envuelto en `.catch(() => ({ value: "" }))` → no puede mostrar este toast.
+- Línea 223: mammoth corre sobre el **blob procesado**, sin try/catch propio → este es el que falla.
 
-Cuando el procesador falla por cualquiera de estos casos, el mensaje genérico **"El documento contiene elementos avanzados…"** se dispara desde `src/pages/Index.tsx` (línea 165) porque el filtro de error solo distingue entre dos categorías muy amplias (`/body element|docx/i`). No te dice realmente qué elemento falló.
+Eso significa: **una de nuestras pasadas de regex deja el `document.xml` malformado**. Mammoth abre el ZIP, encuentra `word/document.xml`, pero al parsearlo no puede ubicar un `<w:body>` válido (probablemente porque las etiquetas quedaron desbalanceadas).
 
-## Plan en 2 partes
+## Causa probable en este archivo
 
-### Parte A — Mensaje de error útil (no más "elementos avanzados" genérico)
+Tres pasadas usan regex sobre `<w:p>...</w:p>` o `<w:r>...</w:r>` con cuantificadores `[\s\S]*?` no codiciosos:
 
-`src/pages/Index.tsx`:
-- Reemplazar el toast genérico por uno que muestre **qué pasada falló** y **qué elemento la rompió** (nombre de la función + tag XML problemático).
-- Agregar un botón "Copiar detalle técnico" en el toast para que puedas pegármelo si vuelve a fallar.
+- `forceDirectFontFormatting` (línea 930): `<w:r\b([^>]*)>([\s\S]*?)</w:r>`
+- `applyParagraphFormattingString` (línea 985): `<w:p\b([^>]*)>([\s\S]*?)</w:p>`
+- `normalizeNumbering` (línea 1508): `<w:p\b[^>]*>[\s\S]*?</w:p>`
 
-`src/lib/docx-processor.ts`:
-- Envolver cada pasada (`normalizeNumbering`, `forceDirectFontFormatting`, `fitOversizedImagesString`, `optimizeTablesString`, banner, etc.) en `try/catch` individual.
-- Si una pasada falla, registrar el error en `diagnostics.warnings` con el nombre de la pasada y **continuar con el resto en lugar de abortar todo el documento**.
-- Solo abortar si falla algo crítico (lectura del ZIP, escritura del blob).
+Estas regex asumen que **`<w:p>` y `<w:r>` no se anidan**. En la realidad sí se anidan en estos casos:
 
-### Parte B — Tolerancia para los 3 patrones detectados
+1. **Cuadros de texto** (`<w:txbxContent>`): contiene `<w:p>` dentro de un `<w:r>` dentro del cuerpo.
+2. **`<mc:AlternateContent>` / `<mc:Fallback>`**: reproduce un párrafo alternativo para versiones viejas de Word.
+3. **Notas al pie embebidas inline**: idem.
 
-`src/lib/docx-processor.ts`:
+Cuando el regex no codicioso `[\s\S]*?</w:p>` se encuentra una `<w:p>` anidada, **cierra en la `</w:p>` interior**, deja el `</w:p>` exterior huérfano, y a partir de ahí el resto del XML queda con etiquetas desbalanceadas. Mammoth no logra encontrar `<w:body>` y aborta.
 
-1. **Imágenes con `r:embed` repetido**:
-   - En `fitOversizedImagesString`, dejar de procesar cada `<w:drawing>` de forma independiente. En su lugar, agrupar por `r:embed` y aplicar el ajuste una sola vez por imagen única.
-   - Si un drawing no tiene transform completo, saltarlo en silencio (warning, no error).
+Además, `forceDirectFontFormatting` (línea 970) usa un patrón **codicioso** `(<w:body\b[^>]*>)[\s\S]*(<\/w:body>)` que, al reescribir el body, si el contenido nuevo tiene tags huérfanos, propaga el daño.
 
-2. **Listas con doble numeración (numPr nativo + texto plano "1)")**:
-   - Detectar el patrón: párrafo con `<w:numPr>` cuyo primer `<w:t>` empieza con `\d+\)` o `[a-z]\)`.
-   - Resolución segura: **eliminar la numeración manual del texto**, dejar solo la nativa (porque ésa Word ya la pinta visualmente). Esto evita ver `1) 1) Identifica…` después de la normalización.
-   - Reportar en `autoFixesApplied`: "Se eliminó numeración manual duplicada en N párrafos".
+## Plan en 3 partes
 
-3. **Tablas adyacentes sin separador**:
-   - En la pasada de banner / formato de párrafos, no asumir que cada `<w:tbl>` está rodeado de `<w:p>`. Usar selector que tolere `<w:tbl>` consecutivos.
+### Parte A — Detectar paragraphs/runs anidados antes de tocarlos
 
-### Parte C — Validación previa del .docx (al subir)
+En `src/lib/docx-processor.ts`, antes de aplicar `forceDirectFontFormatting`, `applyParagraphFormattingString` y `normalizeNumbering`:
 
-Antes de invocar `applyTemplate`, hacer un check rápido:
-- Verificar que el ZIP contiene `word/document.xml` y `[Content_Types].xml`.
-- Detectar si es un `.doc` renombrado (firma binaria `D0CF11E0` en lugar de `PK`).
-- Detectar elementos no soportados explícitamente: `<w:sdt>` (controles de contenido), `<mc:AlternateContent>` con fallback de SmartArt, `<v:shape>` (VML legacy).
-- Mostrar un diálogo previo **antes de procesar** con la lista exacta de elementos riesgosos: "Tu documento contiene 3 controles de contenido y 2 SmartArt. La estandarización puede dejarlos sin formato. ¿Continuar?"
+- **Saltar bloques que contienen anidamiento conocido**. Antes de cada pasada, "ocultar" temporalmente las regiones peligrosas reemplazándolas con un placeholder único (token aleatorio), correr la pasada sobre el resto, y restaurarlas al final.
+- Regiones a aislar:
+  - `<mc:AlternateContent>...</mc:AlternateContent>` (incluye `<mc:Choice>` y `<mc:Fallback>`).
+  - `<w:txbxContent>...</w:txbxContent>` (cuadros de texto).
+  - `<w:sdt>...</w:sdt>` (controles de contenido) — ya los detectamos en preflight, pero pueden pasar.
+- Implementación: nueva utilidad `withProtectedRegions(xml, protectors, fn)` que:
+  1. Reemplaza cada bloque con un token tipo `__LOV_PROTECTED_<uuid>__`.
+  2. Llama `fn(maskedXml)`.
+  3. Restaura los bloques exactamente como estaban.
+
+Esto evita que cualquier regex `<w:p>...</w:p>` o `<w:r>...</w:r>` toque contenido anidado.
+
+### Parte B — Validar el XML después de cada pasada y revertir si quedó malformado
+
+En `runPass` (línea 196), agregar una verificación liviana **post-pasada**:
+
+- Contar `<w:p` vs `</w:p>` y `<w:r` vs `</w:r>` y `<w:body` vs `</w:body>` antes y después.
+- Si los conteos cambian de forma inesperada (delta de `<w:body>` ≠ 0, o delta de aperturas vs cierres aparece), **descartar el resultado de esa pasada** y mantener el XML previo, registrando un warning legible.
+- Si el balance se rompe, también registrar el primer fragmento donde se ve el desbalance (~120 caracteres alrededor) para que el toast técnico tenga pista útil.
+
+### Parte C — Pre-chequeo de mammoth y mensaje útil al usuario
+
+En `src/pages/Index.tsx` línea 222–223:
+
+- Envolver `mammoth.convertToHtml({ arrayBuffer: previewBuffer })` en su propio try/catch.
+- Si mammoth falla con "Could not find the body element", **no abortar**: el `.docx` probablemente sigue siendo válido para Word (mammoth es más estricto). Mostrar:
+  - Un warning amarillo en la tarjeta de Auto-QA: *"La previsualización HTML no se pudo generar (mammoth no soporta algunos elementos del documento), pero el `.docx` está listo para descargar y abrir en Word."*
+  - Permitir igualmente la descarga del `.docx` (botón habilitado).
+  - El comparador lado a lado mostrará la columna del procesado en blanco con un mensaje "No previsualizable, descarga el .docx para verlo en Word".
+
+También extender el preflight (`validateDocxStructure`) para detectar `<w:txbxContent>` y `<mc:AlternateContent>` — ahora mismo solo detectamos `<w:sdt>`, SmartArt, VML, OLE y altChunk.
 
 ## Cambios técnicos resumidos
 
-- `src/lib/docx-processor.ts`:
-  - Nueva función `validateDocxStructure(zip)` que se ejecuta primero.
-  - Cada pasada envuelta en `try/catch` con registro en `diagnostics.warnings`.
-  - `fitOversizedImagesString`: agrupar por `r:embed`.
-  - `normalizeNumbering`: detectar y limpiar numeración manual duplicada en párrafos con `<w:numPr>`.
+`src/lib/docx-processor.ts`:
+- Nueva utilidad `withProtectedRegions` que enmascara bloques `<mc:AlternateContent>`, `<w:txbxContent>` y `<w:sdt>` con tokens, y los restaura.
+- `forceDirectFontFormatting`, `applyParagraphFormattingString` y `normalizeNumbering` (las tres pasadas que iteran `<w:p>`/`<w:r>`) llaman a la utilidad.
+- `runPass` valida balance de tags `<w:body>`, `<w:p>`, `<w:r>` post-pasada y revierte si está roto, agregando warning con fragmento del XML problemático.
+- `validateDocxStructure` añade detección de `<w:txbxContent>` y `<mc:AlternateContent>` con `<mc:Fallback>` no trivial.
 
-- `src/pages/Index.tsx`:
-  - Mostrar el detalle real del error (no mensaje genérico).
-  - Si `validateDocxStructure` reporta elementos riesgosos, abrir un `AlertDialog` de confirmación antes de procesar.
+`src/pages/Index.tsx`:
+- `processDocument` envuelve la conversión a HTML del procesado en try/catch.
+- Si mammoth falla, deja `previewHtml = ""`, marca el documento como descargable igualmente, y agrega un warning a `diagnostics.warnings`.
+- El step "ready" ya no requiere `previewHtml`; basta con tener `resultBlob`.
 
-- `src/components/PreflightDialog.tsx` (nuevo):
-  - Diálogo modal que lista los elementos detectados en el .docx y pregunta si seguir.
+`src/components/DocumentPreview.tsx`:
+- Si `processedHtml` está vacío, mostrar un placeholder explicando que la previsualización no está disponible pero el archivo es descargable.
 
-## Resultado esperado con tu archivo
+## Resultado esperado
 
-- El archivo de Ciencias Naturales 2° Básico se procesará completo, sin caer al fallback genérico.
-- Las imágenes reutilizadas en las tablas de la página 2 se mantendrán visibles sin reescalado erróneo.
-- Los párrafos `* 1) Identifica…` saldrán como `1) Identifica…` (una sola numeración).
-- Si otro archivo tuyo trae algo realmente no soportado, el toast te dirá exactamente qué pasada falló y en qué elemento, en lugar de "elementos avanzados".
+- En el archivo que el usuario subió, las regiones con cuadros de texto o `mc:AlternateContent` quedan protegidas: las pasadas no las tocan, no se rompe el XML, mammoth puede previsualizar.
+- Si aún así mammoth no logra renderizar (porque tiene un elemento que mammoth simplemente no soporta para HTML, como un `<w:object>` complejo), la app **no se queda atascada**: el toast informa el caso y permite descargar el `.docx` corregido.
+- En el diagnóstico Auto-QA, el usuario ve exactamente qué tipo de elemento causó el problema (text box, mc:AlternateContent, etc.) en lugar del mensaje genérico de mammoth.
 
