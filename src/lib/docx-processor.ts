@@ -1546,6 +1546,155 @@ function applyParagraphFormattingString(xml: string, t: FormatTemplate): string 
   );
 }
 
+/**
+ * Colapsa secuencias de párrafos vacíos consecutivos a uno solo, y le quita el
+ * spacingBefore/After (deja solo la altura natural de la línea).
+ */
+function collapseBlankParagraphs(xml: string): { xml: string; removed: number } {
+  let removed = 0;
+
+  const newXml = withProtectedRegions(xml, (masked) => {
+    return masked.replace(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/, (full, bodyInner) => {
+      const tokenRegex =
+        /<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>|<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>|<w:sectPr\b[^>]*>[\s\S]*?<\/w:sectPr>|<w:sectPr\b[^>]*\/>/g;
+      const tokens: { full: string; start: number; end: number; isBlankP: boolean }[] = [];
+      let tm: RegExpExecArray | null;
+      while ((tm = tokenRegex.exec(bodyInner))) {
+        const t = tm[0];
+        let isBlankP = false;
+        if (t.startsWith("<w:p")) {
+          const text = extractParagraphText(t).trim();
+          const hasDrawing = /<w:drawing\b/.test(t) || /<w:pict\b/.test(t) || /<w:object\b/.test(t);
+          const hasNestedSect = /<w:sectPr\b/.test(t);
+          isBlankP = !text && !hasDrawing && !hasNestedSect;
+        }
+        tokens.push({ full: t, start: tm.index, end: tm.index + t.length, isBlankP });
+      }
+
+      const toDelete: { start: number; end: number }[] = [];
+      let i = 0;
+      while (i < tokens.length) {
+        if (tokens[i].isBlankP) {
+          let j = i + 1;
+          while (j < tokens.length && tokens[j].isBlankP) j++;
+          for (let k = i + 1; k < j; k++) {
+            toDelete.push({ start: tokens[k].start, end: tokens[k].end });
+            removed++;
+          }
+          i = j;
+        } else {
+          i++;
+        }
+      }
+
+      let newBodyInner = bodyInner;
+      for (let k = toDelete.length - 1; k >= 0; k--) {
+        newBodyInner = newBodyInner.slice(0, toDelete[k].start) + newBodyInner.slice(toDelete[k].end);
+      }
+
+      newBodyInner = newBodyInner.replace(
+        /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g,
+        (paragraph) => {
+          const text = extractParagraphText(paragraph).trim();
+          const hasDrawing = /<w:drawing\b/.test(paragraph) || /<w:pict\b/.test(paragraph) || /<w:object\b/.test(paragraph);
+          if (text || hasDrawing) return paragraph;
+          const tightSpacing = `<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>`;
+          if (/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/.test(paragraph)) {
+            return paragraph.replace(
+              /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+              (_f, attrs, inner) => {
+                let p = inner as string;
+                if (/<w:spacing\b[^/]*\/>/.test(p)) {
+                  p = p.replace(/<w:spacing\b[^/]*\/>/, tightSpacing);
+                } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+                  p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, tightSpacing);
+                } else {
+                  p = tightSpacing + p;
+                }
+                return `<w:pPr${attrs}>${p}</w:pPr>`;
+              },
+            );
+          }
+          return paragraph.replace(/(<w:p\b[^>]*>)/, `$1<w:pPr>${tightSpacing}</w:pPr>`);
+        },
+      );
+
+      return full.replace(bodyInner, newBodyInner);
+    });
+  });
+
+  return { xml: newXml, removed };
+}
+
+/**
+ * Aplica un ritmo visual específico para evaluaciones:
+ *  - Pregunta numerada (1) ó 1.) — spacingBefore 160, after 60
+ *  - Opción (a) b) c) d) — spacingBefore 0, after 0
+ * Solo activo cuando la plantilla es de evaluación (prefix Ev_).
+ */
+function applyQuestionRhythm(xml: string, t: FormatTemplate): { xml: string; questions: number; options: number } {
+  const isEvaluation = (t.fileNaming?.prefix ?? "").toLowerCase().startsWith("ev_");
+  if (!isEvaluation) return { xml, questions: 0, options: 0 };
+
+  let qCount = 0;
+  let oCount = 0;
+  const questionRe = /^\s*\d+\s*[\)\.\-]/;
+  const optionRe = /^\s*[a-eA-E]\s*[\)\.\-]/;
+  const headingPrefixRe = /^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X)\s*[\)\.\-]/;
+
+  const questionSpacing = `<w:spacing w:before="160" w:after="60" w:line="276" w:lineRule="auto"/>`;
+  const optionSpacing = `<w:spacing w:before="0" w:after="0" w:line="276" w:lineRule="auto"/>`;
+
+  const newXml = withProtectedRegions(xml, (masked) =>
+    masked.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
+      const text = extractParagraphText(full).trim();
+      if (!text) return full;
+      const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
+      const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
+      const styleVal = pStyleMatch?.[1] ?? "";
+      if (/^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal)) {
+        return full;
+      }
+
+      let newSpacing: string | null = null;
+      if (headingPrefixRe.test(text)) {
+        return full;
+      } else if (questionRe.test(text)) {
+        newSpacing = questionSpacing;
+        qCount++;
+      } else if (optionRe.test(text) && text.length < 200) {
+        newSpacing = optionSpacing;
+        oCount++;
+      }
+
+      if (!newSpacing) return full;
+
+      let updatedInner = inner as string;
+      if (pPrMatch) {
+        updatedInner = updatedInner.replace(
+          /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+          (_f, pAttrs, pInner) => {
+            let p = pInner as string;
+            if (/<w:spacing\b[^/]*\/>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing!);
+            } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing!);
+            } else {
+              p = newSpacing! + p;
+            }
+            return `<w:pPr${pAttrs}>${p}</w:pPr>`;
+          },
+        );
+      } else {
+        updatedInner = `<w:pPr>${newSpacing}</w:pPr>` + updatedInner;
+      }
+      return `<w:p${attrs}>${updatedInner}</w:p>`;
+    }),
+  );
+
+  return { xml: newXml, questions: qCount, options: oCount };
+}
+
 // ===================== Encabezado / Pie =====================
 
 const CONTENT_TYPES_PATH = "[Content_Types].xml";
