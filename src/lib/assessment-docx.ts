@@ -295,8 +295,9 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     children: headerRuns,
   });
 
-  const layout = q.imageLayout ?? "block";
-  const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
+  // MC con imagen → siempre split (opciones izquierda, imagen derecha centrada).
+  const isSplit = q.type === "multiple-choice" && !!q.image;
+  const layout: "side-left" | "side-right" | "block" = isSplit ? "side-right" : (q.imageLayout ?? "block");
 
   if (q.image && !isSplit) {
     const align =
