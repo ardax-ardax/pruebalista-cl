@@ -399,23 +399,136 @@ function stripInvalidXmlChars(xml: string): string {
 }
 
 /**
+ * Whitelist de namespaces oficiales de Microsoft Word / OOXML que sabemos
+ * declarar de forma segura. Cualquier prefijo usado en el XML que esté en
+ * esta tabla y no esté declarado en el root, se autorrepara.
+ */
+const KNOWN_WORD_NAMESPACES: Record<string, string> = {
+  w: W_NS,
+  r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+  wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+  wp14: "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+  a: "http://schemas.openxmlformats.org/drawingml/2006/main",
+  pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
+  mc: "http://schemas.openxmlformats.org/markup-compatibility/2006",
+  w14: "http://schemas.microsoft.com/office/word/2010/wordml",
+  w15: "http://schemas.microsoft.com/office/word/2012/wordml",
+  w16se: "http://schemas.microsoft.com/office/word/2015/wordml/symex",
+  w16cid: "http://schemas.microsoft.com/office/word/2016/wordml/cid",
+  w16: "http://schemas.microsoft.com/office/word/2018/wordml",
+  wpg: "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+  wps: "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+  wpi: "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+  v: "urn:schemas-microsoft-com:vml",
+  o: "urn:schemas-microsoft-com:office:office",
+  m: "http://schemas.openxmlformats.org/officeDocument/2006/math",
+  ve: "http://schemas.openxmlformats.org/markup-compatibility/2006",
+  wne: "http://schemas.microsoft.com/office/word/2006/wordml",
+  c: "http://schemas.openxmlformats.org/drawingml/2006/chart",
+  dgm: "http://schemas.openxmlformats.org/drawingml/2006/diagram",
+  sl: "http://schemas.openxmlformats.org/schemaLibrary/2006/main",
+};
+
+const ORPHAN_PREFIX_WARNINGS = new Set<string>();
+
+/**
+ * Escanea el XML buscando prefijos usados (en tags y atributos) que no estén
+ * declarados en el root. Para los conocidos, agrega el `xmlns:prefix="..."`
+ * correspondiente al elemento root indicado. Para los desconocidos registra
+ * un aviso (sin bloquear).
+ */
+function repairOrphanNamespaces(xml: string, rootTag: string): string {
+  const rootRe = new RegExp(`<${rootTag}\\b([^>]*)>`);
+  const rootMatch = xml.match(rootRe);
+  if (!rootMatch) return xml;
+  const rootAttrs = rootMatch[1];
+
+  const declared = new Set<string>();
+  // xmlns:prefix="..."
+  for (const m of rootAttrs.matchAll(/\bxmlns:([A-Za-z0-9_]+)\s*=/g)) {
+    declared.add(m[1]);
+  }
+  // xmlns="..." (default)
+  if (/\bxmlns\s*=/.test(rootAttrs)) declared.add("");
+
+  // Buscar prefijos usados en TODO el documento (tags y atributos).
+  // Ej: <w14:paraId/>, w14:paraId="...", a:graphic, r:embed=...
+  const used = new Set<string>();
+  for (const m of xml.matchAll(/<\/?([A-Za-z][A-Za-z0-9_]*):[A-Za-z]/g)) {
+    used.add(m[1]);
+  }
+  for (const m of xml.matchAll(/\s([A-Za-z][A-Za-z0-9_]*):[A-Za-z][A-Za-z0-9_]*\s*=/g)) {
+    used.add(m[1]);
+  }
+  // Excluir "xmlns" y "xml" (no son prefijos)
+  used.delete("xmlns");
+  used.delete("xml");
+
+  let toAdd = "";
+  const ignorables: string[] = [];
+  for (const prefix of used) {
+    if (declared.has(prefix)) continue;
+    const uri = KNOWN_WORD_NAMESPACES[prefix];
+    if (uri) {
+      toAdd += ` xmlns:${prefix}="${uri}"`;
+      // Marcar como ignorables si son extensiones modernas que Word viejo no entiende
+      if (/^(w14|w15|w16se|w16cid|w16|wp14|wpg|wps|wpi)$/.test(prefix)) {
+        ignorables.push(prefix);
+      }
+    } else {
+      const key = `${rootTag}:${prefix}`;
+      if (!ORPHAN_PREFIX_WARNINGS.has(key)) {
+        ORPHAN_PREFIX_WARNINGS.add(key);
+        console.warn(
+          `[docx-processor] Prefijo de namespace desconocido "${prefix}:" en ${rootTag}; no se pudo autorreparar.`,
+        );
+      }
+    }
+  }
+
+  let newAttrs = rootAttrs + toAdd;
+
+  // Manejar mc:Ignorable: agregar/extender con los nuevos prefijos modernos
+  if (ignorables.length > 0 || /\bw14:|\bw15:|\bw16/.test(xml)) {
+    const allIgnorables = new Set<string>(ignorables);
+    // Asegurar que todos los modernos efectivamente declarados queden ignorables
+    for (const p of ["w14", "w15", "w16se", "w16cid", "w16", "wp14"]) {
+      if (declared.has(p) || toAdd.includes(`xmlns:${p}=`)) allIgnorables.add(p);
+    }
+    const ignoreMatch = newAttrs.match(/\bmc:Ignorable\s*=\s*"([^"]*)"/);
+    if (ignoreMatch) {
+      const existing = new Set(ignoreMatch[1].split(/\s+/).filter(Boolean));
+      allIgnorables.forEach((p) => existing.add(p));
+      const merged = Array.from(existing).join(" ");
+      newAttrs = newAttrs.replace(/\bmc:Ignorable\s*=\s*"[^"]*"/, `mc:Ignorable="${merged}"`);
+    } else if (allIgnorables.size > 0) {
+      newAttrs += ` mc:Ignorable="${Array.from(allIgnorables).join(" ")}"`;
+    }
+  }
+
+  if (newAttrs !== rootAttrs) {
+    return xml.replace(rootRe, `<${rootTag}${newAttrs}>`);
+  }
+  return xml;
+}
+
+/**
  * Asegura que el `<w:document>` raíz declare los namespaces que usan los
  * elementos que inyectamos (banner, headers, footers): xmlns:wp, xmlns:a,
- * xmlns:pic, xmlns:r. Sin esto, parsers estrictos como Word marcan el
- * archivo como corrupto ("unbound prefix") aunque las redeclaraciones
- * locales en cada drawing existan.
+ * xmlns:pic, xmlns:r, además de los modernos w14/w15/w16. Sin esto, parsers
+ * estrictos como Word marcan el archivo como corrupto ("unbound prefix").
  *
  * Si el XML carece por completo del root <w:document> (p. ej. una pasada
  * previa lo eliminó), lo reconstruye envolviendo el contenido existente.
  */
 function ensureDocumentRootNamespaces(xml: string): string {
   const REQUIRED: Array<[string, string]> = [
-    ["xmlns:w", W_NS],
-    ["xmlns:r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
-    ["xmlns:wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"],
-    ["xmlns:a", "http://schemas.openxmlformats.org/drawingml/2006/main"],
-    ["xmlns:pic", "http://schemas.openxmlformats.org/drawingml/2006/picture"],
-    ["xmlns:mc", "http://schemas.openxmlformats.org/markup-compatibility/2006"],
+    ["xmlns:w", KNOWN_WORD_NAMESPACES.w],
+    ["xmlns:r", KNOWN_WORD_NAMESPACES.r],
+    ["xmlns:wp", KNOWN_WORD_NAMESPACES.wp],
+    ["xmlns:a", KNOWN_WORD_NAMESPACES.a],
+    ["xmlns:pic", KNOWN_WORD_NAMESPACES.pic],
+    ["xmlns:mc", KNOWN_WORD_NAMESPACES.mc],
   ];
 
   let out = xml;
@@ -442,6 +555,8 @@ function ensureDocumentRootNamespaces(xml: string): string {
     if (!/<\/w:document>\s*$/.test(out)) {
       out = out.replace(/\s*$/, "</w:document>");
     }
+    // Autoreparar cualquier prefijo huérfano que haya quedado (w14, v, m, etc.)
+    out = repairOrphanNamespaces(out, "w:document");
     return out;
   }
 
@@ -450,7 +565,39 @@ function ensureDocumentRootNamespaces(xml: string): string {
   const nsAttrs = REQUIRED.map(([p, u]) => `${p}="${u}"`).join(" ");
   // Quitar declaración XML del cuerpo si quedó duplicada
   const body = out.replace(/^<\?xml[^?]*\?>\s*/, "");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${nsAttrs}>${body}</w:document>`;
+  out = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${nsAttrs}>${body}</w:document>`;
+  out = repairOrphanNamespaces(out, "w:document");
+  return out;
+}
+
+/**
+ * Versión genérica para reparar namespaces en headers, footers y otras
+ * partes del .docx cuyo root es distinto a <w:document>.
+ */
+function ensurePartRootNamespaces(xml: string, rootTag: string): string {
+  let out = xml;
+  if (!/^<\?xml\b/.test(out.trimStart())) {
+    out = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${out}`;
+  }
+  const rootRe = new RegExp(`<${rootTag}\\b([^>]*)>`);
+  const m = out.match(rootRe);
+  if (!m) return out;
+  // Asegurar al menos los namespaces básicos para que w:/r:/wp:/a:/pic:/mc: existan
+  const REQUIRED: Array<[string, string]> = [
+    ["xmlns:w", KNOWN_WORD_NAMESPACES.w],
+    ["xmlns:r", KNOWN_WORD_NAMESPACES.r],
+    ["xmlns:mc", KNOWN_WORD_NAMESPACES.mc],
+  ];
+  let newAttrs = m[1];
+  for (const [prefix, uri] of REQUIRED) {
+    const re = new RegExp(`\\b${prefix.replace(":", "\\:")}\\s*=`);
+    if (!re.test(newAttrs)) newAttrs += ` ${prefix}="${uri}"`;
+  }
+  if (newAttrs !== m[1]) {
+    out = out.replace(rootRe, `<${rootTag}${newAttrs}>`);
+  }
+  out = repairOrphanNamespaces(out, rootTag);
+  return out;
 }
 
 /**
@@ -478,15 +625,17 @@ export interface FinalValidationIssue {
  */
 async function validateProcessedDocx(zip: JSZip): Promise<FinalValidationIssue[]> {
   const issues: FinalValidationIssue[] = [];
-  const parts = [
+  const baseParts = [
     "word/document.xml",
     "word/styles.xml",
     "word/numbering.xml",
-    "word/header1.xml",
-    "word/footer1.xml",
     "[Content_Types].xml",
     "word/_rels/document.xml.rels",
   ];
+  const headerFooterParts = Object.keys(zip.files).filter((p) =>
+    /^word\/(header|footer)\d*\.xml$/i.test(p),
+  );
+  const parts = [...baseParts, ...headerFooterParts];
 
   // DOMParser solo está en navegador; en SSR/test cae por undefined.
   const DOMParserCtor = typeof DOMParser !== "undefined" ? DOMParser : null;
@@ -856,19 +1005,28 @@ export async function applyTemplate(
 
   // ===== Sanitización + validación final del ZIP =====
   // Aplicar sanitizers a los XML clave antes de generar el blob.
-  for (const path of [
-    "word/document.xml",
-    "word/header1.xml",
-    "word/footer1.xml",
-  ]) {
+  // 1) document.xml siempre
+  {
+    const f = zip.file("word/document.xml");
+    if (f) {
+      let xml = await f.async("string");
+      xml = stripInvalidXmlChars(xml);
+      xml = ensureDocumentRootNamespaces(xml);
+      xml = ensureBodyParagraphBoundaries(xml);
+      zip.file("word/document.xml", xml);
+    }
+  }
+  // 2) Todos los header*.xml y footer*.xml (no solo header1/footer1)
+  const headerFooterPaths = Object.keys(zip.files).filter((p) =>
+    /^word\/(header|footer)\d*\.xml$/i.test(p),
+  );
+  for (const path of headerFooterPaths) {
     const f = zip.file(path);
     if (!f) continue;
     let xml = await f.async("string");
     xml = stripInvalidXmlChars(xml);
-    if (path === "word/document.xml") {
-      xml = ensureDocumentRootNamespaces(xml);
-      xml = ensureBodyParagraphBoundaries(xml);
-    }
+    const rootTag = /\/header\d*\.xml$/i.test(path) ? "w:hdr" : "w:ftr";
+    xml = ensurePartRootNamespaces(xml, rootTag);
     zip.file(path, xml);
   }
 
