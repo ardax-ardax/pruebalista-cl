@@ -1752,7 +1752,17 @@ function collapseBlankParagraphs(xml: string): { xml: string; removed: number } 
         newBodyInner = newBodyInner.slice(0, toDelete[k].start) + newBodyInner.slice(toDelete[k].end);
       }
 
-      newBodyInner = newBodyInner.replace(
+      // Aplicar spacing compacto a párrafos vacíos restantes, EXCLUYENDO los
+      // que estén dentro de celdas de tabla (donde colapsar el spacing puede
+      // romper layouts cuidadosamente diseñados).
+      const tablePlaceholders: string[] = [];
+      let masked2 = newBodyInner.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/g, (tbl) => {
+        const idx = tablePlaceholders.length;
+        tablePlaceholders.push(tbl);
+        return `__COLLAPSE_TBL_${idx}__`;
+      });
+
+      masked2 = masked2.replace(
         /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g,
         (paragraph) => {
           const text = extractParagraphText(paragraph).trim();
