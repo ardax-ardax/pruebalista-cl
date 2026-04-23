@@ -82,6 +82,10 @@ export const ASSESSMENT_CSS = `
   .pa-image-crop { display: inline-block; overflow: hidden; vertical-align: top; position: relative; }
   .pa-image-crop img { display: block; max-width: none; height: auto; }
   .pa-image-plain { display: inline-block; height: auto; }
+  .pa-mc-split { width: 100%; border-collapse: collapse; margin-top: 4pt; table-layout: fixed; }
+  .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
+  .pa-mc-split .pa-mc-text { width: 60%; padding-right: 8pt; }
+  .pa-mc-split .pa-mc-image { width: 40%; padding-left: 8pt; }
 `;
 
 const escape = (s: string) =>
@@ -139,16 +143,25 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         ? `<span class="pa-question-points">(${totalPts} pt${totalPts === 1 ? "" : "s"})</span>`
         : "";
       const header = `<div class="pa-question-header">${pts}${qNum}) ${escape(q.prompt)}</div>`;
-      const img = q.image ? renderImageHtml(q.image) : "";
+      const layout = q.imageLayout ?? "block";
+      const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
+      const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
       let body = "";
       if (q.type === "multiple-choice") {
         const letters = ["a", "b", "c", "d", "e", "f"];
-        body = `<ol class="pa-options">${(q.options ?? [])
+        const optionsList = `<ol class="pa-options">${(q.options ?? [])
           .map((o, i) => {
             const optImg = o.image ? renderImageHtml(o.image) : "";
             return `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}${optImg}</li>`;
           })
           .join("")}</ol>`;
+        if (isSplit && q.image) {
+          const imgCell = `<td class="pa-mc-image">${renderImageHtml({ ...q.image, widthPct: 100 })}</td>`;
+          const txtCell = `<td class="pa-mc-text">${optionsList}</td>`;
+          body = `<table class="pa-mc-split"><tr>${layout === "side-left" ? imgCell + txtCell : txtCell + imgCell}</tr></table>`;
+        } else {
+          body = optionsList;
+        }
       } else if (q.type === "true-false") {
         body = `<ol class="pa-statements">${(q.statements ?? [])
           .map((st, i) => {
@@ -162,7 +175,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           .map(() => `<div class="pa-answer-line"></div>`)
           .join("");
       }
-      return `<div class="pa-question">${header}${img}${body}</div>`;
+      return `<div class="pa-question">${header}${headerImg}${body}</div>`;
     })
     .join("");
 

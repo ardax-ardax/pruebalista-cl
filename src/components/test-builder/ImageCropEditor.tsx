@@ -4,8 +4,10 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Crop as CropIcon, Trash2, Upload } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronsUpDown, Crop as CropIcon, Trash2, Upload } from "lucide-react";
 import type { ImageCrop, QuestionImage } from "@/lib/assessment-schema";
+import { ImageCropDialog } from "./ImageCropDialog";
 
 interface Props {
   value: QuestionImage | null | undefined;
@@ -60,12 +62,12 @@ const CroppedThumb = ({ img, maxW = 160 }: { img: QuestionImage; maxW?: number }
 
 export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [showCrop, setShowCrop] = useState(false);
+  const [showCropDialog, setShowCropDialog] = useState(false);
   const [localCrop, setLocalCrop] = useState<ImageCrop>(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
 
   useEffect(() => {
     setLocalCrop(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
-  }, [value?.src]);
+  }, [value?.src, value?.crop]);
 
   const onPick = async (f: File) => {
     const src = await fileToDataUrl(f);
@@ -130,9 +132,9 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
               </Select>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowCrop((s) => !s)}>
-              <CropIcon className="h-4 w-4" /> {showCrop ? "Ocultar recorte" : "Recortar"}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowCropDialog(true)}>
+              <CropIcon className="h-4 w-4" /> Recortar
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
               <Trash2 className="h-4 w-4" /> Quitar
@@ -140,8 +142,14 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
           </div>
         </div>
       </div>
-      {showCrop && (
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
+
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="w-full justify-between">
+            Ajustes finos <ChevronsUpDown className="h-3 w-3" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
           {(["top", "bottom", "left", "right"] as const).map((side) => (
             <div key={side}>
               <Label className="text-xs capitalize">{labelOf(side)}: {localCrop[side]}%</Label>
@@ -158,8 +166,19 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
               />
             </div>
           ))}
-        </div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
+
+      <ImageCropDialog
+        open={showCropDialog}
+        src={value.src}
+        initial={value.crop}
+        onCancel={() => setShowCropDialog(false)}
+        onApply={(crop) => {
+          onChange({ ...value, crop });
+          setShowCropDialog(false);
+        }}
+      />
     </div>
   );
 };
