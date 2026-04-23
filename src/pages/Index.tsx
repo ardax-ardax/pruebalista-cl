@@ -66,6 +66,8 @@ const Index = () => {
   const [docNumber, setDocNumber] = useState("1");
   const [subject, setSubject] = useState("");
   const [grade, setGrade] = useState("");
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [grades, setGrades] = useState<GradeOption[]>([]);
 
   // Auto-cargar logo institucional la primera vez que se abre la app
   useEffect(() => {
