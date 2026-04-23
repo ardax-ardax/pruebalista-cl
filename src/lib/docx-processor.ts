@@ -180,7 +180,7 @@ export async function validateDocxStructure(
   const altChunkCount = countOccurrences(docXml, /<w:altChunk\b/g);
   if (altChunkCount > 0) {
     findings.push({
-      kind: "altChunk",
+      kind: "altchunk",
       count: altChunkCount,
       label: `${altChunkCount} fragmento(s) externos (HTML/RTF embebido)`,
     });
