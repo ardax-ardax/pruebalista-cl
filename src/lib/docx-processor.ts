@@ -625,15 +625,17 @@ export interface FinalValidationIssue {
  */
 async function validateProcessedDocx(zip: JSZip): Promise<FinalValidationIssue[]> {
   const issues: FinalValidationIssue[] = [];
-  const parts = [
+  const baseParts = [
     "word/document.xml",
     "word/styles.xml",
     "word/numbering.xml",
-    "word/header1.xml",
-    "word/footer1.xml",
     "[Content_Types].xml",
     "word/_rels/document.xml.rels",
   ];
+  const headerFooterParts = Object.keys(zip.files).filter((p) =>
+    /^word\/(header|footer)\d*\.xml$/i.test(p),
+  );
+  const parts = [...baseParts, ...headerFooterParts];
 
   // DOMParser solo está en navegador; en SSR/test cae por undefined.
   const DOMParserCtor = typeof DOMParser !== "undefined" ? DOMParser : null;
