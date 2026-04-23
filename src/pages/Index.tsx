@@ -312,6 +312,21 @@ const Index = () => {
                   </Select>
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="teacher" className="text-xs">Docente</Label>
+                <Select value={teacher} onValueChange={setTeacher}>
+                  <SelectTrigger id="teacher">
+                    <SelectValue placeholder="Selecciona docente (queda registrado en el archivo)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-sm">
                 <span className="text-muted-foreground">Nombre final:</span>{" "}
                 <span className="font-mono font-medium text-foreground">
