@@ -1,65 +1,79 @@
 
 
-# Comparador antes/después + control de zoom en la previsualización
+# Auto-QA en el servidor: comparar original vs. procesado y normalizar inconsistencias antes de entregar
 
-Dos mejoras de UX en la pantalla principal para que puedas detectar discrepancias visuales antes de descargar el `.docx`.
+El usuario no quiere revisar visualmente el comparador — quiere que **la herramienta misma detecte y corrija** las inconsistencias antes de descargar. El caso reportado: la numeración de opciones (`a)`, `b)`, `c)`) en algunas preguntas no se uniformiza porque en el .docx original conviven dos representaciones distintas:
 
-## 1. Vista comparativa "Original vs. Estandarizado"
+- **Texto plano**: `a)`, `b)`, `c)` escritos directamente en `<w:t>`.
+- **Lista numerada nativa de Word**: `<w:numPr>` con `numFmt="lowerLetter"` y un separador (`%1)` o `%1.`) definido en `numbering.xml`.
 
-Hoy solo se muestra el documento procesado. Vamos a:
+Lo mismo pasa con la numeración de preguntas (`1)` vs `1.`) y con las viñetas de indicadores. El procesador actual aplica fuente y márgenes pero **no toca la lógica de numeración**, así que esas diferencias visuales se mantienen.
 
-- **Renderizar también el documento original** con mammoth a HTML, en paralelo al procesado, y guardarlo en estado (`originalHtml`).
-- **Tabs en la tarjeta de previsualización**:
-  - `Comparar` (por defecto): vista lado a lado — Original a la izquierda, Estandarizado a la derecha. En pantallas chicas se apilan vertical.
-  - `Solo estandarizado`: vista actual a ancho completo.
-  - `Solo original`: para inspeccionar el archivo subido.
-- **Scroll sincronizado opcional** entre las dos columnas (toggle con switch "Scroll sincronizado") para detectar fácilmente qué bloque se desplazó.
-- Cada panel tendrá su propio header con el nombre del archivo y conteo de páginas estimado (cuenta de saltos `<w:br w:type="page"/>` + 1).
+## Plan en 3 capas
 
-## 2. Detector automático de discrepancias
+### 1. Pasada de normalización de numeración en `docx-processor.ts`
 
-Antes de pintar la previsualización, comparar los XML del original y procesado para detectar cambios estructurales que suelen "correr" el contenido:
+Nueva función `normalizeNumbering(documentXml, numberingXml, template)` que se ejecuta dentro de `applyTemplate`, después de `applyParagraphFormattingString`:
 
-- **Páginas estimadas**: si el procesado tiene más páginas que el original → warning "El documento aumentó de N a M páginas".
-- **Imágenes desplazadas**: contar imágenes (`<w:drawing>`) en cada uno; si difiere o si alguna cambió de tamaño significativo (>10%), reportarlo.
-- **Tablas modificadas**: contar `<w:tbl>` y filas; si baja → warning "Se eliminó/aplanó una tabla".
-- **Saltos de página añadidos**: contar `<w:br w:type="page"/>` en cuerpo (excluyendo el banner que sí añadimos a propósito).
+- **Detectar contexto** por el contenido textual del párrafo:
+  - Opciones de respuesta: párrafo que empieza con `a)`, `b)`, `c)`, `d)` (texto plano) **o** párrafo con `<w:numPr>` cuya definición en `numbering.xml` use `numFmt="lowerLetter"`.
+  - Preguntas: párrafo que empieza con `^\d+\)` o cuyo `numId` apunta a `decimal` con sufijo `)`.
+  - Indicadores / habilidades: listas con `decimal` + `.`.
+- **Unificar formato** según convención del colegio (la más usada en los ejemplos oficiales):
+  - Opciones → `a)`, `b)`, `c)` con paréntesis y sangría consistente.
+  - Preguntas → `1)`, `2)`, `3)` con paréntesis, negrita opcional.
+  - Listas de indicadores/habilidades → `1.`, `2.`, `3.` con punto.
+- **Cómo unificar sin romper Word**:
+  - Para los párrafos que ya tienen `<w:numPr>`: editar la definición correspondiente en `word/numbering.xml` (`<w:lvlText w:val="%1)"/>`) en lugar de tocar cada párrafo.
+  - Para los párrafos con texto plano (`a) opción`): normalizar el separador con regex (`a.` → `a)`, `a-` → `a)`, espacios extra), conservando el texto.
+  - No convertir entre los dos modos (no migrar texto plano a lista nativa ni al revés) — eso refluye el documento. Solo normalizar dentro de cada modo.
+- Acumular en `changes` un reporte por tipo: "Se uniformaron X opciones de respuesta a formato `a)`".
 
-Mostrar los hallazgos como una tarjeta `Alerta de discrepancias` (amarilla) sobre el preview, con lista expandible. Si no hay discrepancias relevantes → tarjeta verde "Sin diferencias estructurales detectadas".
+### 2. Auto-comparador interno (no visible al usuario) en `applyTemplate`
 
-Los conteos los expone `applyTemplate` en un nuevo campo `ProcessResult.diagnostics: { originalPages, processedPages, originalImages, processedImages, originalTables, processedTables, addedPageBreaks }`.
+Antes de devolver el blob, comparar `originalXml` vs `processedXml` y detectar discrepancias **automáticamente corregibles** o **bloqueantes**:
 
-## 3. Control de zoom en la previsualización
+- **Inconsistencias de numeración residuales**: contar cuántos párrafos de opciones siguen con formato distinto al canónico (`a.` vs `a)` vs `A)`). Si quedan > 0 después de la normalización, intentar una segunda pasada más agresiva sobre texto plano.
+- **Pérdida de tablas, imágenes o filas**: si los conteos bajan, aplicar rollback de la optimización que las haya tocado (hoy `optimizeTablesString` ya es conservador, pero verificar).
+- **Aumento de páginas inesperado** (> +1 sobre el original, descontando el banner): registrar warning en `diagnostics.warnings: string[]` para mostrarlo al usuario como aviso post-descarga.
+- Extender `DocDiagnostics` con:
+  - `optionFormatInconsistencies: { before: number; after: number }`
+  - `questionFormatInconsistencies: { before: number; after: number }`
+  - `warnings: string[]` (mensajes legibles)
+  - `autoFixesApplied: string[]` (qué corrigió automáticamente la pasada de QA)
 
-Reemplazar el contenedor fijo `p-8 max-h-[640px]` por uno con:
+### 3. UI: reporte de auto-QA en lugar de comparador visual
 
-- **Barra de controles** sobre cada panel: botones `−` / `+`, un `Select` con presets (50%, 75%, 100%, 125%, 150%) y botón "Ajustar a ventana".
-- Implementación: aplicar `transform: scale(zoom)` con `transform-origin: top left` al contenido HTML, y compensar el ancho del contenedor (`width: ${100/zoom}%`) para que el scroll horizontal funcione bien al hacer zoom in.
-- El zoom es independiente para cada panel en modo comparar, o compartido si "Scroll sincronizado" está activo.
-- Persistir el zoom elegido en `localStorage` (`preview-zoom`) para recordar la preferencia.
+Reemplazar el énfasis en `DocumentPreview` (lado a lado) por una **tarjeta de "Auto-QA del servidor"** sobre la previsualización:
 
-## Cambios técnicos
+- Verde "Documento estandarizado y verificado" si no hubo warnings.
+- Amarilla con lista expandible de:
+  - Correcciones automáticas aplicadas ("Se uniformó la numeración de 14 opciones a `a)`, `b)`, `c)`").
+  - Avisos no bloqueantes ("Página adicional añadida porque el banner ocupa espacio").
+- Mantener el comparador lado a lado, pero **colapsado por defecto** ("Ver comparación detallada" como acordeón). Ya no es la herramienta principal — es una verificación opcional.
+
+## Cambios técnicos resumidos
 
 `src/lib/docx-processor.ts`:
-- Añadir `diagnostics` a `ProcessResult` con los conteos descritos.
-- Calcular conteos haciendo regex sobre el `document.xml` original (antes de procesar) y el final.
+- Nueva función `normalizeNumbering(docXml, numberingXml, template)` invocada desde `applyTemplate`.
+- Nueva función `runAutoQA(originalXml, processedXml, numberingXml)` que devuelve `{ warnings, autoFixesApplied, inconsistencyCounts }`.
+- Extender `DocDiagnostics` con los campos nuevos.
+- Leer y reescribir `word/numbering.xml` cuando exista (hoy no se toca).
+
+`src/components/DiscrepancyAlert.tsx`:
+- Renderizar también `autoFixesApplied` y `warnings` (no solo conteos crudos).
+- Cambiar el copy: "Verificación automática" en lugar de "Discrepancias estructurales".
 
 `src/pages/Index.tsx`:
-- Nuevo estado: `originalHtml`, `diagnostics`, `zoomLeft`, `zoomRight`, `previewMode` (`compare | processed | original`), `syncScroll`.
-- En `processDocument`, después de leer el buffer original, generar `originalHtml` con mammoth en paralelo a la conversión actual.
-- Reemplazar la tarjeta "Vista previa" por un componente nuevo `<DocumentPreview>` que encapsule tabs, controles de zoom y scroll sincronizado.
-
-`src/components/DocumentPreview.tsx` (nuevo):
-- Recibe `originalHtml`, `processedHtml`, `template`, `diagnostics`.
-- Renderiza tabs, panel(es), barra de zoom, panel de discrepancias.
-- Implementa scroll sincronizado con `onScroll` + `ref` cruzados.
-
-`src/components/DiscrepancyAlert.tsx` (nuevo, pequeño):
-- Recibe `diagnostics` y renderiza la tarjeta verde/amarilla con lista de hallazgos.
+- Mover `<DocumentPreview>` dentro de un `<Collapsible>` cerrado por defecto, con título "Ver comparación detallada (opcional)".
+- Resaltar la tarjeta de Auto-QA como elemento principal del paso 4.
 
 ## Resultado esperado
 
-- Antes de descargar puedes ver original y estandarizado lado a lado, con scroll sincronizado para detectar qué bloque se "corrió".
-- Una tarjeta clara avisa si el documento creció en páginas, perdió tablas o cambió cantidad de imágenes.
-- Puedes hacer zoom in/out de cada panel para revisar detalles finos (tipografía, recortes de imagen, espaciados) sin depender de abrir Word cada vez.
+Cuando subas el mismo `.docx` de Historia 2º Básico:
+
+- Las opciones `a)`, `b)`, `c)` quedan en formato uniforme en todas las preguntas, sin importar si Word las tenía como texto plano o como lista nativa.
+- La numeración de preguntas (`1)`, `2)`, `3)`) queda consistente.
+- La tarjeta verde te confirma "14 opciones uniformadas a `a)`, `b)`, `c)`. Sin discrepancias bloqueantes." — sin que tú tengas que abrir el comparador.
+- Si quedó alguna inconsistencia que el procesador no pudo arreglar sola, aparece en amarillo con el detalle exacto, y el comparador visual sigue disponible si quieres confirmar.
 
