@@ -269,17 +269,18 @@ function renderContainedImageHtml(img: QuestionImage): string {
   const natW = img.naturalW ?? 4;
   const natH = img.naturalH ?? 3;
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
+  const alignClass = `pa-align-${img.alignment}`;
 
   if (!hasCrop) {
     // Sin crop: ocupa toda la columna; max-height de la celda evita exceder el alto.
-    return `<div class="pa-image-wrap pa-align-center"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
+    return `<div class="pa-image-wrap ${alignClass}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
   }
 
   const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
-  // Wrapper a 100% del ancho de columna con aspect-ratio del recorte.
-  // max-height de la celda reducirá la imagen manteniendo proporción.
+  // Wrapper con aspect-ratio del recorte; max-width/max-height de la celda
+  // reducirán la imagen manteniendo proporción cuando exceda.
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
-  return `<div class="pa-image-wrap pa-align-center"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
+  return `<div class="pa-image-wrap ${alignClass}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };
