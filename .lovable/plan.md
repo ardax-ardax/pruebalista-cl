@@ -1,95 +1,215 @@
 
+## Recomiendo cambiar el enfoque: de “arreglar cualquier Word” a “crear pruebas estructuradas”
 
-# El PDF muestra la imagen completa porque mammoth ignora el recorte (`<a:srcRect>`)
+Sí: para este caso conviene más una app de creación de pruebas tipo Forms, pero con salida **siempre estandarizada**. El problema de fondo no es solo el PDF recortando mal; es que el flujo actual depende de documentos Word arbitrarios, con imágenes flotantes, crops OOXML, tablas, posiciones y estilos impredecibles. Mientras entremos por `.docx`, siempre habrá casos borde.
 
-## Causa exacta
+La solución más robusta es agregar un **Constructor de Pruebas** como flujo principal, y dejar el estandarizador actual solo como herramienta secundaria para documentos heredados.
 
-El flujo actual es:
+## Qué se construirá
 
-1. El `.docx` original tiene imágenes con `<a:srcRect l="..." t="..." r="..." b="..."/>` (recorte aplicado por el autor en Word).
-2. Para previsualizar y exportar a PDF, usamos **mammoth.convertToHtml**. Mammoth extrae la imagen como `<img src="data:image/...;base64,...">` con la imagen **completa**, **sin** aplicar el `srcRect` (mammoth no soporta cropping).
-3. `exportHtmlToPdf` toma ese HTML y lo manda a la ventana de impresión → el PDF sale con la imagen completa.
+### 1) Nuevo módulo “Crear prueba”
+Nueva ruta y navegación:
+- `Procesar Word` (flujo actual, secundario)
+- `Crear prueba` (nuevo flujo principal)
 
-El `.docx` descargado sí preserva el recorte (porque `fitOversizedImagesString` deja intactos los `<a:srcRect>` con valores). El problema es solo en la rama PDF / preview.
+La nueva experiencia será un asistente con 4 pasos:
+1. **Datos generales**
+   - plantilla
+   - número
+   - asignatura
+   - curso
+   - docente
+   - título / instrucciones
+   - puntaje total / puntos por pregunta
+2. **Contenido**
+   - agregar preguntas
+   - reordenar
+   - duplicar
+   - eliminar
+   - agrupar por secciones
+3. **Vista previa paginada**
+   - render en hoja Oficio/Carta según plantilla
+   - misma cabecera institucional siempre
+   - misma tipografía/espaciado siempre
+4. **Exportar**
+   - `.docx`
+   - `PDF`
 
-## Solución: aplicar el recorte en el HTML antes de exportar a PDF
+### 2) Modelo estructurado de evaluación
+Se reemplaza el origen “Word libre” por un esquema JSON controlado, por ejemplo:
 
-Como mammoth no nos da el dato del crop, lo extraemos nosotros del XML del .docx y lo aplicamos sobre los `<img>` del HTML usando CSS.
-
-### Parte A — Extraer mapa de recortes desde el .docx procesado
-
-Nueva función en `src/lib/docx-processor.ts`:
-
-```ts
-export interface ImageCropInfo {
-  // identificador estable por imagen (índice secuencial de aparición)
-  index: number;
-  // valores en porcentaje (0–100), de cada lado, tal cual OOXML
-  left: number; right: number; top: number; bottom: number;
-}
-
-export function extractImageCrops(docXml: string): ImageCropInfo[]
+```text
+Assessment
+ ├─ meta
+ │  ├─ templateId
+ │  ├─ subject
+ │  ├─ grade
+ │  ├─ teacher
+ │  ├─ number
+ │  ├─ title
+ │  └─ instructions
+ ├─ sections[]
+ └─ questions[]
+     ├─ type
+     ├─ prompt
+     ├─ points
+     ├─ image?
+     ├─ options[]?
+     └─ answerLines?
 ```
 
-Recorre cada `<w:drawing>` en orden, extrae el `<a:srcRect l="..." t="..." r="..." b="..."/>` (los valores OOXML están en milésimas de porcentaje: `l="10000"` = 10%). Devuelve un array indexado por orden de aparición. Si una imagen no tiene `srcRect`, registra `{0,0,0,0}`.
+Tipos MVP:
+- selección múltiple
+- verdadero/falso
+- desarrollo corto
+- bloque informativo / instrucción
+- título de sección
 
-### Parte B — Aplicar los crops al HTML de mammoth
+Esto elimina duplicación de banners, espaciados impredecibles y layouts rotos.
 
-Nueva utilidad en `src/lib/pdf-export.ts`:
+### 3) Imágenes con recorte real controlado
+Cada imagen se sube dentro de la pregunta y se guarda con metadata de crop:
+- `src`
+- `crop.left/right/top/bottom`
+- `width`
+- `alignment`
 
-```ts
-function applyCropsToHtml(html: string, crops: ImageCropInfo[]): string
+Se agrega un editor visual simple de recorte.
+La misma metadata se usará en:
+- preview
+- PDF
+- DOCX
+
+Así preview/PDF/DOCX salen desde la **misma fuente**, no desde interpretación parcial de mammoth.
+
+### 4) Un solo renderer para preview y exportación
+Se creará un renderer común que transforme la evaluación estructurada en bloques visuales estandarizados:
+- encabezado institucional
+- título
+- instrucciones
+- preguntas
+- opciones
+- imágenes
+- líneas de respuesta
+
+Ese renderer alimentará:
+- la vista previa web
+- el HTML de impresión para PDF
+- la generación de `.docx`
+
+Objetivo: que los tres resultados coincidan visualmente.
+
+### 5) Exportación nativa, no “reparación de Word”
+#### PDF
+Generar desde el renderer HTML paginado, con CSS de impresión estable.
+Ya no dependerá del HTML de mammoth ni de crops interpretados desde un Word ajeno.
+
+#### DOCX
+Generar un documento nuevo desde el esquema estructurado, en vez de mutar un `.docx` arbitrario.
+Eso permite:
+- cabecera consistente
+- espaciado consistente
+- imágenes inline y recortadas correctamente
+- nombres de archivo estandarizados
+
+## Cómo convivirá con lo actual
+
+### Fase 1 — coexistencia
+Mantener el flujo actual para “rescatar” documentos ya existentes:
+- subir `.docx`
+- estandarizar lo que se pueda
+- advertir que el PDF desde Word importado sigue siendo limitado
+
+### Fase 2 — flujo recomendado
+La pantalla principal pasa a priorizar:
+- “Crear prueba nueva”
+- “Procesar Word existente” como opción secundaria
+
+### Fase 3 — reducción de complejidad
+Cuando el constructor cubra la mayoría de los casos reales del colegio, el flujo de importación se mantiene solo para excepciones.
+
+## Archivos y módulos a crear/modificar
+
+### Nuevas rutas
+- `src/pages/CrearPrueba.tsx`
+- `src/App.tsx` — registrar ruta nueva
+- `src/components/AppLayout.tsx` — agregar navegación “Crear prueba”
+
+### Nuevo dominio de datos
+- `src/lib/assessment-schema.ts` — tipos y utilidades
+- `src/lib/assessment-storage.ts` — borradores en localStorage
+- `src/lib/assessment-file-name.ts` — convención de nombre final
+
+### Builder UI
+- `src/components/test-builder/AssessmentMetaForm.tsx`
+- `src/components/test-builder/QuestionList.tsx`
+- `src/components/test-builder/QuestionEditor.tsx`
+- `src/components/test-builder/SectionEditor.tsx`
+- `src/components/test-builder/ImageCropEditor.tsx`
+- `src/components/test-builder/AssessmentPreview.tsx`
+
+### Render y export
+- `src/lib/assessment-render.tsx` — renderer común
+- `src/lib/assessment-pdf.ts` — HTML paginado para impresión
+- `src/lib/assessment-docx.ts` — generación `.docx`
+- `src/lib/assessment-pagination.ts` — reglas de salto de página / bloques
+
+### Reutilización de lo existente
+- `src/lib/templates.ts` — reutilizar plantillas y formato institucional
+- `src/lib/catalog.ts` — reutilizar asignaturas, cursos y docentes
+- `src/pages/Index.tsx` — reposicionar como “Procesar Word”
+
+## Detalles técnicos
+
+### Regla clave
+No más “preview generado por mammoth de un Word arbitrario” como fuente de verdad.
+
+### Nueva arquitectura
+```text
+Formulario estructurado
+   ↓
+JSON de evaluación
+   ↓
+Renderer único
+   ├─ Preview web
+   ├─ PDF
+   └─ DOCX
 ```
 
-Para cada `<img>` en orden (mammoth los emite en orden de aparición), si su crop correspondiente tiene algún lado > 0:
+### Beneficios directos
+- no se duplica el banner
+- no se desordenan preguntas por imágenes flotantes
+- no depende de crops OOXML de terceros
+- el PDF deja de salir distinto al Word
+- el espaciado entre preguntas es controlado por reglas propias
+- se pueden agregar validaciones pedagógicas (puntaje, numeración, secciones)
 
-- Envolverlo en `<span class="img-crop">…</span>` con `overflow:hidden` y dimensiones derivadas.
-- Aplicar al `<img>` interno un `transform: scale(...)` + `margin` negativo, o usar la técnica `clip-path: inset(top% right% bottom% left%)` (más simple y soportada en Chrome print).
+### Validaciones del MVP
+- numeración automática de preguntas
+- al menos una opción correcta si aplica
+- campos obligatorios de cabecera
+- límite de ancho/alto de imagen
+- aviso si una pregunta rompe página de forma incómoda
 
-Técnica recomendada: **`clip-path: inset()`** + ajuste de tamaño y margen para reservar el espacio visible:
+## Ajuste inmediato mientras se construye
+Como medida transitoria, el flujo actual de importación debería:
+- mantener `.docx` como descarga principal
+- marcar el PDF importado como “experimental” o esconderlo para documentos con imágenes recortadas/flotantes
 
-```html
-<span style="display:inline-block; overflow:hidden; width:Wpx; height:Hpx;">
-  <img src="..." style="
-    width: calc(Wpx / (1 - L% - R%));
-    height: calc(Hpx / (1 - T% - B%));
-    margin-left: calc(-1 * Wpx * L% / (1 - L% - R%));
-    margin-top: calc(-1 * Hpx * T% / (1 - T% - B%));
-    display: block;
-  ">
-</span>
-```
-
-Donde `W,H` son las dimensiones renderizadas que mammoth ya puso en el `<img>` (atributos `width`/`height` o `style`). Si mammoth no las emite, usar tamaño natural y dejar que CSS lo escale.
-
-Esta técnica es robusta para impresión en Chrome/Edge (la base del `window.print()`).
-
-### Parte C — Integrar en el flujo de exportación
-
-En `src/pages/Index.tsx` `handleDownloadPdf`:
-
-1. Obtener el XML del `.docx` procesado (ya lo tenemos en memoria via `resultBlob`; leer `word/document.xml` con JSZip — ya está como dependencia).
-2. `const crops = extractImageCrops(documentXml)`.
-3. `const croppedHtml = applyCropsToHtml(previewHtml, crops)`.
-4. `exportHtmlToPdf(croppedHtml, fileName)`.
-
-`exportHtmlToPdf` no cambia su firma; solo recibe HTML ya con los crops aplicados.
-
-### Parte D — Aplicar también al preview en pantalla (bonus)
-
-El mismo problema se ve en la previsualización web (la nota actual lo reconoce). Aplicar `applyCropsToHtml` también al `previewHtml` antes de pasarlo a `<DocumentPreview>` para que la vista coincida con el .docx final y con el PDF. Quitar/atenuar la nota disclaimer una vez aplicado.
-
-## Archivos a modificar
-
-- **`src/lib/docx-processor.ts`**: nueva `extractImageCrops(documentXml): ImageCropInfo[]` exportada.
-- **`src/lib/pdf-export.ts`**: nueva `applyCropsToHtml(html, crops)`; firma de `exportHtmlToPdf` sin cambios.
-- **`src/pages/Index.tsx`**:
-  - Guardar el XML del documento procesado (o re-extraerlo de `resultBlob` con JSZip on-demand) en estado.
-  - En `handleDownloadPdf` y al setear `previewHtml`, aplicar los crops.
-- **`src/components/DocumentPreview.tsx`**: actualizar la nota: ahora los recortes sí se aplican; mantener el aviso solo para layouts complejos / objetos flotantes.
+Así evitamos prometer fidelidad donde hoy no existe.
 
 ## Resultado esperado
+- El usuario crea una prueba desde cero dentro de la app.
+- El sistema aplica siempre el formato institucional correcto.
+- Las imágenes se ven iguales en preview, PDF y DOCX.
+- Se reduce drásticamente la dependencia de “arreglar” archivos Word problemáticos.
+- El flujo queda más cercano a Forms, pero con salida formal, imprimible y estandarizada para el colegio.
 
-- Las imágenes recortadas en el .docx original (por ejemplo, una foto donde solo se quiere mostrar la mitad) se ven recortadas también en la previsualización web y en el PDF descargado.
-- El comportamiento del .docx descargado abierto en Word no cambia (allí ya funcionaba).
-
+## Orden de implementación recomendado
+1. Crear nueva ruta `Crear prueba` y modelo `Assessment`.
+2. Construir formulario de metadata + preguntas básicas.
+3. Implementar preview paginado con el formato institucional.
+4. Agregar imágenes con crop visual.
+5. Generar PDF desde el renderer.
+6. Generar DOCX desde el mismo esquema.
+7. Reposicionar el flujo actual de importación como herramienta secundaria.
