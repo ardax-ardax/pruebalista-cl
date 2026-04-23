@@ -31,12 +31,16 @@ import {
 import {
   loadGrades,
   loadSubjects,
+  loadTeachers,
   resetGrades,
   resetSubjects,
+  resetTeachers,
   saveGrades,
   saveSubjects,
+  saveTeachers,
   type GradeOption,
   type SubjectOption,
+  type TeacherOption,
 } from "@/lib/catalog";
 
 const Configuracion = () => {
@@ -49,6 +53,7 @@ const Configuracion = () => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [grades, setGrades] = useState<GradeOption[]>([]);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -56,6 +61,7 @@ const Configuracion = () => {
     setInstitutionName(loadInstitutionName());
     setSubjects(loadSubjects());
     setGrades(loadGrades());
+    setTeachers(loadTeachers());
   }, []);
 
   const updateSubjects = (next: SubjectOption[]) => {
@@ -68,6 +74,11 @@ const Configuracion = () => {
     saveGrades(next);
   };
 
+  const updateTeachers = (next: TeacherOption[]) => {
+    setTeachers(next);
+    saveTeachers(next);
+  };
+
   const handleResetSubjects = () => {
     setSubjects(resetSubjects());
     toast.success("Asignaturas restauradas");
@@ -76,6 +87,11 @@ const Configuracion = () => {
   const handleResetGrades = () => {
     setGrades(resetGrades());
     toast.success("Cursos restaurados");
+  };
+
+  const handleResetTeachers = () => {
+    setTeachers(resetTeachers());
+    toast.success("Docentes restaurados");
   };
 
   const persist = (next: FormatTemplate[]) => {
@@ -240,10 +256,10 @@ const Configuracion = () => {
         </CardContent>
       </Card>
 
-      {/* Asignaturas y cursos */}
+      {/* Asignaturas, cursos y docentes */}
       <Card className="shadow-card mb-8">
         <CardHeader>
-          <CardTitle className="text-lg">Asignaturas y cursos</CardTitle>
+          <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
           <CardDescription>
             Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo"
             es lo que aparece en el nombre final (sin espacios ni símbolos).
@@ -267,6 +283,15 @@ const Configuracion = () => {
             onReset={handleResetGrades}
             labelPlaceholder="7° Básico"
             valuePlaceholder="7Básico"
+          />
+          <CatalogManager
+            title="Docentes"
+            description="Quien crea el documento. Se agrega al final del nombre del archivo."
+            items={teachers}
+            onChange={updateTeachers}
+            onReset={handleResetTeachers}
+            labelPlaceholder="Jorge Villablanca"
+            valuePlaceholder="JorgeVillablanca"
           />
         </CardContent>
       </Card>

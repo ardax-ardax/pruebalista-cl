@@ -38,9 +38,11 @@ import { exportHtmlToPdf } from "@/lib/pdf-export";
 import {
   loadGrades,
   loadSubjects,
+  loadTeachers,
   sanitizeFileToken,
   type GradeOption,
   type SubjectOption,
+  type TeacherOption,
 } from "@/lib/catalog";
 
 type Stage = "idle" | "processing" | "ready";
@@ -66,14 +68,17 @@ const Index = () => {
   const [docNumber, setDocNumber] = useState("1");
   const [subject, setSubject] = useState("");
   const [grade, setGrade] = useState("");
+  const [teacher, setTeacher] = useState("");
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [grades, setGrades] = useState<GradeOption[]>([]);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
 
   // Auto-cargar logo institucional la primera vez que se abre la app
   useEffect(() => {
     setTemplates(loadTemplates());
     setSubjects(loadSubjects());
     setGrades(loadGrades());
+    setTeachers(loadTeachers());
     const existing = loadLogo();
     if (existing) {
       setLogo(existing);
@@ -151,11 +156,13 @@ const Index = () => {
   // Construir el nombre estandarizado del archivo según la convención del colegio
   const buildStandardFileName = (): string => {
     const prefix = workingTemplate?.fileNaming?.prefix;
-    if (prefix && (subject.trim() || grade.trim() || docNumber.trim())) {
+    if (prefix && (subject.trim() || grade.trim() || docNumber.trim() || teacher.trim())) {
       const n = docNumber.trim() || "1";
       const subj = sanitizeFileToken(subject);
       const grd = sanitizeFileToken(grade);
+      const tch = sanitizeFileToken(teacher);
       const parts = [prefix, `N°${n}`, subj || "Asignatura", grd || "Curso"];
+      if (tch) parts.push(tch);
       return parts.join("_");
     }
     return (originalFile?.name.replace(/\.docx$/i, "") ?? "documento") + " - estandarizado";
@@ -304,6 +311,21 @@ const Index = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="teacher" className="text-xs">Docente</Label>
+                <Select value={teacher} onValueChange={setTeacher}>
+                  <SelectTrigger id="teacher">
+                    <SelectValue placeholder="Selecciona docente (queda registrado en el archivo)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-sm">
                 <span className="text-muted-foreground">Nombre final:</span>{" "}
