@@ -992,6 +992,12 @@ export async function applyTemplate(
         description: `Se optimizaron ${tableOptimizations} ajuste(s) en tablas para permitir división entre páginas y aprovechar mejor el espacio.`,
       });
     }
+    if (imagesUnfloated > 0) {
+      changes.push({
+        category: "Imágenes",
+        description: `Se convirtieron ${imagesUnfloated} imagen(es) flotante(s) a layout en línea para evitar texto rodeando.`,
+      });
+    }
     if (imageRescales > 0) {
       changes.push({
         category: "Imágenes",
