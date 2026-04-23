@@ -185,9 +185,9 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
   },
 ];
 
-const STORAGE_KEY = "estandarizador.templates.v1";
-const LOGO_KEY = "estandarizador.logo.v1";
-const INSTITUTION_KEY = "estandarizador.institution.v1";
+const STORAGE_KEY = "estandarizador.templates.v2";
+const LOGO_KEY = "estandarizador.logo.v2";
+const INSTITUTION_KEY = "estandarizador.institution.v2";
 
 export function loadTemplates(): FormatTemplate[] {
   try {
