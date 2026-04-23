@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronsUpDown, Crop as CropIcon, Trash2, Upload } from "lucide-react";
-import { clampWidthPctByAlign, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type ImageCrop, type QuestionImage } from "@/lib/assessment-schema";
+import { Crop as CropIcon, Trash2, Upload } from "lucide-react";
+import { clampWidthPctByAlign, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type QuestionImage } from "@/lib/assessment-schema";
 import { ImageCropDialog } from "./ImageCropDialog";
 
 interface Props {
@@ -70,11 +68,6 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     allowFullWidth ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, w)) : clampWidthPctByAlign(w, alignment);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showCropDialog, setShowCropDialog] = useState(false);
-  const [localCrop, setLocalCrop] = useState<ImageCrop>(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
-
-  useEffect(() => {
-    setLocalCrop(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
-  }, [value?.src, value?.crop]);
 
   // En modo columna (MC/VF), forzar 100% de ancho y centrado para que ocupe toda la columna.
   useEffect(() => {
@@ -177,32 +170,6 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
         </div>
       </div>
 
-      <Collapsible>
-        <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="w-full justify-between">
-            Ajustes finos <ChevronsUpDown className="h-3 w-3" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
-          {(["top", "bottom", "left", "right"] as const).map((side) => (
-            <div key={side}>
-              <Label className="text-xs capitalize">{labelOf(side)}: {localCrop[side]}%</Label>
-              <Slider
-                min={0}
-                max={80}
-                step={1}
-                value={[localCrop[side]]}
-                onValueChange={(v) => {
-                  const next = { ...localCrop, [side]: v[0] };
-                  setLocalCrop(next);
-                  onChange({ ...value, crop: next });
-                }}
-              />
-            </div>
-          ))}
-        </CollapsibleContent>
-      </Collapsible>
-
       <ImageCropDialog
         open={showCropDialog}
         src={value.src}
@@ -216,6 +183,3 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     </div>
   );
 };
-
-const labelOf = (s: "top" | "bottom" | "left" | "right") =>
-  s === "top" ? "Recorte superior" : s === "bottom" ? "Recorte inferior" : s === "left" ? "Recorte izquierdo" : "Recorte derecho";
