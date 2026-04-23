@@ -26,6 +26,10 @@ export interface DocDiagnostics {
   originalPageBreaks: number;
   processedPageBreaks: number;
   addedPageBreaks: number;
+  optionFormatInconsistencies: { before: number; after: number };
+  questionFormatInconsistencies: { before: number; after: number };
+  autoFixesApplied: string[];
+  warnings: string[];
 }
 
 export interface ProcessResult {
@@ -144,9 +148,25 @@ export async function applyTemplate(
   let sectionCreated = false;
   let originalStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
   let processedStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
+  let extendedDiagnostics: {
+    optionFormatInconsistencies: { before: number; after: number };
+    questionFormatInconsistencies: { before: number; after: number };
+    autoFixesApplied: string[];
+    warnings: string[];
+  } = {
+    optionFormatInconsistencies: { before: 0, after: 0 },
+    questionFormatInconsistencies: { before: 0, after: 0 },
+    autoFixesApplied: [],
+    warnings: [],
+  };
   if (documentFile) {
     let docContent = await documentFile.async("string");
     originalStats = computeDocStats(docContent);
+    const originalDocXml = docContent;
+
+    // Contar inconsistencias de numeración ANTES de cualquier normalización
+    const beforeCounts = countNumberingInconsistencies(docContent);
+
     const marginsRes = applyMarginsString(docContent, template);
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
@@ -160,8 +180,85 @@ export async function applyTemplate(
     // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
     // para que Word no use la fuente original almacenada en cada <w:rPr>.
     docContent = forceDirectFontFormatting(docContent, template);
+
+    // Normalización de numeración (texto plano + numbering.xml)
+    const numberingFile = zip.file("word/numbering.xml");
+    let numberingXml = numberingFile ? await numberingFile.async("string") : null;
+    const normRes = normalizeNumbering(docContent, numberingXml);
+    docContent = normRes.documentXml;
+    numberingXml = normRes.numberingXml;
+    if (numberingFile && numberingXml) {
+      zip.file("word/numbering.xml", numberingXml);
+    }
+
     processedStats = computeDocStats(docContent);
     zip.file("word/document.xml", docContent);
+
+    // Auto-QA: comparar antes/después y generar warnings + fixes legibles
+    const afterCounts = countNumberingInconsistencies(docContent);
+    const autoFixesApplied: string[] = [];
+    const warnings: string[] = [];
+
+    const optionsFixed = Math.max(0, beforeCounts.options - afterCounts.options);
+    const questionsFixed = Math.max(0, beforeCounts.questions - afterCounts.questions);
+    if (normRes.optionsTextFixed > 0 || optionsFixed > 0 || normRes.optionsListFixed > 0) {
+      const total = Math.max(optionsFixed, normRes.optionsTextFixed + normRes.optionsListFixed);
+      autoFixesApplied.push(
+        `Se uniformó la numeración de ${total} opción(es) de respuesta a formato \`a)\`, \`b)\`, \`c)\`.`,
+      );
+      changes.push({
+        category: "Numeración",
+        description: `Opciones de respuesta uniformadas a formato \`a)\` (${total} ítem(s)).`,
+      });
+    }
+    if (normRes.questionsTextFixed > 0 || questionsFixed > 0 || normRes.questionsListFixed > 0) {
+      const total = Math.max(questionsFixed, normRes.questionsTextFixed + normRes.questionsListFixed);
+      autoFixesApplied.push(
+        `Se uniformó la numeración de ${total} pregunta(s) a formato \`1)\`, \`2)\`, \`3)\`.`,
+      );
+      changes.push({
+        category: "Numeración",
+        description: `Preguntas uniformadas a formato \`1)\` (${total} ítem(s)).`,
+      });
+    }
+
+    // Warnings estructurales
+    const addedPageBreaks = Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks);
+    // El banner añade un párrafo, no un page break duro; cualquier salto extra es notable
+    if (addedPageBreaks > 0) {
+      warnings.push(
+        `Se añadieron ${addedPageBreaks} salto(s) de página al procesar (probablemente por el banner institucional).`,
+      );
+    }
+    const extraPages = processedStats.pages - originalStats.pages;
+    if (extraPages > 1) {
+      warnings.push(
+        `El documento creció en ${extraPages} página(s) respecto al original. Revisa si una imagen o tabla quedó al inicio de una página nueva.`,
+      );
+    }
+    if (processedStats.images < originalStats.images) {
+      warnings.push(
+        `Faltan ${originalStats.images - processedStats.images} imagen(es) respecto al original.`,
+      );
+    }
+    if (processedStats.tables < originalStats.tables) {
+      warnings.push(
+        `Se eliminó/aplanó ${originalStats.tables - processedStats.tables} tabla(s) respecto al original.`,
+      );
+    }
+    if (afterCounts.options > 0) {
+      warnings.push(
+        `Quedan ${afterCounts.options} opción(es) con formato no canónico que no se pudieron normalizar automáticamente.`,
+      );
+    }
+
+    // Guardar diagnósticos extendidos para uso posterior
+    extendedDiagnostics = {
+      optionFormatInconsistencies: { before: beforeCounts.options, after: afterCounts.options },
+      questionFormatInconsistencies: { before: beforeCounts.questions, after: afterCounts.questions },
+      autoFixesApplied,
+      warnings,
+    };
 
     changes.push({
       category: "Tamaño de hoja",
@@ -191,6 +288,7 @@ export async function applyTemplate(
         description: `Se redimensionaron ${imageRescales} imagen(es) que excedían el área imprimible.`,
       });
     }
+    void originalDocXml;
   }
 
   // 3. Encabezado y pie de página
@@ -247,6 +345,10 @@ export async function applyTemplate(
     originalPageBreaks: originalStats.pageBreaks,
     processedPageBreaks: processedStats.pageBreaks,
     addedPageBreaks: Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks),
+    optionFormatInconsistencies: extendedDiagnostics.optionFormatInconsistencies,
+    questionFormatInconsistencies: extendedDiagnostics.questionFormatInconsistencies,
+    autoFixesApplied: extendedDiagnostics.autoFixesApplied,
+    warnings: extendedDiagnostics.warnings,
   };
 
   return { blob, changes, originalSummary, diagnostics };
@@ -1053,4 +1155,213 @@ function dataUrlToImage(dataUrl: string): { bytes: Uint8Array; ext: string; mime
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return { bytes, ext, mime };
+}
+
+// ===================== Normalización de numeración =====================
+
+/**
+ * Extrae el texto plano de un párrafo concatenando todos los <w:t>.
+ */
+function extractParagraphText(paragraphXml: string): string {
+  const matches = paragraphXml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g);
+  if (!matches) return "";
+  return matches
+    .map((m) => m.replace(/<w:t\b[^>]*>/, "").replace(/<\/w:t>/, ""))
+    .join("")
+    .trim();
+}
+
+/**
+ * Cuenta inconsistencias de formato de numeración en texto plano del cuerpo.
+ * - Opción canónica: `a)`, `b)`, ... seguido de espacio.
+ * - Opción NO canónica: `a.`, `a-`, `A)`, `A.`, etc.
+ * - Pregunta canónica: `1)`, `2)`, ... al inicio.
+ * - Pregunta NO canónica: `1.`, `1-`, etc. (cuando se usa como enunciado).
+ */
+function countNumberingInconsistencies(documentXml: string): {
+  options: number;
+  questions: number;
+} {
+  const bodyMatch = documentXml.match(/<w:body\b[^>]*>([\s\S]*)<\/w:body>/);
+  if (!bodyMatch) return { options: 0, questions: 0 };
+  const body = bodyMatch[1];
+
+  let options = 0;
+  let questions = 0;
+
+  const paragraphs = body.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g) || [];
+  for (const p of paragraphs) {
+    const text = extractParagraphText(p);
+    if (!text) continue;
+
+    // Opciones: una sola letra (a-z o A-Z) seguida de un separador
+    const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
+    if (optMatch) {
+      const letter = optMatch[1];
+      const sep = optMatch[2];
+      // Canónico: minúscula + ")"
+      if (!(letter === letter.toLowerCase() && sep === ")")) {
+        options++;
+      }
+      continue;
+    }
+
+    // Preguntas: número 1-99 seguido de separador
+    const qMatch = text.match(/^(\d{1,2})\s*([.\-)])\s+/);
+    if (qMatch) {
+      const sep = qMatch[2];
+      if (sep !== ")") {
+        questions++;
+      }
+    }
+  }
+
+  return { options, questions };
+}
+
+/**
+ * Normaliza la numeración de opciones y preguntas en el cuerpo del documento.
+ *
+ * - Texto plano: reemplaza separadores `a.`, `a-`, `A)` → `a)` y `1.`, `1-` → `1)`
+ *   dentro de los <w:t> al inicio de cada párrafo. Solo cuando el patrón es claro
+ *   (una sola letra/número + separador + espacio) para no romper texto narrativo.
+ * - numbering.xml: cuando una definición tiene `numFmt="lowerLetter"` con `lvlText`
+ *   que use `.` o `-` como separador, lo cambia a `)`. Lo mismo para `decimal` con
+ *   sufijo claramente de pregunta (`%1.` → `%1)`) — pero SOLO si `numFmt` es
+ *   `lowerLetter`. Para decimales no tocamos numbering.xml porque suele usarse
+ *   también para listas de indicadores donde `1.` es lo correcto.
+ *
+ * Devuelve los conteos de cuántos arreglos aplicó.
+ */
+function normalizeNumbering(
+  documentXml: string,
+  numberingXml: string | null,
+): {
+  documentXml: string;
+  numberingXml: string | null;
+  optionsTextFixed: number;
+  questionsTextFixed: number;
+  optionsListFixed: number;
+  questionsListFixed: number;
+} {
+  let optionsTextFixed = 0;
+  let questionsTextFixed = 0;
+  let optionsListFixed = 0;
+  let questionsListFixed = 0;
+
+  // 1) Texto plano: solo tocar el primer <w:t> de cada párrafo cuyo TEXTO COMPLETO
+  // del párrafo arranque con un patrón de opción/pregunta no canónico.
+  const bodyMatch = documentXml.match(/(<w:body\b[^>]*>)([\s\S]*)(<\/w:body>)/);
+  let outDoc = documentXml;
+  if (bodyMatch) {
+    const open = bodyMatch[1];
+    const body = bodyMatch[2];
+    const close = bodyMatch[3];
+
+    const newBody = body.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
+      const text = extractParagraphText(paragraph);
+      if (!text) return paragraph;
+
+      // Opción no canónica
+      const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
+      if (optMatch) {
+        const letter = optMatch[1];
+        const sep = optMatch[2];
+        if (!(letter === letter.toLowerCase() && sep === ")")) {
+          // Reemplazar dentro del primer <w:t>: encontrar el patrón al inicio
+          // del primer texto y normalizar a `<letra-minúscula>) `.
+          const newPara = paragraph.replace(
+            /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+            (_full, openT, content, closeT) => {
+              const updated = (content as string).replace(
+                /^(\s*)([a-zA-Z])\s*[.\-)]\s+/,
+                (_m, lead, l) => `${lead}${(l as string).toLowerCase()}) `,
+              );
+              return `${openT}${updated}${closeT}`;
+            },
+          );
+          if (newPara !== paragraph) optionsTextFixed++;
+          return newPara;
+        }
+        return paragraph;
+      }
+
+      // Pregunta no canónica
+      const qMatch = text.match(/^(\d{1,2})\s*([.\-])\s+/);
+      if (qMatch) {
+        const newPara = paragraph.replace(
+          /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+          (_full, openT, content, closeT) => {
+            const updated = (content as string).replace(
+              /^(\s*)(\d{1,2})\s*[.\-]\s+/,
+              (_m, lead, n) => `${lead}${n}) `,
+            );
+            return `${openT}${updated}${closeT}`;
+          },
+        );
+        if (newPara !== paragraph) questionsTextFixed++;
+        return newPara;
+      }
+
+      return paragraph;
+    });
+
+    outDoc = `${open}${newBody}${close}`;
+  }
+
+  // 2) numbering.xml: para definiciones con lowerLetter, normalizar lvlText
+  let outNumbering = numberingXml;
+  if (outNumbering) {
+    outNumbering = outNumbering.replace(
+      /<w:lvl\b[^>]*>([\s\S]*?)<\/w:lvl>/g,
+      (full, inner) => {
+        const innerStr = inner as string;
+        const fmtMatch = innerStr.match(/<w:numFmt\s+w:val="([^"]+)"/);
+        if (!fmtMatch) return full;
+        const fmt = fmtMatch[1];
+
+        if (fmt === "lowerLetter" || fmt === "upperLetter") {
+          // Forzar lvlText a `%N)` y numFmt a lowerLetter
+          let updated = innerStr;
+          let changed = false;
+          updated = updated.replace(
+            /<w:lvlText\s+w:val="([^"]+)"\s*\/>/,
+            (_m, val) => {
+              const v = val as string;
+              // Detectar el placeholder %1, %2, etc.
+              const phMatch = v.match(/(%\d+)/);
+              if (!phMatch) return _m;
+              const ph = phMatch[1];
+              const canonical = `${ph})`;
+              if (v !== canonical) {
+                changed = true;
+                return `<w:lvlText w:val="${canonical}"/>`;
+              }
+              return _m;
+            },
+          );
+          if (fmt === "upperLetter") {
+            updated = updated.replace(
+              /<w:numFmt\s+w:val="upperLetter"\s*\/>/,
+              `<w:numFmt w:val="lowerLetter"/>`,
+            );
+            changed = true;
+          }
+          if (changed) optionsListFixed++;
+          return full.replace(innerStr, updated);
+        }
+
+        return full;
+      },
+    );
+  }
+
+  return {
+    documentXml: outDoc,
+    numberingXml: outNumbering,
+    optionsTextFixed,
+    questionsTextFixed,
+    optionsListFixed,
+    questionsListFixed,
+  };
 }

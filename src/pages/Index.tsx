@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import mammoth from "mammoth";
 import { saveAs } from "file-saver";
-import { Download, FileDown, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
+import { ChevronDown, Download, FileDown, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateCard } from "@/components/TemplateCard";
@@ -37,6 +37,7 @@ import { applyTemplate, type ChangeReport, type DocDiagnostics } from "@/lib/doc
 import { exportHtmlToPdf } from "@/lib/pdf-export";
 import { DocumentPreview } from "@/components/DocumentPreview";
 import { DiscrepancyAlert } from "@/components/DiscrepancyAlert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   loadGrades,
   loadSubjects,
@@ -411,21 +412,29 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Alerta de discrepancias */}
+              {/* Reporte de auto-QA del servidor (elemento principal) */}
               {diagnostics && (
                 <DiscrepancyAlert diagnostics={diagnostics} />
               )}
 
-              {/* Vista previa con tabs, zoom y scroll sincronizado */}
-              <DocumentPreview
-                originalHtml={originalHtml}
-                processedHtml={previewHtml}
-                originalFileName={originalFile?.name}
-                processedFileName={`${buildStandardFileName()}.docx`}
-                template={workingTemplate}
-                originalPages={diagnostics?.originalPages}
-                processedPages={diagnostics?.processedPages}
-              />
+              {/* Comparación detallada (opcional, colapsada por defecto) */}
+              <Collapsible>
+                <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors">
+                  <span>Ver comparación detallada (opcional)</span>
+                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <DocumentPreview
+                    originalHtml={originalHtml}
+                    processedHtml={previewHtml}
+                    originalFileName={originalFile?.name}
+                    processedFileName={`${buildStandardFileName()}.docx`}
+                    template={workingTemplate}
+                    originalPages={diagnostics?.originalPages}
+                    processedPages={diagnostics?.processedPages}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
 
               <div className="grid lg:grid-cols-3 gap-6">
                 {/* Botones de descarga */}
