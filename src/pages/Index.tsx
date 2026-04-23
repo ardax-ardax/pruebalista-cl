@@ -236,6 +236,18 @@ const Index = () => {
       try {
         const html = await mammoth.convertToHtml({ arrayBuffer: previewBuffer });
         processedHtmlValue = html.value;
+        // Mammoth ignora <a:srcRect>: aplicamos los crops del .docx procesado
+        // sobre el HTML para que la vista previa y el PDF respeten los recortes.
+        try {
+          const zip = await JSZip.loadAsync(previewBuffer.slice(0));
+          const docXml = await zip.file("word/document.xml")?.async("string");
+          if (docXml) {
+            const crops = extractImageCrops(docXml);
+            processedHtmlValue = applyCropsToHtml(processedHtmlValue, crops);
+          }
+        } catch (cropErr) {
+          console.warn("[crops] no se pudieron aplicar:", cropErr);
+        }
       } catch (mammothErr) {
         console.warn("[mammoth] no pudo previsualizar el procesado:", mammothErr);
         const detail = mammothErr instanceof Error ? mammothErr.message : String(mammothErr);
