@@ -1,71 +1,99 @@
 
 
-# Detectar banner/títulos existentes y colapsar espacios entre preguntas
+# Las imágenes envuelven el texto: forzar layout vertical y dar aire entre preguntas
 
-## Problema 1 — La app duplica el banner
+## Diagnóstico
 
-Hoy `insertInstitutionBanner` (línea 1704 de `src/lib/docx-processor.ts`) **siempre** inyecta su tabla institucional justo después de `<w:body>`, sin revisar si el documento original ya tenía un encabezado equivalente. Si el archivo ya traía:
+Comparando las dos imágenes que enviaste:
 
-- Una tabla con logo + Profesor/Asignatura/Curso, o
-- Un título tipo "EVALUACIÓN SUMATIVA Nº1 — CIENCIAS NATURALES — 2° BÁSICO"
+- **Imagen 1 (mal, post-proceso)**: las imágenes (mosca/perro/murciélago, etc.) están **flotando** y el texto de la siguiente pregunta se acomoda al costado. Por eso "2) ¿Cuál de estos animales se desplaza con sus aletas?" aparece a la derecha de las primeras imágenes, y "4) ¿Qué común lagarto?" queda partido a la izquierda con "tienen en el tiburón y el pelos" a la derecha.
+- **Imagen 2 (bien, deseado)**: cada pregunta y sus imágenes ocupan filas completas, sin envolver texto.
 
-el resultado queda con **dos versiones**: la del colegio recién insertada y la que ya tenía el archivo.
+## Causa exacta en el código
 
-### Fix
+En `src/lib/docx-processor.ts` línea 1397, `fitOversizedImagesString` tiene esta regla:
 
-Nueva función `detectExistingBanner(docContent)` que se ejecuta al inicio de `insertInstitutionBanner` y revisa solo los **primeros ~6 elementos** del `<w:body>` (suficiente para abarcar tabla + título de portada, sin tocar el resto del documento). Devuelve uno de tres veredictos:
+```ts
+if (/<wp:anchor\b/.test(drawingXml)) return drawingXml;
+```
 
-| Veredicto | Heurística | Acción |
+Las imágenes del archivo original están como **`<wp:anchor>`** (ancladas/flotantes) con `<wp:wrapSquare>` o `<wp:wrapTight>`. La pasada las preserva tal cual, conservando el wrapping cuadrado que envuelve al texto.
+
+Además, mi último cambio `applyQuestionRhythm` puso `before=160, after=60` (8pt antes / 3pt después) a las preguntas. Combinado con `collapseBlankParagraphs` que elimina los párrafos vacíos, las preguntas quedan **demasiado pegadas**, contribuyendo al "amontonamiento".
+
+## Plan de arreglo
+
+### Parte A — Forzar layout vertical en imágenes flotantes (causa raíz del caos)
+
+Nueva pasada `unfloatImagesForLinearLayout(xml)` que se ejecuta **antes** que `fitOversizedImagesString`:
+
+Para cada `<w:drawing>` que contenga `<wp:anchor>`:
+
+1. **Conservar tamaño y la imagen misma** (`<a:blip>`, `<wp:extent>`, `<a:srcRect>` si hay recorte real).
+2. **Reescribir el contenedor**: cambiar `<wp:anchor ...>...</wp:anchor>` por `<wp:inline distT="0" distB="0" distL="0" distR="0">...</wp:inline>`, eliminando:
+   - `<wp:positionH>`, `<wp:positionV>` (anclaje a página/párrafo)
+   - `<wp:wrapSquare>`, `<wp:wrapTight>`, `<wp:wrapThrough>`, `<wp:wrapNone>`, `<wp:wrapTopAndBottom>` (todas las variantes de wrapping)
+   - Atributos `behindDoc`, `simplePos`, `relativeHeight`, etc.
+3. **Aislar la imagen en su propio párrafo**: si el `<w:drawing>` resultante está dentro de un `<w:p>` que también contiene texto, dividir ese párrafo en tres: texto antes / imagen sola / texto después. Así cada imagen ocupa su propia línea, sin que el texto la rodee.
+4. Reportar en `changes[]`: "Se convirtieron N imagen(es) flotante(s) a layout en línea para evitar texto rodeando."
+
+**Por qué no perdemos información visual**: el wrapping flotante en una guía/evaluación casi nunca es intencional — viene de pegar imágenes desde Internet o de otros documentos. La intención del autor es siempre "imagen debajo de la pregunta, opciones debajo de la imagen". Forzar `wp:inline` realiza exactamente esa intención.
+
+**Excepción razonable**: si la imagen tiene `behindDoc="1"` (marca de agua / fondo) la dejamos intacta — esa sí es decorativa intencional. Heurística simple.
+
+### Parte B — Reservar espacio vertical entre preguntas (que respiren sin amontonarse)
+
+Ajustar `applyQuestionRhythm`:
+
+| Elemento | spacing actual | spacing nuevo |
 |---|---|---|
-| `none` | No hay tabla en los primeros elementos y no hay texto con palabras clave de banner | Inyectar banner como hoy |
-| `table-banner` | Hay un `<w:tbl>` en los primeros 3 elementos del body **y** su texto contiene 2 de estos: "profesor", "asignatura", "curso", "calificación", "puntaje", "fecha", "nombre" | **Reemplazar** esa tabla por la del colegio (preservando el logo si el original tenía un `<w:drawing>` y la plantilla no aporta uno propio) |
-| `title-only` | Hay 1–4 párrafos al inicio cuyo texto contiene "evaluación", "guía", "prueba" + nombre de asignatura/curso, sin tabla previa | **Eliminar** esos párrafos de portada y poner el banner del colegio en su lugar |
+| Pregunta numerada (`1)`, `2)`...) | before 160, after 60 | **before 240, after 120** (12pt antes, 6pt después) |
+| Opción (`a)`, `b)`...) | before 0, after 0 | before 0, after 40 (mantener pegadas pero sin solapar) |
+| Párrafo con imagen inline (después de la conversión de Parte A) | (no se tocaba) | **before 80, after 80** (3pt antes y después: separa la imagen de pregunta y opciones sin alejarla) |
 
-Adicionalmente, después de insertar el banner, ejecutar una pasada `dedupeAdjacentTitles`: si los siguientes 3 párrafos al banner contienen texto que **ya aparece dentro del banner** (asignatura, curso, profesor, "EVALUACIÓN SUMATIVA"), eliminarlos. Esto cubre el caso en que el título flotante esté después de una tabla pre-existente.
+Detección del párrafo-con-imagen: si el `<w:p>` contiene `<w:drawing>` y nada de texto significativo (post-Parte A muchas imágenes están solas en su párrafo), aplicar el spacing de imagen.
 
-Reportar la acción tomada en el `changes[]` del resultado: "Banner institucional reemplazó la portada existente del documento" o "Se eliminaron 3 párrafos de portada duplicada".
+### Parte C — Permitir un párrafo vacío como separador entre preguntas
 
-## Problema 2 — Demasiado espacio vertical entre preguntas
+`collapseBlankParagraphs` hoy colapsa **todas** las secuencias de párrafos vacíos a uno solo. Pero ese único párrafo sobreviviente recibe `spacing before=0 after=0 line=240`, así que mide ~10pt. Combinado con `applyQuestionRhythm` que ahora dará 12pt antes de cada pregunta, **eso es suficiente** para que se vea aireado pero no separado de más.
 
-### Causa
+No hace falta cambiar `collapseBlankParagraphs`, pero sí asegurar que **no se ejecute dentro de tablas** (regiones donde colapsar rompe layout). Ya lo hace via `withProtectedRegions` parcialmente, pero las tablas no son regiones protegidas hoy. Agregar un filtro: no procesar párrafos vacíos que estén dentro de `<w:tc>` (celda).
 
-`applyParagraphFormattingString` (línea 1473) aplica el mismo `<w:spacing w:before="..." w:after="..." w:line="..."/>` a **todos** los párrafos, incluyendo los **párrafos vacíos** (saltos de línea que el autor usó como separadores manuales). El archivo original tenía probablemente 1–2 párrafos vacíos entre cada pregunta. Después de la pasada cada uno mide:
-- altura de línea (interlineado 1.15 × 10pt) +
-- 6pt de spacing-after.
+### Parte D — Validar que las pasadas no rompan el XML
 
-Multiplicado por 2 saltos × 20 preguntas = espacio enorme.
-
-### Fix — pasada `collapseBlankParagraphs`
-
-Nueva pasada que se ejecuta **después** de `applyParagraphFormattingString` y **antes** de `forceDirectFontFormatting`:
-
-1. Identifica párrafos vacíos: aquellos cuyo `extractParagraphText(p).trim() === ""` y que **no** contienen `<w:drawing>`, `<w:tbl>`, `<w:pict>`, ni `<w:sectPr>` (estos no se tocan).
-2. **Colapsa secuencias**: si hay N párrafos vacíos consecutivos, deja solo **uno** (preserva el primero, elimina el resto).
-3. **Reduce su spacing**: al párrafo vacío sobreviviente le aplica `<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>` (sencillo, sin extra). Así un salto en blanco mide solo el alto natural de una línea, sin sumar paragraphSpacing.
-4. Excluir de la pasada los párrafos vacíos que estén dentro de regiones protegidas (`mc:AlternateContent`, text boxes) usando `withProtectedRegions`.
-
-Reportar en `changes[]`: "Se colapsaron N líneas en blanco entre preguntas para mejorar la densidad."
-
-### Fix complementario — espaciado por defecto del cuerpo
-
-Para evitar que un futuro archivo "muy aireado" siga viéndose espaciado aunque no tenga párrafos vacíos: revisar las plantillas `Ev_Sumativa` / `Ev_Formativa_Formal` / `Guia_Portafolio` en `src/lib/templates.ts`. Hoy `paragraphSpacingAfter: 6`. Lo dejamos en 6 (útil para separar preguntas), pero `paragraphSpacingBefore: 0` (ya está). Sin cambios aquí — el problema real son los párrafos vacíos.
-
-### Fix opcional para preguntas numeradas
-
-Detectar párrafos cuyo texto empieza con `^\s*\d+[\)\.]` (es una pregunta) y aplicar `<w:spacing w:before="120" w:after="60"/>` (6pt antes, 3pt después) en lugar del genérico. Las opciones (a/b/c/d) reciben `<w:spacing w:before="0" w:after="0"/>`. Esto da un ritmo visual: pregunta separada del bloque anterior, opciones pegadas a su pregunta. Activarlo solo si la plantilla tiene `fileNaming.prefix` que comience con `Ev_` (es una evaluación).
+Después de la conversión flotante→inline, correr el validador `validateProcessedDocx` ya existente garantiza que si la reescritura genera XML inválido (por ejemplo un `<wp:inline>` sin namespace en algún archivo), el frontend lo detecta y avisa antes de descargar.
 
 ## Archivos a modificar
 
 - **`src/lib/docx-processor.ts`**:
-  - Nueva `detectExistingBanner(docContent): "none" | "table-banner" | "title-only"` y nuevas utilidades `removeFirstBodyTable`, `removeCoverParagraphs`, `dedupeAdjacentTitles`.
-  - `insertInstitutionBanner`: invocar la detección y elegir entre insertar / reemplazar / limpiar antes de inyectar.
-  - Nueva pasada `collapseBlankParagraphs(xml, t)` invocada en el pipeline de `applyTemplate` después de `applyParagraphFormattingString`.
-  - Nueva pasada `applyQuestionRhythm(xml, t)` (opcional, activa solo para evaluaciones) invocada después de `collapseBlankParagraphs`.
-  - Reportar las acciones en `changes[]`.
+  - Nueva función `unfloatImagesForLinearLayout(xml): { xml: string; converted: number }`. Invocada en el pipeline justo antes de `fitOversizedImagesString`.
+  - Helper `splitParagraphAroundDrawing(paragraphXml): string` para aislar imagen en su propio `<w:p>`.
+  - Ajustar `applyQuestionRhythm`: spacings nuevos, detectar párrafos-con-imagen.
+  - Ajustar `collapseBlankParagraphs`: excluir párrafos dentro de `<w:tc>`.
+  - Reportar las nuevas acciones en `changes[]`.
 
 ## Resultado esperado
 
-- Si subes un archivo que ya tenía banner/portada, el de la app **lo reemplaza** en lugar de agregarse encima. Si solo tenía un título tipo "EVALUACIÓN SUMATIVA…", se elimina y queda solo el banner institucional.
-- Las líneas en blanco entre preguntas se colapsan a una sola y sin spacingAfter, recuperando varias líneas de espacio por página.
-- Si la plantilla es de evaluación, las preguntas reciben un ritmo visual propio (pregunta separada, opciones pegadas).
+Tu archivo de Ciencias Naturales 1° Básico debería verse así después del proceso:
+
+```text
+1) ¿Cuál de estos animales tiene 4 patas?
+
+   [mosca]  [perro]  [murciélago]
+
+2) ¿Cuál de estos animales se desplaza con sus aletas?
+
+   [caballito]  [ardilla]  [tortuga]
+
+3) ¿Cuál de estos animales tiene escama?
+
+   [leopardo]  [pez payaso]  [mariposa]
+
+4) ¿Qué tienen en común el tiburón y el lagarto?
+   a) Tienen pelos.
+   b) Pueden volar.
+   c) ...
+```
+
+Layout vertical limpio (como la imagen 2), con cada pregunta separada por un espacio cómodo de su anterior, las imágenes propias debajo, y las opciones pegadas a su pregunta.
 
