@@ -247,6 +247,28 @@ export function renderQuestionNumber(questions: Question[], index: number): numb
   return n;
 }
 
+// Variante de imagen para layout split: limita altura al alto de la celda
+// (que se iguala con la celda de opciones gracias a height:1px en CSS).
+// Mantiene proporción del crop usando aspect-ratio inline.
+function renderContainedImageHtml(img: QuestionImage): string {
+  const { left: L, right: R, top: T, bottom: B } = img.crop;
+  const visibleW = Math.max(1, 100 - L - R);
+  const visibleH = Math.max(1, 100 - T - B);
+  const natW = img.naturalW ?? 4;
+  const natH = img.naturalH ?? 3;
+  const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
+
+  if (!hasCrop) {
+    return `<div class="pa-image-wrap pa-align-${img.alignment}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
+  }
+
+  const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
+  // Para crop con object-fit no funciona; usamos wrapper con aspect-ratio + overflow hidden
+  // y la <img> escalada con margenes negativos relativos al wrapper.
+  const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
+  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:auto;">${inner}</span></div>`;
+}
+
 export const _internal = { renderImageHtml };
 
 export type AssessmentChildren = ReactNode;
