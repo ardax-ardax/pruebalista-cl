@@ -76,6 +76,15 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     setLocalCrop(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
   }, [value?.src, value?.crop]);
 
+  // En modo columna (MC/VF), forzar 100% de ancho y centrado para que ocupe toda la columna.
+  useEffect(() => {
+    if (!allowFullWidth || !value) return;
+    if (value.widthPct !== MAX_IMAGE_WIDTH_PCT || value.alignment !== "center") {
+      onChange({ ...value, widthPct: MAX_IMAGE_WIDTH_PCT, alignment: "center" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowFullWidth, value?.src]);
+
   const onPick = async (f: File) => {
     const src = await fileToDataUrl(f);
     const { w, h } = await measureImage(src);
