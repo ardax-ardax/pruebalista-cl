@@ -1,69 +1,83 @@
 
 
-# Imágenes en opciones, V/F múltiple y fin de la deformación
+# Recortador visual estilo Lightbox + layout dos columnas (opciones a la izquierda, imagen a la derecha)
 
-## 1) Imágenes en opciones de respuesta (con recorte visual)
+## 1) Editor visual de recorte (estilo Lightbox)
 
-Hoy `Option` solo tiene `{ id, text, correct }`. Las imágenes solo existen a nivel pregunta. Hay que extender el modelo y la UI.
+Hoy el recorte se hace con 4 sliders numéricos (top/bottom/left/right %) y se ve solo en una miniatura. No hay manipulación directa sobre la imagen.
+
+**Nuevo componente** `src/components/test-builder/ImageCropDialog.tsx`:
+- Se abre como `Dialog` modal grande (max-w-4xl) al pulsar "Recortar".
+- Muestra la imagen completa en grande, sobre fondo oscuro semi-transparente (estilo lightbox).
+- Encima dibuja un **rectángulo de recorte arrastrable y redimensionable** con 8 manijas (esquinas + lados).
+- El área **fuera** del rectángulo se ve oscurecida (overlay con `box-shadow: 0 0 0 9999px rgba(0,0,0,.6)` o 4 divs perimetrales).
+- Cursor: `move` dentro, `nwse-resize`/`nesw-resize`/`ns-resize`/`ew-resize` en manijas.
+- Footer: **Cancelar**, **Restablecer** (limpia crop), **Aplicar** (guarda los % al `QuestionImage`).
+- Internamente trabaja en píxeles del contenedor mostrado y al "Aplicar" convierte a porcentajes (0–100) usando las dimensiones renderizadas.
+- Implementación con eventos pointer (no librería externa): `onPointerDown` en manija/área → `onPointerMove` actualiza rect → `onPointerUp` finaliza. Restringe el rect dentro de los límites de la imagen y respeta tamaño mínimo (5%).
+
+**`ImageCropEditor.tsx`** se modifica:
+- El botón "Recortar" abre el `ImageCropDialog` en vez de mostrar/ocultar 4 sliders.
+- Se mantienen los sliders como modo avanzado/colapsable opcional (acordeón "Ajustes finos") por si el usuario quiere precisión numérica.
+- La miniatura existente sigue mostrando el resultado del crop (ya sin deformación, gracias al fix previo).
+
+## 2) Layout de dos columnas en selección múltiple
+
+Hoy, en `multiple-choice` con imagen de pregunta, la imagen va arriba (sobre las opciones, ocupando ancho completo). Cuando es una imagen pequeña/media (ej. mapa, gráfico), desperdicia espacio.
 
 **Schema (`src/lib/assessment-schema.ts`)**
-- `Option` gana campo opcional `image?: QuestionImage | null`.
-
-**Editor (`src/components/test-builder/QuestionEditor.tsx`)**
-- Cada fila de opción muestra, debajo del input de texto, un `ImageCropEditor` colapsable ("Agregar imagen a esta opción"). Si la opción ya tiene imagen, se ve la miniatura recortada (la misma vista visual que ya tiene el editor de imagen de pregunta).
-- Aplica para `multiple-choice` y para el nuevo modo V/F múltiple (cada afirmación puede tener imagen).
-
-**Renderer (`src/lib/assessment-render.tsx`)**
-- En el `<ol class="pa-options">`, después del texto de la opción, si `o.image` existe, renderizar el mismo bloque `pa-image-wrap`/`pa-image-crop` que ya se usa en preguntas, respetando `widthPct`, `alignment` y `crop`.
-
-**DOCX (`src/lib/assessment-docx.ts`)**
-- Insertar la imagen de la opción como párrafo siguiente a la línea de la opción, con el recorte aplicado (mismo helper que ya genera imágenes de pregunta).
-
-## 2) Verdadero / Falso con múltiples afirmaciones
-
-Hoy `true-false` se modela como una sola pregunta con dos opciones (Verdadero/Falso) — no permite "lista de afirmaciones" típica de un ítem V/F.
-
-**Cambio de modelo**
-- Nuevo campo opcional en `Question`: `statements?: TfStatement[]` donde `TfStatement = { id, text, answer: "V" | "F", image?: QuestionImage | null, points?: number }`.
-- Cuando `type === "true-false"`, se usa `statements` en vez de `options`. Migración: si una pregunta vieja V/F llega sin `statements`, se inicializa con un statement vacío `answer: "V"`.
+- `Question` gana campo opcional `imageLayout?: "block" | "side-right" | "side-left"`. Default: `"block"` (comportamiento actual).
+- Solo aplica visualmente cuando `type === "multiple-choice"` y existe `q.image`.
 
 **Editor (`QuestionEditor.tsx`)**
-- Para `true-false` se muestra una tabla/lista editable de afirmaciones:
-  - Cada fila: número (1, 2, 3…), botón `V` / `F` (toggle exclusivo), `Textarea` de la afirmación, opcional imagen (con `ImageCropEditor`), eliminar.
-  - Botón "Agregar afirmación".
-- El campo "Puntaje" pasa a ser por afirmación (suma automática reflejada en el total).
+- Cuando hay imagen y la pregunta es selección múltiple, aparece un selector adicional debajo del control de alineación: **"Disposición"** con opciones:
+  - Imagen arriba (block)
+  - Imagen a la derecha (opciones a la izquierda)
+  - Imagen a la izquierda (opciones a la derecha)
 
-**Renderer y DOCX**
-- Para `true-false`, render no como `<ol>`, sino como lista numerada de afirmaciones precedidas por un par `( V ) ( F )` o el guion estándar institucional, con la imagen opcional debajo de cada afirmación.
-- Numeración global de preguntas: cada pregunta V/F sigue contando como **una** pregunta numerada (consistente con la nomenclatura de "ítem II"); las afirmaciones se enumeran internamente con letras o números secundarios. Decisión: enumerar internamente con números (1.1, 1.2…) para mantener trazabilidad y total de puntos por afirmación.
+**Renderer (`assessment-render.tsx`)**
+- Si `q.type === "multiple-choice"` y `q.image` y `q.imageLayout` ∈ `{side-right, side-left}`:
+  - Usar una `<table class="pa-mc-split">` de dos columnas (60% texto / 40% imagen, o invertido), `vertical-align: top`, sin bordes.
+  - La columna de texto contiene el `<ol class="pa-options">`.
+  - La columna de imagen contiene el bloque `pa-image-wrap` ya existente (con su crop correcto).
+  - El enunciado de la pregunta sigue arriba, ocupando ancho completo.
+- Si no, comportamiento actual (imagen arriba, opciones debajo).
+- CSS nuevo en `ASSESSMENT_CSS`:
+  ```
+  .pa-mc-split { width:100%; border-collapse:collapse; margin-top:4pt; }
+  .pa-mc-split td { vertical-align:top; padding:0; border:0; }
+  .pa-mc-split .pa-mc-text { width:60%; padding-right:8pt; }
+  .pa-mc-split .pa-mc-image { width:40%; }
+  ```
+  Para `side-left`, intercambiar el orden de las celdas.
 
-## 3) Las imágenes se deforman
+**DOCX (`assessment-docx.ts`)**
+- Replicar misma estructura con `Table` de dos columnas, sin bordes, columna texto y columna imagen.
+- Las opciones se generan como `Paragraph[]` dentro de la celda izquierda; la imagen como `Paragraph` con `ImageRun` en la derecha.
+- Anchos: 60/40 del `contentWidthCm`. La imagen recibe como `contentWidthCm` solo el ancho de su columna para que el `widthPct` siga siendo relativo a esa columna.
 
-**Causa exacta** (en `assessment-render.tsx` `renderImageHtml` y en `ImageCropEditor` la miniatura):
-Cuando hay crop se hace `<img style="width: X%; height: auto;">` envuelto en un `<span>` con `aspect-ratio: auto` pero la imagen interna recibe `width:(100/visibleW)*100%` SIN `height:auto`, y en el preview cuando NO hay crop el `<img>` recibe `width: widthPct%` y `height: auto`, lo cual es correcto — pero al recortar se forzan width y height en porcentajes distintos calculados independientemente, deformando.
+## 3) Archivos a modificar/crear
 
-**Arreglo del renderer**
-- Sustituir el modelo de "ancho + alto en %" por un wrapper con `aspect-ratio` calculado a partir del `naturalWidth/naturalHeight` de la imagen y los porcentajes de crop, con la imagen interna en `width: 100%; height: auto;` y desplazada por `transform: translate(-L%, -T%) scale(1/(1-L-R), 1/(1-T-B))` o, más simple y robusto: `<span>` con `width: widthPct%`, `aspect-ratio: (origW*visibleW)/(origH*visibleH)`, `overflow:hidden`; dentro `<img>` con `width: (100/visibleW)*100%; height: auto; margin-left: -(L/visibleW)*100%; margin-top: -(T/visibleH)*100%`. Esto preserva proporción porque solo `width` define la escala; `height` se deduce.
-- Para obtener `naturalWidth/Height`, almacenar `naturalW` y `naturalH` dentro de `QuestionImage` al cargar el archivo (en `ImageCropEditor.onPick` usar `new Image(); img.onload`).
+- **Nuevo**: `src/components/test-builder/ImageCropDialog.tsx` — modal de recorte interactivo.
+- `src/components/test-builder/ImageCropEditor.tsx` — botón "Recortar" abre el diálogo; sliders pasan a sección "Ajustes finos" colapsable.
+- `src/lib/assessment-schema.ts` — `Question.imageLayout` opcional.
+- `src/components/test-builder/QuestionEditor.tsx` — selector de "Disposición" cuando aplica.
+- `src/lib/assessment-render.tsx` — layout split + CSS nuevo.
+- `src/lib/assessment-docx.ts` — tabla de dos columnas para split en multiple-choice.
 
-**Arreglo del editor (miniatura)**
-- Reemplazar el cálculo actual basado en `width:160 height:120` fijo por: contenedor con `aspect-ratio` derivado del crop y de la imagen natural; `<img>` solo con `width` calculado y sin `height` forzado. Así el thumbnail se ve fiel al PDF y nunca deformado.
+## 4) Consideraciones técnicas
 
-**Arreglo del DOCX**
-- En `assessment-docx.ts`, calcular `cx`/`cy` (EMU) a partir de `naturalW/H` reales y del `visibleW/H` post-crop manteniendo proporción (`cy = cx * (naturalH*visibleH) / (naturalW*visibleW)`). Hoy se usa una proporción fija o se deja a Word, que estira si los porcentajes de crop no coinciden.
-
-## Archivos a modificar
-
-- `src/lib/assessment-schema.ts` — `Option.image`, `TfStatement`, `Question.statements`, `QuestionImage.naturalW/naturalH`, migración de V/F existentes.
-- `src/components/test-builder/ImageCropEditor.tsx` — capturar dimensiones naturales al subir; miniatura con `aspect-ratio` real.
-- `src/components/test-builder/QuestionEditor.tsx` — imagen por opción; UI nueva para statements V/F.
-- `src/lib/assessment-render.tsx` — render de imagen en opciones; render de statements V/F; markup de imagen sin deformación + CSS de `.pa-image-crop` con `aspect-ratio`.
-- `src/lib/assessment-docx.ts` — soporte de imagen por opción y por statement; tamaño EMU proporcional.
-- `src/lib/assessment-pdf.ts` — sin cambios de lógica (sigue tomando el HTML del renderer, hereda los fixes).
+- **Recorte sobre imagen ya recortada**: el diálogo abre siempre la imagen original (`img.src`) y muestra el rect actual reconstruido desde `img.crop`. Editar reemplaza, no acumula.
+- **Miniatura post-crop**: ya correcta tras el fix previo de aspect-ratio.
+- **Imagen muy alta**: el diálogo limita altura del visor a `70vh` y escala la imagen a `object-fit: contain`; los % se calculan sobre el tamaño renderizado, no sobre el natural — son independientes del zoom.
+- **Touch / pointer**: usar `setPointerCapture` para arrastres confiables en táctil.
+- **Responsive del diálogo**: en pantallas pequeñas, sliders accesibles también dentro del modal como fallback.
+- **Layout split + recorte**: el `widthPct` de la imagen se mantiene; en modo split la columna ya define el ancho disponible, así que un `widthPct: 100` llena la columna del 40%, y se ve correctamente proporcionada.
+- **Compatibilidad**: borradores/pruebas guardadas sin `imageLayout` siguen funcionando (fallback a `"block"`).
 
 ## Resultado esperado
 
-- Cada opción (a, b, c, d) puede tener su propia imagen recortada, visible en preview y en PDF/DOCX.
-- V/F se vuelve un ítem real de varias afirmaciones, cada una con su V/F correcto y su imagen opcional, totalizando puntos por afirmación.
-- Las imágenes (en pregunta, en opción y en afirmación V/F) conservan proporción tanto en el editor como en preview, PDF y DOCX, incluso con recortes.
+- Recortar una imagen se hace **arrastrando** sobre la imagen real, no escribiendo porcentajes.
+- En selección múltiple, el docente puede colocar la imagen al costado de las opciones, ahorrando una franja vertical importante de página.
+- Preview, PDF y DOCX reflejan exactamente lo mismo.
 
