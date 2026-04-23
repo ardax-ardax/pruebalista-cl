@@ -240,6 +240,37 @@ const Configuracion = () => {
         </CardContent>
       </Card>
 
+      {/* Asignaturas y cursos */}
+      <Card className="shadow-card mb-8">
+        <CardHeader>
+          <CardTitle className="text-lg">Asignaturas y cursos</CardTitle>
+          <CardDescription>
+            Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo"
+            es lo que aparece en el nombre final (sin espacios ni símbolos).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          <CatalogManager
+            title="Asignaturas"
+            description="Ej: Historia → Historia"
+            items={subjects}
+            onChange={updateSubjects}
+            onReset={handleResetSubjects}
+            labelPlaceholder="Educación Física"
+            valuePlaceholder="EducaciónFísica"
+          />
+          <CatalogManager
+            title="Cursos"
+            description="Ej: 7° Básico → 7Básico"
+            items={grades}
+            onChange={updateGrades}
+            onReset={handleResetGrades}
+            labelPlaceholder="7° Básico"
+            valuePlaceholder="7Básico"
+          />
+        </CardContent>
+      </Card>
+
       {/* Plantillas */}
       <div className="flex items-center justify-between mb-4">
         <div>
