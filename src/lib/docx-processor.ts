@@ -334,27 +334,75 @@ export async function applyTemplate(
     originalStats = computeDocStats(docContent);
     const originalDocXml = docContent;
 
-    // Contar inconsistencias de numeración ANTES de cualquier normalización
-    const beforeCounts = countNumberingInconsistencies(docContent);
+    // Recolector de warnings de pasadas individuales (try/catch por pasada)
+    const passWarnings: string[] = [];
 
-    const marginsRes = applyMarginsString(docContent, template);
+    // Contar inconsistencias de numeración ANTES de cualquier normalización
+    const beforeCounts = runPass(
+      "conteo previo de numeración",
+      passWarnings,
+      () => countNumberingInconsistencies(docContent),
+      { options: 0, questions: 0 },
+    );
+
+    const marginsRes = runPass(
+      "márgenes y tamaño de hoja",
+      passWarnings,
+      () => applyMarginsString(docContent, template),
+      { xml: docContent, created: false },
+    );
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
-    docContent = applyParagraphFormattingString(docContent, template);
-    const tablesRes = optimizeTablesString(docContent);
+
+    docContent = runPass(
+      "formato de párrafos",
+      passWarnings,
+      () => applyParagraphFormattingString(docContent, template),
+      docContent,
+    );
+
+    const tablesRes = runPass(
+      "optimización de tablas",
+      passWarnings,
+      () => optimizeTablesString(docContent),
+      { xml: docContent, count: 0 },
+    );
     docContent = tablesRes.xml;
     tableOptimizations = tablesRes.count;
-    const imagesRes = fitOversizedImagesString(docContent, template);
+
+    const imagesRes = runPass(
+      "ajuste de imágenes",
+      passWarnings,
+      () => fitOversizedImagesString(docContent, template),
+      { xml: docContent, count: 0 },
+    );
     docContent = imagesRes.xml;
     imageRescales = imagesRes.count;
-    // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
-    // para que Word no use la fuente original almacenada en cada <w:rPr>.
-    docContent = forceDirectFontFormatting(docContent, template);
+
+    docContent = runPass(
+      "tipografía directa en runs",
+      passWarnings,
+      () => forceDirectFontFormatting(docContent, template),
+      docContent,
+    );
 
     // Normalización de numeración (texto plano + numbering.xml)
     const numberingFile = zip.file("word/numbering.xml");
     let numberingXml = numberingFile ? await numberingFile.async("string") : null;
-    const normRes = normalizeNumbering(docContent, numberingXml);
+    const normRes = runPass(
+      "normalización de numeración",
+      passWarnings,
+      () => normalizeNumbering(docContent, numberingXml),
+      {
+        documentXml: docContent,
+        numberingXml,
+        optionsTextFixed: 0,
+        questionsTextFixed: 0,
+        optionsListFixed: 0,
+        questionsListFixed: 0,
+        duplicateNumberingStripped: 0,
+      },
+    );
     docContent = normRes.documentXml;
     numberingXml = normRes.numberingXml;
     if (numberingFile && numberingXml) {
@@ -367,7 +415,7 @@ export async function applyTemplate(
     // Auto-QA: comparar antes/después y generar warnings + fixes legibles
     const afterCounts = countNumberingInconsistencies(docContent);
     const autoFixesApplied: string[] = [];
-    const warnings: string[] = [];
+    const warnings: string[] = [...passWarnings];
 
     const optionsFixed = Math.max(0, beforeCounts.options - afterCounts.options);
     const questionsFixed = Math.max(0, beforeCounts.questions - afterCounts.questions);
