@@ -130,6 +130,22 @@ export const QuestionEditor = ({
               <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
               <ImageCropEditor value={question.image} onChange={(img) => update({ image: img })} />
             </div>
+            {question.type === "multiple-choice" && question.image && (
+              <div className="max-w-xs">
+                <Label className="text-xs mb-1 block">Disposición de la imagen</Label>
+                <Select
+                  value={question.imageLayout ?? "block"}
+                  onValueChange={(v) => update({ imageLayout: v as "block" | "side-right" | "side-left" })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="block">Imagen arriba (ancho completo)</SelectItem>
+                    <SelectItem value="side-right">Imagen a la derecha (opciones a la izquierda)</SelectItem>
+                    <SelectItem value="side-left">Imagen a la izquierda (opciones a la derecha)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </>
         )}
 
