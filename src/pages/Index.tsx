@@ -408,7 +408,7 @@ const Index = () => {
                     />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-2 italic">
-                    Nota: la vista previa puede mostrar imágenes sin los recortes aplicados en Word. El .docx descargado conserva los recortes originales del archivo.
+                    Nota: la vista previa web puede mostrar imágenes recortadas u objetos flotantes de forma distinta a Word. La referencia válida es siempre el archivo .docx descargado abierto en Word.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                     <Button onClick={handleDownloadDocx} className="gap-2 bg-gradient-primary">
