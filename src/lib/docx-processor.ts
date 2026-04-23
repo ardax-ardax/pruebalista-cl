@@ -1003,19 +1003,28 @@ export async function applyTemplate(
 
   // ===== Sanitización + validación final del ZIP =====
   // Aplicar sanitizers a los XML clave antes de generar el blob.
-  for (const path of [
-    "word/document.xml",
-    "word/header1.xml",
-    "word/footer1.xml",
-  ]) {
+  // 1) document.xml siempre
+  {
+    const f = zip.file("word/document.xml");
+    if (f) {
+      let xml = await f.async("string");
+      xml = stripInvalidXmlChars(xml);
+      xml = ensureDocumentRootNamespaces(xml);
+      xml = ensureBodyParagraphBoundaries(xml);
+      zip.file("word/document.xml", xml);
+    }
+  }
+  // 2) Todos los header*.xml y footer*.xml (no solo header1/footer1)
+  const headerFooterPaths = Object.keys(zip.files).filter((p) =>
+    /^word\/(header|footer)\d*\.xml$/i.test(p),
+  );
+  for (const path of headerFooterPaths) {
     const f = zip.file(path);
     if (!f) continue;
     let xml = await f.async("string");
     xml = stripInvalidXmlChars(xml);
-    if (path === "word/document.xml") {
-      xml = ensureDocumentRootNamespaces(xml);
-      xml = ensureBodyParagraphBoundaries(xml);
-    }
+    const rootTag = /\/header\d*\.xml$/i.test(path) ? "w:hdr" : "w:ftr";
+    xml = ensurePartRootNamespaces(xml, rootTag);
     zip.file(path, xml);
   }
 
