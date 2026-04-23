@@ -271,21 +271,33 @@ const Index = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="subject" className="text-xs">Asignatura</Label>
-                  <Input
-                    id="subject"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Historia"
-                  />
+                  <Select value={subject} onValueChange={setSubject}>
+                    <SelectTrigger id="subject">
+                      <SelectValue placeholder="Selecciona asignatura" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="grade" className="text-xs">Curso</Label>
-                  <Input
-                    id="grade"
-                    value={grade}
-                    onChange={(e) => setGrade(e.target.value)}
-                    placeholder="7Básico"
-                  />
+                  <Select value={grade} onValueChange={setGrade}>
+                    <SelectTrigger id="grade">
+                      <SelectValue placeholder="Selecciona curso" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {grades.map((g) => (
+                        <SelectItem key={g.value} value={g.value}>
+                          {g.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-sm">
