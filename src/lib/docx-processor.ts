@@ -407,7 +407,9 @@ function applyMarginsString(xml: string, t: FormatTemplate): { xml: string; crea
  * - Quita <w:cantSplit/> en filas
  * - Convierte hRule="exact" a "atLeast"
  * - Quita <w:keepNext/> en tblPr
- * - Aplana tablas "marco" (tabla con una sola celda que sólo contiene otra tabla)
+ *
+ * NOTA: el aplanado de "tablas marco" se eliminó porque producía falsos
+ * positivos en tablas legítimas con drawings o listas anidadas.
  */
 function optimizeTablesString(xml: string): { xml: string; count: number } {
   let count = 0;
@@ -435,51 +437,16 @@ function optimizeTablesString(xml: string): { xml: string; count: number } {
     return full;
   });
 
-  // 4. Aplanar tablas-marco: <w:tbl> con UNA <w:tr> y UNA <w:tc> cuyo contenido
-  //    significativo es solo otra <w:tbl> (con quizá un párrafo vacío alrededor).
-  //    Repetir hasta no encontrar más (anidamiento múltiple).
-  let safety = 5;
-  while (safety-- > 0) {
-    let changed = false;
-    out = out.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/g, (tableMatch) => {
-      // contar trs y tcs de primer nivel (regex aproximado, suficiente para detectar marco)
-      const trs = tableMatch.match(/<w:tr\b/g) || [];
-      const innerTbls = tableMatch.match(/<w:tbl\b/g) || [];
-      // Marco: 1 tabla externa + al menos 1 interna; 1 fila externa, 1 celda externa
-      if (trs.length === 1 && innerTbls.length >= 2) {
-        const tcs = tableMatch.match(/<w:tc\b/g) || [];
-        if (tcs.length === 1) {
-          // Extraer el contenido de la celda
-          const tcMatch = tableMatch.match(/<w:tc\b[^>]*>([\s\S]*?)<\/w:tc>/);
-          if (tcMatch) {
-            const cellInner = tcMatch[1];
-            // Verificar que el contenido relevante sea (párrafos vacíos +) tabla
-            const stripped = cellInner
-              .replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, "")
-              .replace(/<w:p\b[^>]*\/>/g, "")
-              .replace(/<w:p\b[^>]*>(?:\s|<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>)*<\/w:p>/g, "")
-              .trim();
-            // Si lo que queda empieza con <w:tbl, es marco
-            if (/^<w:tbl\b/.test(stripped)) {
-              changed = true;
-              count++;
-              // Devolver el contenido de la celda sin el envoltorio tcPr
-              return cellInner.replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, "");
-            }
-          }
-        }
-      }
-      return tableMatch;
-    });
-    if (!changed) break;
-  }
-
   return { xml: out, count };
 }
 
 /**
  * Escala proporcionalmente imágenes que excedan el área imprimible
  * para evitar recortes en Word. Usa unidades EMU (1 cm = 360 000 EMU).
+ *
+ * Respeta los recortes (<a:srcRect>) que ya tenga la imagen: el escalado se
+ * calcula sobre el tamaño VISIBLE (después del recorte), no sobre el tamaño
+ * total del archivo embebido.
  */
 function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string; count: number } {
   const usableWcm = t.pageSize.widthCm - t.spacing.marginLeft - t.spacing.marginRight;
@@ -495,10 +462,32 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
     if (!extentMatch) return drawingXml;
     const cx = parseInt(extentMatch[1], 10);
     const cy = parseInt(extentMatch[2], 10);
-    if (cx <= usableW && cy <= limitH) return drawingXml;
 
-    const ratioW = cx > usableW ? usableW / cx : 1;
-    const ratioH = cy > limitH ? limitH / cy : 1;
+    // Detectar srcRect (recorte aplicado en Word). Valores en milésimas de %.
+    // Si la imagen está recortada, las dimensiones que el usuario realmente ve
+    // son menores que cx/cy: visible = total * (1 - l/100000 - r/100000).
+    const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
+    let cropL = 0, cropR = 0, cropT = 0, cropB = 0;
+    if (srcRectMatch) {
+      const attrs = srcRectMatch[1];
+      const lm = attrs.match(/\bl="(-?\d+)"/);
+      const rm = attrs.match(/\br="(-?\d+)"/);
+      const tm = attrs.match(/\bt="(-?\d+)"/);
+      const bm = attrs.match(/\bb="(-?\d+)"/);
+      cropL = lm ? parseInt(lm[1], 10) : 0;
+      cropR = rm ? parseInt(rm[1], 10) : 0;
+      cropT = tm ? parseInt(tm[1], 10) : 0;
+      cropB = bm ? parseInt(bm[1], 10) : 0;
+    }
+    const visibleFracW = Math.max(0.01, 1 - cropL / 100000 - cropR / 100000);
+    const visibleFracH = Math.max(0.01, 1 - cropT / 100000 - cropB / 100000);
+    const visibleW = Math.round(cx * visibleFracW);
+    const visibleH = Math.round(cy * visibleFracH);
+
+    if (visibleW <= usableW && visibleH <= limitH) return drawingXml;
+
+    const ratioW = visibleW > usableW ? usableW / visibleW : 1;
+    const ratioH = visibleH > limitH ? limitH / visibleH : 1;
     const ratio = Math.min(ratioW, ratioH);
     const newCx = Math.round(cx * ratio);
     const newCy = Math.round(cy * ratio);
@@ -508,7 +497,9 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
       /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
       `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
     );
-    // Actualizar también el a:ext interno (transform de la imagen)
+    // Actualizar también el a:ext interno (transform de la imagen).
+    // El srcRect se mantiene tal cual: como es porcentual, el recorte
+    // sigue siendo proporcional al nuevo tamaño.
     updated = updated.replace(
       /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
       `<a:ext cx="${newCx}" cy="${newCy}"/>`,
@@ -882,15 +873,19 @@ function buildLogoCell(width: number, relId: string | null, cx: number, cy: numb
 
 function buildDataLine(label: string, value: string, fontName: string, sz: string): string {
   const safeValue = escapeXml(value || "");
-  const fillerLen = Math.max(8, 50 - (value?.length ?? 0) - label.length);
+  // El label termina con ":" — añadimos un espacio después para separar del valor.
+  // El valor termina con un espacio extra antes del filler para que la línea de
+  // guiones bajos no quede pegada al texto en negrita.
+  const labelText = `${label} `;
+  const fillerLen = Math.max(10, 55 - (value?.length ?? 0) - label.length);
   const filler = "_".repeat(fillerLen);
   const valueRun = value
-    ? `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${safeValue} </w:t></w:r>`
+    ? `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${safeValue}  </w:t></w:r>`
     : "";
   return (
     `<w:p>` +
-    `<w:pPr><w:spacing w:before="20" w:after="20"/><w:jc w:val="left"/></w:pPr>` +
-    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${escapeXml(label)} </w:t></w:r>` +
+    `<w:pPr><w:spacing w:before="40" w:after="40" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${escapeXml(labelText)}</w:t></w:r>` +
     valueRun +
     `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${filler}</w:t></w:r>` +
     `</w:p>`
