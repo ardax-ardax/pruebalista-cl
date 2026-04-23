@@ -824,6 +824,19 @@ export async function applyTemplate(
     docContent = tablesRes.xml;
     tableOptimizations = tablesRes.count;
 
+    // Convertir imágenes flotantes a inline ANTES de redimensionarlas, para
+    // evitar que el texto se acomode al costado de la imagen (rompiendo el
+    // layout pregunta → imagen → opciones).
+    let imagesUnfloated = 0;
+    const unfloatRes = runPass(
+      "linealización de imágenes flotantes",
+      passWarnings,
+      () => unfloatImagesForLinearLayout(docContent),
+      { xml: docContent, converted: 0 },
+    );
+    docContent = unfloatRes.xml;
+    imagesUnfloated = unfloatRes.converted;
+
     const imagesRes = runPass(
       "ajuste de imágenes",
       passWarnings,
@@ -977,6 +990,12 @@ export async function applyTemplate(
       changes.push({
         category: "Tablas",
         description: `Se optimizaron ${tableOptimizations} ajuste(s) en tablas para permitir división entre páginas y aprovechar mejor el espacio.`,
+      });
+    }
+    if (imagesUnfloated > 0) {
+      changes.push({
+        category: "Imágenes",
+        description: `Se convirtieron ${imagesUnfloated} imagen(es) flotante(s) a layout en línea para evitar texto rodeando.`,
       });
     }
     if (imageRescales > 0) {
@@ -1370,6 +1389,111 @@ function optimizeTablesString(xml: string): { xml: string; count: number } {
 }
 
 /**
+ * Convierte imágenes flotantes (`<wp:anchor>`) con wrapping cuadrado/estrecho
+ * a imágenes en línea (`<wp:inline>`), para que el texto NO se acomode al
+ * costado de la imagen. La intención casi siempre es "imagen debajo de la
+ * pregunta, opciones debajo de la imagen" — el wrapping flotante viene de
+ * pegar imágenes desde Internet/otros docs y rompe el layout.
+ *
+ * Excepción: imágenes con `behindDoc="1"` (marca de agua) se preservan.
+ *
+ * Además, si el `<w:p>` que contiene el `<w:drawing>` también tiene texto,
+ * se divide el párrafo para que la imagen quede sola en su propia línea.
+ */
+function unfloatImagesForLinearLayout(xml: string): { xml: string; converted: number } {
+  let converted = 0;
+
+  // Paso 1: convertir cada <wp:anchor> a <wp:inline>, removiendo wrapping y posicionamiento.
+  let out = xml.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/g, (drawingXml) => {
+    const anchorMatch = drawingXml.match(/<wp:anchor\b([^>]*)>([\s\S]*?)<\/wp:anchor>/);
+    if (!anchorMatch) return drawingXml;
+
+    const anchorAttrs = anchorMatch[1] || "";
+    const anchorInner = anchorMatch[2] || "";
+
+    // Excepción: marca de agua / fondo (behindDoc="1")
+    if (/\bbehindDoc="1"/.test(anchorAttrs)) return drawingXml;
+
+    // Limpiar elementos de posicionamiento y wrapping
+    let cleanedInner = anchorInner;
+    cleanedInner = cleanedInner.replace(/<wp:positionH\b[\s\S]*?<\/wp:positionH>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:positionV\b[\s\S]*?<\/wp:positionV>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:simplePos\b[^/]*\/>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapNone\b[^/]*\/>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapSquare\b[\s\S]*?<\/wp:wrapSquare>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapSquare\b[^/]*\/>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapTight\b[\s\S]*?<\/wp:wrapTight>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapThrough\b[\s\S]*?<\/wp:wrapThrough>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapTopAndBottom\b[\s\S]*?<\/wp:wrapTopAndBottom>/g, "");
+    cleanedInner = cleanedInner.replace(/<wp:wrapTopAndBottom\b[^/]*\/>/g, "");
+
+    converted++;
+    return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">${cleanedInner}</wp:inline></w:drawing>`;
+  });
+
+  // Paso 2: aislar drawings en su propio <w:p> si comparten párrafo con texto.
+  out = out.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, pAttrs, pInner) => {
+    const inner = pInner as string;
+    if (!/<w:drawing\b/.test(inner)) return full;
+
+    // Extraer pPr (se replica en cada párrafo dividido)
+    const pPrMatch = inner.match(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/);
+    const pPr = pPrMatch?.[0] ?? "";
+    const afterPPr = pPrMatch ? inner.slice(pPrMatch.index! + pPr.length) : inner;
+
+    // Tokenizar runs y otros elementos top-level
+    const runRe = /<w:r\b[^>]*\/>|<w:r\b[^>]*>[\s\S]*?<\/w:r>|<w:hyperlink\b[\s\S]*?<\/w:hyperlink>|<w:bookmarkStart\b[^/]*\/>|<w:bookmarkEnd\b[^/]*\/>|<w:proofErr\b[^/]*\/>/g;
+    const tokens: { full: string; hasDrawing: boolean; hasText: boolean }[] = [];
+    let lastIdx = 0;
+    let m: RegExpExecArray | null;
+    while ((m = runRe.exec(afterPPr))) {
+      if (m.index > lastIdx) {
+        const interstitial = afterPPr.slice(lastIdx, m.index);
+        if (interstitial.trim()) tokens.push({ full: interstitial, hasDrawing: false, hasText: false });
+      }
+      const tk = m[0];
+      tokens.push({
+        full: tk,
+        hasDrawing: /<w:drawing\b/.test(tk),
+        hasText: /<w:t\b[^>]*>[\s\S]*?<\/w:t>/.test(tk) && !!extractParagraphText(`<w:p>${tk}</w:p>`).trim(),
+      });
+      lastIdx = m.index + tk.length;
+    }
+    if (lastIdx < afterPPr.length) {
+      const tail = afterPPr.slice(lastIdx);
+      if (tail.trim()) tokens.push({ full: tail, hasDrawing: false, hasText: false });
+    }
+
+    const hasAnyText = tokens.some((t) => t.hasText);
+    const drawingTokens = tokens.filter((t) => t.hasDrawing);
+    if (!hasAnyText || drawingTokens.length === 0) return full;
+
+    // Agrupar runs consecutivos por categoría (texto vs drawing)
+    const groups: { tokens: typeof tokens; isDrawing: boolean }[] = [];
+    for (const t of tokens) {
+      const last = groups[groups.length - 1];
+      if (last && last.isDrawing === t.hasDrawing) {
+        last.tokens.push(t);
+      } else {
+        groups.push({ tokens: [t], isDrawing: t.hasDrawing });
+      }
+    }
+
+    const paragraphs = groups
+      .map((g) => {
+        const body = g.tokens.map((t) => t.full).join("");
+        if (!body.trim()) return "";
+        return `<w:p${pAttrs}>${pPr}${body}</w:p>`;
+      })
+      .filter((p) => p);
+
+    return paragraphs.join("");
+  });
+
+  return { xml: out, converted };
+}
+
+/**
  * Escala proporcionalmente imágenes que excedan el área imprimible
  * para evitar recortes en Word. Usa unidades EMU (1 cm = 360 000 EMU).
  *
@@ -1628,7 +1752,17 @@ function collapseBlankParagraphs(xml: string): { xml: string; removed: number } 
         newBodyInner = newBodyInner.slice(0, toDelete[k].start) + newBodyInner.slice(toDelete[k].end);
       }
 
-      newBodyInner = newBodyInner.replace(
+      // Aplicar spacing compacto a párrafos vacíos restantes, EXCLUYENDO los
+      // que estén dentro de celdas de tabla (donde colapsar el spacing puede
+      // romper layouts cuidadosamente diseñados).
+      const tablePlaceholders: string[] = [];
+      let masked2 = newBodyInner.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/g, (tbl) => {
+        const idx = tablePlaceholders.length;
+        tablePlaceholders.push(tbl);
+        return `__COLLAPSE_TBL_${idx}__`;
+      });
+
+      masked2 = masked2.replace(
         /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g,
         (paragraph) => {
           const text = extractParagraphText(paragraph).trim();
@@ -1655,6 +1789,9 @@ function collapseBlankParagraphs(xml: string): { xml: string; removed: number } 
         },
       );
 
+      // Restaurar tablas
+      newBodyInner = masked2.replace(/__COLLAPSE_TBL_(\d+)__/g, (_m, idx) => tablePlaceholders[Number(idx)]);
+
       return full.replace(bodyInner, newBodyInner);
     });
   });
@@ -1678,13 +1815,14 @@ function applyQuestionRhythm(xml: string, t: FormatTemplate): { xml: string; que
   const optionRe = /^\s*[a-eA-E]\s*[\)\.\-]/;
   const headingPrefixRe = /^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X)\s*[\)\.\-]/;
 
-  const questionSpacing = `<w:spacing w:before="160" w:after="60" w:line="276" w:lineRule="auto"/>`;
-  const optionSpacing = `<w:spacing w:before="0" w:after="0" w:line="276" w:lineRule="auto"/>`;
+  const questionSpacing = `<w:spacing w:before="240" w:after="120" w:line="276" w:lineRule="auto"/>`;
+  const optionSpacing = `<w:spacing w:before="0" w:after="40" w:line="276" w:lineRule="auto"/>`;
+  const imageSpacing = `<w:spacing w:before="80" w:after="80" w:line="276" w:lineRule="auto"/>`;
 
   const newXml = withProtectedRegions(xml, (masked) =>
     masked.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
       const text = extractParagraphText(full).trim();
-      if (!text) return full;
+      const hasDrawing = /<w:drawing\b/.test(full) || /<w:pict\b/.test(full);
       const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
       const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
       const styleVal = pStyleMatch?.[1] ?? "";
@@ -1693,7 +1831,12 @@ function applyQuestionRhythm(xml: string, t: FormatTemplate): { xml: string; que
       }
 
       let newSpacing: string | null = null;
-      if (headingPrefixRe.test(text)) {
+      if (hasDrawing && !text) {
+        // Párrafo con solo imagen → spacing compacto
+        newSpacing = imageSpacing;
+      } else if (!text) {
+        return full;
+      } else if (headingPrefixRe.test(text)) {
         return full;
       } else if (questionRe.test(text)) {
         newSpacing = questionSpacing;
