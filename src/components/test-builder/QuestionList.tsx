@@ -28,7 +28,12 @@ const visibleNumber = (qs: Question[], i: number): number | null => {
   let n = 0;
   for (let k = 0; k <= i; k++) {
     const t = qs[k].type;
-    if (t !== "section-title" && t !== "info-block") n++;
+    if (t === "section-title") {
+      n = 0;
+      continue;
+    }
+    if (t === "info-block") continue;
+    n++;
   }
   return n;
 };

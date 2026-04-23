@@ -82,6 +82,7 @@ export const ASSESSMENT_CSS = `
   .pa-answer-line { border-bottom: 0.5pt solid #000; height: 14pt; margin: 4pt 0; }
   .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
   .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; break-after: avoid; page-break-after: avoid; }
+  .pa-section-instructions { font-size: 10pt; font-style: italic; margin: 2pt 0 8pt; text-align: justify; break-after: avoid; page-break-after: avoid; }
   .pa-image-wrap { margin: 6pt 0; break-inside: avoid; page-break-inside: avoid; }
   .pa-image-wrap.pa-align-left { text-align: left; }
   .pa-image-wrap.pa-align-center { text-align: center; }
@@ -168,7 +169,11 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
   const questionsHtml = assessment.questions
     .map((q, i) => {
       if (q.type === "section-title") {
-        return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>`;
+        qNum = 0;
+        const instr = q.instructions
+          ? `<div class="pa-section-instructions">${escape(q.instructions)}</div>`
+          : "";
+        return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>${instr}`;
       }
       if (q.type === "info-block") {
         return `<div class="pa-info-block">${escape(q.prompt)}</div>`;
@@ -279,14 +284,18 @@ export function AssessmentPreviewRender({ ctx }: { ctx: RenderContext }) {
 }
 
 export function renderQuestionNumber(questions: Question[], index: number): number | null {
+  const cur = questions[index].type;
+  if (cur === "section-title" || cur === "info-block") return null;
   let n = 0;
   for (let i = 0; i <= index; i++) {
     const t = questions[i].type;
-    if (t === "section-title" || t === "info-block") continue;
+    if (t === "section-title") {
+      n = 0;
+      continue;
+    }
+    if (t === "info-block") continue;
     n += 1;
   }
-  const cur = questions[index].type;
-  if (cur === "section-title" || cur === "info-block") return null;
   return n;
 }
 

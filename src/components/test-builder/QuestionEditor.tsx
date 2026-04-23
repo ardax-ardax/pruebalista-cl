@@ -90,11 +90,19 @@ export const QuestionEditor = ({
         </div>
 
         {question.type === "section-title" && (
-          <Input
-            placeholder="Título de la sección (ej: Ítem I — Selección múltiple)"
-            value={question.prompt}
-            onChange={(e) => update({ prompt: e.target.value })}
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder="Título de la sección (ej: Ítem I — Selección múltiple)"
+              value={question.prompt}
+              onChange={(e) => update({ prompt: e.target.value })}
+            />
+            <Textarea
+              placeholder="Instrucciones de la sección (opcional)"
+              value={question.instructions ?? ""}
+              onChange={(e) => update({ instructions: e.target.value })}
+              rows={2}
+            />
+          </div>
         )}
         {question.type === "info-block" && (
           <Textarea
