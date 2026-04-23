@@ -125,7 +125,15 @@ const Index = () => {
     try {
       const buffer = await file.arrayBuffer();
       setProgress(40);
-      const result = await applyTemplate(buffer, template, logo);
+      // Resolver labels legibles para el banner (no los `value` sanitizados)
+      const teacherLabel = teachers.find((x) => x.value === teacher)?.label ?? "";
+      const subjectLabel = subjects.find((x) => x.value === subject)?.label ?? "";
+      const gradeLabel = grades.find((x) => x.value === grade)?.label ?? "";
+      const result = await applyTemplate(buffer, template, logo, {
+        teacherLabel,
+        subjectLabel,
+        gradeLabel,
+      });
       setProgress(75);
       const previewBuffer = await result.blob.arrayBuffer();
       const html = await mammoth.convertToHtml({ arrayBuffer: previewBuffer });

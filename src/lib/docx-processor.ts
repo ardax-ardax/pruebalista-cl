@@ -10,6 +10,12 @@ export interface ChangeReport {
   description: string;
 }
 
+export interface BannerData {
+  teacherLabel?: string;
+  subjectLabel?: string;
+  gradeLabel?: string;
+}
+
 export interface ProcessResult {
   blob: Blob;
   changes: ChangeReport[];
@@ -58,6 +64,7 @@ export async function applyTemplate(
   fileBuffer: ArrayBuffer,
   template: FormatTemplate,
   logoDataUrl: string | null,
+  bannerData?: BannerData,
 ): Promise<ProcessResult> {
   const zip = await JSZip.loadAsync(fileBuffer);
   const changes: ChangeReport[] = [];
@@ -122,7 +129,26 @@ export async function applyTemplate(
   }
 
   // 3. Encabezado y pie de página
-  if (template.header.enabled) {
+  const headerStyle = template.header.style ?? "classic";
+  const isBanner = headerStyle === "banner-evaluacion" || headerStyle === "banner-guia";
+
+  if (isBanner) {
+    await insertInstitutionBanner(
+      zip,
+      template,
+      bannerData?.teacherLabel ?? "",
+      bannerData?.subjectLabel ?? "",
+      bannerData?.gradeLabel ?? "",
+      logoDataUrl,
+      headerStyle === "banner-evaluacion",
+    );
+    changes.push({
+      category: "Encabezado",
+      description: `Banner institucional insertado al inicio del documento${
+        template.header.showLogo && logoDataUrl ? " con logo del colegio" : ""
+      }${headerStyle === "banner-evaluacion" ? " y recuadro de Calificación" : ""}.`,
+    });
+  } else if (template.header.enabled) {
     await applyHeader(zip, template, logoDataUrl);
     changes.push({
       category: "Encabezado",
@@ -556,4 +582,215 @@ async function linkPartToSections(zip: JSZip, refName: "headerReference" | "foot
   });
 
   zip.file("word/document.xml", content);
+}
+
+// ===================== Banner institucional (tabla en el cuerpo) =====================
+
+/**
+ * Construye una tabla de 2 o 3 columnas (logo | datos | recuadro Calificación)
+ * y la inyecta al inicio del <w:body>. Reemplaza al header clásico para los
+ * formatos del colegio porque permite el layout pedido (3 columnas + recuadro).
+ *
+ * Tamaños en twips (1 cm ≈ 567 twips). Ancho útil de hoja Oficio (21,59 cm)
+ * con márgenes 2,5/2 = 16,9 cm ≈ 9580 twips.
+ */
+async function insertInstitutionBanner(
+  zip: JSZip,
+  t: FormatTemplate,
+  teacherLabel: string,
+  subjectLabel: string,
+  gradeLabel: string,
+  logoDataUrl: string | null,
+  showCalificacion: boolean,
+) {
+  const documentFile = zip.file("word/document.xml");
+  if (!documentFile) return;
+  let docContent = await documentFile.async("string");
+
+  // 1) Embed del logo (si corresponde)
+  let logoRelId: string | null = null;
+  let logoCx = 0;
+  let logoCy = 0;
+  if (t.header.showLogo && logoDataUrl) {
+    try {
+      const { bytes, ext, mime } = dataUrlToImage(logoDataUrl);
+      const mediaPath = `word/media/banner-logo.${ext}`;
+      zip.file(mediaPath, bytes);
+      await ensureContentType(zip, `/${mediaPath}`, mime);
+      logoRelId = await ensureRel(
+        zip,
+        `media/banner-logo.${ext}`,
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+      );
+      // ~2,5 cm en EMU (1 cm = 360 000 EMU)
+      logoCx = Math.round(2.5 * 360000);
+      logoCy = Math.round(2.5 * 360000);
+    } catch (e) {
+      console.warn("No se pudo embebir el logo del banner:", e);
+      logoRelId = null;
+    }
+  }
+
+  // 2) Anchos de columna (en twips)
+  const colLogo = 1700;            // ~3 cm
+  const colCalif = showCalificacion ? 1700 : 0;
+  const totalWidth = 9580;
+  const colData = totalWidth - colLogo - colCalif;
+
+  const fontName = t.typography.bodyFont;
+  const sz = ptToHalfPoints(t.typography.bodySize).toString();
+
+  // 3) XML de cada celda
+  const logoCell = buildLogoCell(colLogo, logoRelId, logoCx, logoCy);
+  const dataCell = buildDataCell(colData, fontName, sz, teacherLabel, subjectLabel, gradeLabel);
+  const califCell = showCalificacion ? buildCalificacionCell(colCalif, fontName, sz) : "";
+
+  const tableXml =
+    `<w:tbl>` +
+    `<w:tblPr>` +
+    `<w:tblW w:w="${totalWidth}" w:type="dxa"/>` +
+    `<w:tblBorders>` +
+    `<w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>` +
+    `<w:insideH w:val="nil"/><w:insideV w:val="nil"/>` +
+    `</w:tblBorders>` +
+    `<w:tblLayout w:type="fixed"/>` +
+    `</w:tblPr>` +
+    `<w:tblGrid>` +
+    `<w:gridCol w:w="${colLogo}"/>` +
+    `<w:gridCol w:w="${colData}"/>` +
+    (showCalificacion ? `<w:gridCol w:w="${colCalif}"/>` : "") +
+    `</w:tblGrid>` +
+    `<w:tr>${logoCell}${dataCell}${califCell}</w:tr>` +
+    `</w:tbl>` +
+    `<w:p><w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr></w:p>`;
+
+  // 4) Inyectar justo después de <w:body ...> (apertura)
+  docContent = docContent.replace(
+    /<w:body\b[^>]*>/,
+    (match) => `${match}${tableXml}`,
+  );
+
+  zip.file("word/document.xml", docContent);
+}
+
+function buildLogoCell(width: number, relId: string | null, cx: number, cy: number): string {
+  let inner: string;
+  if (relId) {
+    inner =
+      `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0"/></w:pPr>` +
+      `<w:r><w:drawing>` +
+      `<wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
+      `<wp:extent cx="${cx}" cy="${cy}"/>` +
+      `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+      `<wp:docPr id="100" name="LogoColegio" descr="Logo institucional"/>` +
+      `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+      `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
+      `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+      `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+      `<pic:nvPicPr>` +
+      `<pic:cNvPr id="101" name="LogoColegio" descr="Logo institucional"/>` +
+      `<pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr>` +
+      `</pic:nvPicPr>` +
+      `<pic:blipFill>` +
+      `<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relId}"/>` +
+      `<a:srcRect/>` +
+      `<a:stretch><a:fillRect/></a:stretch>` +
+      `</pic:blipFill>` +
+      `<pic:spPr bwMode="auto">` +
+      `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+      `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+      `<a:noFill/>` +
+      `<a:ln><a:noFill/></a:ln>` +
+      `</pic:spPr>` +
+      `</pic:pic>` +
+      `</a:graphicData>` +
+      `</a:graphic>` +
+      `</wp:inline>` +
+      `</w:drawing></w:r></w:p>`;
+  } else {
+    inner = `<w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p>`;
+  }
+  return (
+    `<w:tc>` +
+    `<w:tcPr>` +
+    `<w:tcW w:w="${width}" w:type="dxa"/>` +
+    `<w:vAlign w:val="center"/>` +
+    `</w:tcPr>` +
+    inner +
+    `</w:tc>`
+  );
+}
+
+function buildDataLine(label: string, value: string, fontName: string, sz: string): string {
+  const safeValue = escapeXml(value || "");
+  const fillerLen = Math.max(8, 50 - (value?.length ?? 0) - label.length);
+  const filler = "_".repeat(fillerLen);
+  const valueRun = value
+    ? `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${safeValue} </w:t></w:r>`
+    : "";
+  return (
+    `<w:p>` +
+    `<w:pPr><w:spacing w:before="20" w:after="20"/><w:jc w:val="left"/></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${escapeXml(label)} </w:t></w:r>` +
+    valueRun +
+    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${filler}</w:t></w:r>` +
+    `</w:p>`
+  );
+}
+
+function buildDataCell(
+  width: number,
+  fontName: string,
+  sz: string,
+  teacher: string,
+  subject: string,
+  grade: string,
+): string {
+  return (
+    `<w:tc>` +
+    `<w:tcPr>` +
+    `<w:tcW w:w="${width}" w:type="dxa"/>` +
+    `<w:vAlign w:val="center"/>` +
+    `<w:tcMar><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>` +
+    `</w:tcPr>` +
+    buildDataLine("Profesor/a:", teacher, fontName, sz) +
+    buildDataLine("Asignatura:", subject, fontName, sz) +
+    buildDataLine("Curso:", grade, fontName, sz) +
+    `</w:tc>`
+  );
+}
+
+function buildCalificacionCell(width: number, fontName: string, sz: string): string {
+  const border =
+    `<w:top w:val="single" w:sz="6" w:space="0" w:color="000000"/>` +
+    `<w:left w:val="single" w:sz="6" w:space="0" w:color="000000"/>` +
+    `<w:bottom w:val="single" w:sz="6" w:space="0" w:color="000000"/>` +
+    `<w:right w:val="single" w:sz="6" w:space="0" w:color="000000"/>`;
+  return (
+    `<w:tc>` +
+    `<w:tcPr>` +
+    `<w:tcW w:w="${width}" w:type="dxa"/>` +
+    `<w:tcBorders>${border}</w:tcBorders>` +
+    `<w:vAlign w:val="center"/>` +
+    `</w:tcPr>` +
+    `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="40" w:after="40"/></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t>Calificación</w:t></w:r>` +
+    `</w:p>` +
+    `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="80" w:after="80"/></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}"/><w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve"> </w:t></w:r>` +
+    `</w:p>` +
+    `</w:tc>`
+  );
+}
+
+function dataUrlToImage(dataUrl: string): { bytes: Uint8Array; ext: string; mime: string } {
+  const match = dataUrl.match(/^data:image\/([\w+-]+);base64,(.+)$/);
+  if (!match) throw new Error("Logo inválido");
+  let ext = match[1].toLowerCase();
+  if (ext === "jpeg") ext = "jpg";
+  const mime = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return { bytes, ext, mime };
 }
