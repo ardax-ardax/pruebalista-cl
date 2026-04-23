@@ -92,8 +92,8 @@ export const ASSESSMENT_CSS = `
   .pa-mc-split { width: 100%; border-collapse: collapse; margin-top: 4pt; table-layout: fixed; break-inside: avoid; page-break-inside: avoid; }
   .pa-statements { break-inside: avoid; page-break-inside: avoid; }
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
-  .pa-mc-split .pa-mc-text { width: 80%; padding-right: 8pt; }
-  .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; height: 1px; }
+  .pa-mc-split .pa-mc-text { width: 60%; padding-right: 8pt; }
+  .pa-mc-split .pa-mc-image { width: 40%; padding-left: 8pt; height: 1px; }
   .pa-mc-image .pa-image-wrap { width: 100%; height: 100%; max-height: 100%; display: flex; align-items: flex-start; margin: 0; }
   .pa-mc-image .pa-image-wrap.pa-align-left { justify-content: flex-start; }
   .pa-mc-image .pa-image-wrap.pa-align-center { justify-content: center; }
@@ -272,17 +272,20 @@ function renderContainedImageHtml(img: QuestionImage): string {
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
   // En layout split MC siempre centramos la imagen en su columna.
   const alignClass = `pa-align-center`;
+  // widthPct se interpreta como % del ancho de la columna de imagen (10–100).
+  const safeWidthPct = Math.max(10, Math.min(100, img.widthPct || 100));
+  const widthStyle = `width:${safeWidthPct}%;`;
 
   if (!hasCrop) {
-    // Sin crop: ocupa toda la columna; max-height de la celda evita exceder el alto.
-    return `<div class="pa-image-wrap ${alignClass}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
+    // Sin crop: ocupa el % indicado de la columna; max-height de la celda evita exceder el alto.
+    return `<div class="pa-image-wrap ${alignClass}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" style="${widthStyle}" /></div>`;
   }
 
   const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
   // Wrapper con aspect-ratio del recorte; max-width/max-height de la celda
   // reducirán la imagen manteniendo proporción cuando exceda.
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
-  return `<div class="pa-image-wrap ${alignClass}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
+  return `<div class="pa-image-wrap ${alignClass}"><span class="pa-image-crop" style="aspect-ratio:${ratio};${widthStyle}">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };

@@ -13,6 +13,9 @@ interface Props {
   value: QuestionImage | null | undefined;
   onChange: (img: QuestionImage | null) => void;
   compact?: boolean;
+  /** Permite usar todo el rango 10–100% del slider de ancho, ignorando el clamp por alineación.
+   *  Útil cuando la imagen vive dentro de una columna (ej: MC split). */
+  allowFullWidth?: boolean;
 }
 
 const fileToDataUrl = (f: File) =>
@@ -60,7 +63,11 @@ const CroppedThumb = ({ img, maxW = 160 }: { img: QuestionImage; maxW?: number }
   );
 };
 
-export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
+export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Props) => {
+  const maxWidthPct = (alignment: QuestionImage["alignment"]) =>
+    allowFullWidth ? MAX_IMAGE_WIDTH_PCT : alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT;
+  const clampWidth = (w: number, alignment: QuestionImage["alignment"]) =>
+    allowFullWidth ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, w)) : clampWidthPctByAlign(w, alignment);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showCropDialog, setShowCropDialog] = useState(false);
   const [localCrop, setLocalCrop] = useState<ImageCrop>(value?.crop ?? { left: 0, right: 0, top: 0, bottom: 0 });
@@ -115,12 +122,14 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
               <Input
                 type="number"
                 min={MIN_IMAGE_WIDTH_PCT}
-                max={value.alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT}
-                value={Math.min(value.alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT, value.widthPct)}
-                onChange={(e) => onChange({ ...value, widthPct: clampWidthPctByAlign(Number(e.target.value), value.alignment) })}
+                max={maxWidthPct(value.alignment)}
+                value={Math.min(maxWidthPct(value.alignment), value.widthPct)}
+                onChange={(e) => onChange({ ...value, widthPct: clampWidth(Number(e.target.value), value.alignment) })}
               />
               <p className="text-[10px] text-muted-foreground mt-1">
-                Máx. {value.alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT}% del ancho disponible
+                {allowFullWidth
+                  ? `Máx. ${MAX_IMAGE_WIDTH_PCT}% del ancho de la columna`
+                  : `Máx. ${maxWidthPct(value.alignment)}% del ancho disponible`}
               </p>
             </div>
             <div>
@@ -132,7 +141,7 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
                   onChange({
                     ...value,
                     alignment,
-                    widthPct: clampWidthPctByAlign(value.widthPct, alignment),
+                    widthPct: clampWidth(value.widthPct, alignment),
                   });
                 }}
               >
