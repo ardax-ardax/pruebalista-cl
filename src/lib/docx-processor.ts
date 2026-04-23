@@ -407,7 +407,9 @@ function applyMarginsString(xml: string, t: FormatTemplate): { xml: string; crea
  * - Quita <w:cantSplit/> en filas
  * - Convierte hRule="exact" a "atLeast"
  * - Quita <w:keepNext/> en tblPr
- * - Aplana tablas "marco" (tabla con una sola celda que sólo contiene otra tabla)
+ *
+ * NOTA: el aplanado de "tablas marco" se eliminó porque producía falsos
+ * positivos en tablas legítimas con drawings o listas anidadas.
  */
 function optimizeTablesString(xml: string): { xml: string; count: number } {
   let count = 0;
@@ -434,45 +436,6 @@ function optimizeTablesString(xml: string): { xml: string; count: number } {
     }
     return full;
   });
-
-  // 4. Aplanar tablas-marco: <w:tbl> con UNA <w:tr> y UNA <w:tc> cuyo contenido
-  //    significativo es solo otra <w:tbl> (con quizá un párrafo vacío alrededor).
-  //    Repetir hasta no encontrar más (anidamiento múltiple).
-  let safety = 5;
-  while (safety-- > 0) {
-    let changed = false;
-    out = out.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/g, (tableMatch) => {
-      // contar trs y tcs de primer nivel (regex aproximado, suficiente para detectar marco)
-      const trs = tableMatch.match(/<w:tr\b/g) || [];
-      const innerTbls = tableMatch.match(/<w:tbl\b/g) || [];
-      // Marco: 1 tabla externa + al menos 1 interna; 1 fila externa, 1 celda externa
-      if (trs.length === 1 && innerTbls.length >= 2) {
-        const tcs = tableMatch.match(/<w:tc\b/g) || [];
-        if (tcs.length === 1) {
-          // Extraer el contenido de la celda
-          const tcMatch = tableMatch.match(/<w:tc\b[^>]*>([\s\S]*?)<\/w:tc>/);
-          if (tcMatch) {
-            const cellInner = tcMatch[1];
-            // Verificar que el contenido relevante sea (párrafos vacíos +) tabla
-            const stripped = cellInner
-              .replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, "")
-              .replace(/<w:p\b[^>]*\/>/g, "")
-              .replace(/<w:p\b[^>]*>(?:\s|<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>)*<\/w:p>/g, "")
-              .trim();
-            // Si lo que queda empieza con <w:tbl, es marco
-            if (/^<w:tbl\b/.test(stripped)) {
-              changed = true;
-              count++;
-              // Devolver el contenido de la celda sin el envoltorio tcPr
-              return cellInner.replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, "");
-            }
-          }
-        }
-      }
-      return tableMatch;
-    });
-    if (!changed) break;
-  }
 
   return { xml: out, count };
 }
