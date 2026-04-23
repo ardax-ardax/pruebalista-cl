@@ -535,7 +535,13 @@ const Index = () => {
                         <Download className="h-4 w-4" />
                         Descargar .docx
                       </Button>
-                      <Button onClick={handleDownloadPdf} variant="outline" className="gap-2">
+                      <Button
+                        onClick={handleDownloadPdf}
+                        variant="outline"
+                        className="gap-2"
+                        disabled={!previewHtml}
+                        title={!previewHtml ? "Previsualización no disponible para este documento" : undefined}
+                      >
                         <FileDown className="h-4 w-4" />
                         Exportar a PDF
                       </Button>
