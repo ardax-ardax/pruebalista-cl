@@ -22,6 +22,7 @@ import { saveAs } from "file-saver";
 import type { Assessment, Question, QuestionImage } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
+import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
 
 interface BuildContext {
   assessment: Assessment;
