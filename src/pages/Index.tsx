@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import mammoth from "mammoth";
+import DOMPurify from "dompurify";
 import { saveAs } from "file-saver";
 import { ChevronDown, Download, FileDown, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
 
@@ -259,8 +260,10 @@ const Index = () => {
 
       setProgress(95);
       setResultBlob(result.blob);
-      setPreviewHtml(processedHtmlValue);
-      setOriginalHtml(originalHtmlRes.value);
+      // Sanitizar HTML proveniente de mammoth (basado en .docx subido por el usuario)
+      // para prevenir XSS si el documento contiene <script>, javascript: hrefs, etc.
+      setPreviewHtml(DOMPurify.sanitize(processedHtmlValue));
+      setOriginalHtml(DOMPurify.sanitize(originalHtmlRes.value));
       setDiagnostics(result.diagnostics);
       setChanges(result.changes);
       setProgress(100);
