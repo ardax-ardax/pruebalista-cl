@@ -161,8 +161,9 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         : "";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
       const header = `${titleHtml}<div class="pa-question-header">${pts}<span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
-      const layout = q.imageLayout ?? "block";
-      const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
+      // Para selección múltiple con imagen siempre forzamos split: opciones izq, imagen der.
+      const isSplit = q.type === "multiple-choice" && !!q.image;
+      const layout: "side-left" | "side-right" | "block" = isSplit ? "side-right" : (q.imageLayout ?? "block");
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
       let body = "";
       if (q.type === "multiple-choice") {
