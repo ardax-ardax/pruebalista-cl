@@ -220,10 +220,26 @@ const Index = () => {
       ]);
       setProgress(75);
       const previewBuffer = await result.blob.arrayBuffer();
-      const html = await mammoth.convertToHtml({ arrayBuffer: previewBuffer });
+
+      // mammoth puede fallar con ciertos elementos OOXML (text boxes, AlternateContent
+      // complejo, w:object). El .docx en sí es válido para Word, así que no abortamos:
+      // solo dejamos la previsualización vacía y lo señalamos en los warnings.
+      let processedHtmlValue = "";
+      try {
+        const html = await mammoth.convertToHtml({ arrayBuffer: previewBuffer });
+        processedHtmlValue = html.value;
+      } catch (mammothErr) {
+        console.warn("[mammoth] no pudo previsualizar el procesado:", mammothErr);
+        const detail = mammothErr instanceof Error ? mammothErr.message : String(mammothErr);
+        result.diagnostics.warnings = [
+          ...(result.diagnostics.warnings ?? []),
+          `La previsualización HTML no se pudo generar (${detail.replace(/\s+/g, " ").slice(0, 140)}). El .docx está procesado y se puede descargar normalmente; ábrelo en Word para verlo.`,
+        ];
+      }
+
       setProgress(95);
       setResultBlob(result.blob);
-      setPreviewHtml(html.value);
+      setPreviewHtml(processedHtmlValue);
       setOriginalHtml(originalHtmlRes.value);
       setDiagnostics(result.diagnostics);
       setChanges(result.changes);
