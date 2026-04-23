@@ -4,6 +4,7 @@ import { ArrowLeft, Copy, Plus, Save, Trash2, Upload, X } from "lucide-react";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
+import { CatalogManager } from "@/components/CatalogManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,16 @@ import {
   saveTemplates,
   type FormatTemplate,
 } from "@/lib/templates";
+import {
+  loadGrades,
+  loadSubjects,
+  resetGrades,
+  resetSubjects,
+  saveGrades,
+  saveSubjects,
+  type GradeOption,
+  type SubjectOption,
+} from "@/lib/catalog";
 
 const Configuracion = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
@@ -36,12 +47,36 @@ const Configuracion = () => {
   const [editing, setEditing] = useState<FormatTemplate | null>(null);
   const [editingName, setEditingName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [grades, setGrades] = useState<GradeOption[]>([]);
 
   useEffect(() => {
     setTemplates(loadTemplates());
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName());
+    setSubjects(loadSubjects());
+    setGrades(loadGrades());
   }, []);
+
+  const updateSubjects = (next: SubjectOption[]) => {
+    setSubjects(next);
+    saveSubjects(next);
+  };
+
+  const updateGrades = (next: GradeOption[]) => {
+    setGrades(next);
+    saveGrades(next);
+  };
+
+  const handleResetSubjects = () => {
+    setSubjects(resetSubjects());
+    toast.success("Asignaturas restauradas");
+  };
+
+  const handleResetGrades = () => {
+    setGrades(resetGrades());
+    toast.success("Cursos restaurados");
+  };
 
   const persist = (next: FormatTemplate[]) => {
     setTemplates(next);
@@ -202,6 +237,37 @@ const Configuracion = () => {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Asignaturas y cursos */}
+      <Card className="shadow-card mb-8">
+        <CardHeader>
+          <CardTitle className="text-lg">Asignaturas y cursos</CardTitle>
+          <CardDescription>
+            Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo"
+            es lo que aparece en el nombre final (sin espacios ni símbolos).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          <CatalogManager
+            title="Asignaturas"
+            description="Ej: Historia → Historia"
+            items={subjects}
+            onChange={updateSubjects}
+            onReset={handleResetSubjects}
+            labelPlaceholder="Educación Física"
+            valuePlaceholder="EducaciónFísica"
+          />
+          <CatalogManager
+            title="Cursos"
+            description="Ej: 7° Básico → 7Básico"
+            items={grades}
+            onChange={updateGrades}
+            onReset={handleResetGrades}
+            labelPlaceholder="7° Básico"
+            valuePlaceholder="7Básico"
+          />
         </CardContent>
       </Card>
 

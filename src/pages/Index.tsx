@@ -14,6 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 import schoolLogo from "@/assets/logo-colegio.jpg";
@@ -28,6 +35,13 @@ import {
 } from "@/lib/templates";
 import { applyTemplate, type ChangeReport } from "@/lib/docx-processor";
 import { exportHtmlToPdf } from "@/lib/pdf-export";
+import {
+  loadGrades,
+  loadSubjects,
+  sanitizeFileToken,
+  type GradeOption,
+  type SubjectOption,
+} from "@/lib/catalog";
 
 type Stage = "idle" | "processing" | "ready";
 
@@ -52,10 +66,14 @@ const Index = () => {
   const [docNumber, setDocNumber] = useState("1");
   const [subject, setSubject] = useState("");
   const [grade, setGrade] = useState("");
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [grades, setGrades] = useState<GradeOption[]>([]);
 
   // Auto-cargar logo institucional la primera vez que se abre la app
   useEffect(() => {
     setTemplates(loadTemplates());
+    setSubjects(loadSubjects());
+    setGrades(loadGrades());
     const existing = loadLogo();
     if (existing) {
       setLogo(existing);
@@ -130,8 +148,8 @@ const Index = () => {
     const prefix = workingTemplate?.fileNaming?.prefix;
     if (prefix && (subject.trim() || grade.trim() || docNumber.trim())) {
       const n = docNumber.trim() || "1";
-      const subj = subject.trim().replace(/\s+/g, "");
-      const grd = grade.trim().replace(/\s+/g, "");
+      const subj = sanitizeFileToken(subject);
+      const grd = sanitizeFileToken(grade);
       const parts = [prefix, `N°${n}`, subj || "Asignatura", grd || "Curso"];
       return parts.join("_");
     }
@@ -253,21 +271,33 @@ const Index = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="subject" className="text-xs">Asignatura</Label>
-                  <Input
-                    id="subject"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Historia"
-                  />
+                  <Select value={subject} onValueChange={setSubject}>
+                    <SelectTrigger id="subject">
+                      <SelectValue placeholder="Selecciona asignatura" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="grade" className="text-xs">Curso</Label>
-                  <Input
-                    id="grade"
-                    value={grade}
-                    onChange={(e) => setGrade(e.target.value)}
-                    placeholder="7Básico"
-                  />
+                  <Select value={grade} onValueChange={setGrade}>
+                    <SelectTrigger id="grade">
+                      <SelectValue placeholder="Selecciona curso" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {grades.map((g) => (
+                        <SelectItem key={g.value} value={g.value}>
+                          {g.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="rounded-md bg-muted/40 border border-border px-3 py-2 text-sm">
