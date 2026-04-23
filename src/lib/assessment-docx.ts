@@ -21,6 +21,7 @@ import { saveAs } from "file-saver";
 
 import type { Assessment, Question, QuestionImage } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
+import { richTextToRuns } from "./rich-text";
 
 interface BuildContext {
   assessment: Assessment;
@@ -266,7 +267,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       : (q.points ?? 0);
   const headerRuns: TextRun[] = [
     new TextRun({ text: `${qNumber}) `, bold: true, size: baseSize }),
-    new TextRun({ text: q.prompt, bold: false, size: baseSize }),
+    ...richTextToRuns(q.prompt, { size: baseSize, bold: false }),
   ];
   if (totalPts) {
     headerRuns.push(new TextRun({ text: `   (${totalPts} pt${totalPts === 1 ? "" : "s"})`, italics: true, size: baseSize }));
