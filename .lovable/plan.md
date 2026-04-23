@@ -1,79 +1,65 @@
 
-# Corregir dos fallas confirmadas con los archivos subidos
 
-Revisé el original `2026_EVALUACIÓN_FORMATIVA_FORMAL...docx` y el descargado `Ev_Diversificada_N°3...docx`. Hay dos problemas reales y distintos:
+# Comparador antes/después + control de zoom en la previsualización
 
-1. **La tipografía no queda realmente aplicada en Word**  
-   En el procesador actual solo se fuerzan `styles.xml` y algunos estilos de párrafo, pero muchos documentos traen **formato directo en los runs** (`<w:rPr><w:rFonts .../><w:sz .../></w:rPr>`) dentro de `document.xml`. Word prioriza ese formato directo por sobre `Normal` y `docDefaults`, así que el archivo descargado puede seguir viéndose con la fuente original aunque el reporte diga que cambió.
+Dos mejoras de UX en la pantalla principal para que puedas detectar discrepancias visuales antes de descargar el `.docx`.
 
-2. **La última imagen no conserva el comportamiento visual del original**  
-   En el original, la imagen final queda parcialmente visible al final de la página 4. En el descargado aparece en una **página 5 nueva, completa y con mucho espacio en blanco**. Eso confirma que hoy no se está preservando bien el layout real de Word: al tocar el drawing, el documento refluye y la imagen deja de comportarse como en el archivo original.
+## 1. Vista comparativa "Original vs. Estandarizado"
 
-## Implementación propuesta
+Hoy solo se muestra el documento procesado. Vamos a:
 
-### 1) Forzar tipografía también en el contenido real del documento
-Archivo: `src/lib/docx-processor.ts`
+- **Renderizar también el documento original** con mammoth a HTML, en paralelo al procesado, y guardarlo en estado (`originalHtml`).
+- **Tabs en la tarjeta de previsualización**:
+  - `Comparar` (por defecto): vista lado a lado — Original a la izquierda, Estandarizado a la derecha. En pantallas chicas se apilan vertical.
+  - `Solo estandarizado`: vista actual a ancho completo.
+  - `Solo original`: para inspeccionar el archivo subido.
+- **Scroll sincronizado opcional** entre las dos columnas (toggle con switch "Scroll sincronizado") para detectar fácilmente qué bloque se desplazó.
+- Cada panel tendrá su propio header con el nombre del archivo y conteo de páginas estimado (cuenta de saltos `<w:br w:type="page"/>` + 1).
 
-Agregar una pasada nueva sobre `word/document.xml` para normalizar formato directo:
+## 2. Detector automático de discrepancias
 
-- recorrer todos los `<w:rPr>` del cuerpo;
-- reemplazar o insertar:
-  - `<w:rFonts w:ascii="Century Gothic" w:hAnsi="Century Gothic" w:cs="Century Gothic" w:eastAsia="Century Gothic"/>`
-  - `<w:sz w:val="20"/>` y `<w:szCs w:val="20"/>` para 10 pt;
-  - color del cuerpo si corresponde;
-- no tocar runs especiales de campos, numeración, símbolos o drawings;
-- mantener negritas, cursivas, subrayados y demás propiedades existentes.
+Antes de pintar la previsualización, comparar los XML del original y procesado para detectar cambios estructurales que suelen "correr" el contenido:
 
-También aplicar esta normalización al contenido inyectado por la app:
-- banner institucional,
-- pie de página,
-- bloques creados por el procesador.
+- **Páginas estimadas**: si el procesado tiene más páginas que el original → warning "El documento aumentó de N a M páginas".
+- **Imágenes desplazadas**: contar imágenes (`<w:drawing>`) en cada uno; si difiere o si alguna cambió de tamaño significativo (>10%), reportarlo.
+- **Tablas modificadas**: contar `<w:tbl>` y filas; si baja → warning "Se eliminó/aplanó una tabla".
+- **Saltos de página añadidos**: contar `<w:br w:type="page"/>` en cuerpo (excluyendo el banner que sí añadimos a propósito).
 
-Con esto Word ya no dependerá solo de `styles.xml`, y la fuente sí cambiará visualmente al abrir el `.docx`.
+Mostrar los hallazgos como una tarjeta `Alerta de discrepancias` (amarilla) sobre el preview, con lista expandible. Si no hay discrepancias relevantes → tarjeta verde "Sin diferencias estructurales detectadas".
 
-### 2) Dejar de “corregir” imágenes que ya vienen recortadas o ancladas por Word
-Archivo: `src/lib/docx-processor.ts`
+Los conteos los expone `applyTemplate` en un nuevo campo `ProcessResult.diagnostics: { originalPages, processedPages, originalImages, processedImages, originalTables, processedTables, addedPageBreaks }`.
 
-La lógica actual `fitOversizedImagesString()` está reescribiendo `wp:extent` / `a:ext` cuando detecta imágenes grandes. En estos documentos eso altera el flujo y termina empujando la última imagen a una página nueva.
+## 3. Control de zoom en la previsualización
 
-Se ajustará así:
+Reemplazar el contenedor fijo `p-8 max-h-[640px]` por uno con:
 
-- detectar si el drawing tiene:
-  - `<a:srcRect .../>` (recorte de Word),
-  - `<wp:anchor ...>` (objeto flotante),
-  - positioning / wrapping especial;
-- **no reescalar** imágenes recortadas o ancladas, porque ahí lo prioritario es preservar el layout original;
-- reescalar solo imágenes inline simples, sin crop y realmente sobredimensionadas;
-- si una imagen tiene crop, conservar exactamente su `srcRect` y sus dimensiones visibles originales;
-- no modificar el primer `<a:ext>` “que aparezca”, sino el transform correcto del mismo drawing para evitar efectos colaterales.
+- **Barra de controles** sobre cada panel: botones `−` / `+`, un `Select` con presets (50%, 75%, 100%, 125%, 150%) y botón "Ajustar a ventana".
+- Implementación: aplicar `transform: scale(zoom)` con `transform-origin: top left` al contenido HTML, y compensar el ancho del contenedor (`width: ${100/zoom}%`) para que el scroll horizontal funcione bien al hacer zoom in.
+- El zoom es independiente para cada panel en modo comparar, o compartido si "Scroll sincronizado" está activo.
+- Persistir el zoom elegido en `localStorage` (`preview-zoom`) para recordar la preferencia.
 
-Resultado esperado: la última imagen ya no se expandirá completa en una página extra cuando el original la traía visualmente recortada por el propio diseño de Word.
+## Cambios técnicos
 
-### 3) Hacer la vista previa menos engañosa
-Archivo: `src/pages/Index.tsx`
+`src/lib/docx-processor.ts`:
+- Añadir `diagnostics` a `ProcessResult` con los conteos descritos.
+- Calcular conteos haciendo regex sobre el `document.xml` original (antes de procesar) y el final.
 
-La previsualización usa Mammoth, que no reproduce fielmente:
-- recortes de imagen de Word,
-- objetos flotantes,
-- ciertos layouts complejos.
+`src/pages/Index.tsx`:
+- Nuevo estado: `originalHtml`, `diagnostics`, `zoomLeft`, `zoomRight`, `previewMode` (`compare | processed | original`), `syncScroll`.
+- En `processDocument`, después de leer el buffer original, generar `originalHtml` con mammoth en paralelo a la conversión actual.
+- Reemplazar la tarjeta "Vista previa" por un componente nuevo `<DocumentPreview>` que encapsule tabs, controles de zoom y scroll sincronizado.
 
-Se mantendrá la nota, pero se volverá más explícita para este caso:
-- la vista previa web puede diferir del `.docx` final en imágenes recortadas o posicionadas por Word;
-- la referencia válida para QA seguirá siendo el archivo `.docx` procesado.
+`src/components/DocumentPreview.tsx` (nuevo):
+- Recibe `originalHtml`, `processedHtml`, `template`, `diagnostics`.
+- Renderiza tabs, panel(es), barra de zoom, panel de discrepancias.
+- Implementa scroll sincronizado con `onScroll` + `ref` cruzados.
 
-## Cambios técnicos resumidos
-
-- `src/lib/docx-processor.ts`
-  - nueva función para **normalizar `w:rPr` en `document.xml`** y forzar tipografía/tamaño en runs reales;
-  - integrar esa pasada dentro de `applyTemplate()`;
-  - endurecer `fitOversizedImagesString()` para **preservar imágenes con crop/anclaje** y solo actuar en casos seguros;
-  - mantener intactos banner, tablas y demás contenido ya corregido.
-
-- `src/pages/Index.tsx`
-  - ajustar el mensaje bajo la vista previa para explicar mejor la diferencia entre Mammoth y Word.
+`src/components/DiscrepancyAlert.tsx` (nuevo, pequeño):
+- Recibe `diagnostics` y renderiza la tarjeta verde/amarilla con lista de hallazgos.
 
 ## Resultado esperado
 
-- El `.docx` descargado abrirá en Word con **Century Gothic 10 real**, no solo “reportada”.
-- La última imagen ya no aparecerá completa en una página adicional si el original la traía visualmente recortada o condicionada por el layout.
-- La app seguirá agregando el banner institucional y aplicando el formato del colegio, pero sin romper el comportamiento visual del documento original en sus imágenes complejas.
+- Antes de descargar puedes ver original y estandarizado lado a lado, con scroll sincronizado para detectar qué bloque se "corrió".
+- Una tarjeta clara avisa si el documento creció en páginas, perdió tablas o cambió cantidad de imágenes.
+- Puedes hacer zoom in/out de cada panel para revisar detalles finos (tipografía, recortes de imagen, espaciados) sin depender de abrir Word cada vez.
+
