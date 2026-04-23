@@ -838,47 +838,66 @@ function fitOversizedImagesString(xml: string, t: FormatTemplate): { xml: string
   const usableH = Math.round(usableHcm * 360000);
   const limitH = Math.round(usableH * 0.95);
 
+  // Cachear por r:embed para que imágenes reutilizadas (e.g. la misma foto en
+  // varias celdas de una tabla) no se procesen N veces de forma independiente
+  // y, sobre todo, no contemos como N reescalados algo que es 1 imagen única.
+  const embedsSeen = new Set<string>();
   let count = 0;
+
   const out = xml.replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/g, (drawingXml) => {
-    // 1) Imágenes ancladas/flotantes: preservar tal cual.
-    if (/<wp:anchor\b/.test(drawingXml)) return drawingXml;
+    try {
+      // 1) Imágenes ancladas/flotantes: preservar tal cual.
+      if (/<wp:anchor\b/.test(drawingXml)) return drawingXml;
 
-    // 2) Imágenes con recorte real: preservar tal cual.
-    //    Un srcRect "vacío" (`<a:srcRect/>`) NO cuenta como recorte.
-    const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
-    if (srcRectMatch) {
-      const attrs = srcRectMatch[1] || "";
-      const hasCropValue = /\b[lrtb]="(-?\d+)"/.test(attrs)
-        && !/^\s*$/.test(attrs)
-        && /[1-9]/.test(attrs); // al menos un dígito distinto de 0
-      if (hasCropValue) return drawingXml;
+      // 2) Imágenes con recorte real: preservar tal cual.
+      const srcRectMatch = drawingXml.match(/<a:srcRect\b([^/]*)\/>/);
+      if (srcRectMatch) {
+        const attrs = srcRectMatch[1] || "";
+        const hasCropValue = /\b[lrtb]="(-?\d+)"/.test(attrs)
+          && !/^\s*$/.test(attrs)
+          && /[1-9]/.test(attrs);
+        if (hasCropValue) return drawingXml;
+      }
+
+      // 3) Imagen inline: solo reescalar si excede el área imprimible.
+      const extentMatch = drawingXml.match(/<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"\s*\/>/);
+      if (!extentMatch) return drawingXml; // sin transform: saltar en silencio
+      const cx = parseInt(extentMatch[1], 10);
+      const cy = parseInt(extentMatch[2], 10);
+
+      if (cx <= usableW && cy <= limitH) return drawingXml;
+
+      const ratioW = cx > usableW ? usableW / cx : 1;
+      const ratioH = cy > limitH ? limitH / cy : 1;
+      const ratio = Math.min(ratioW, ratioH);
+      const newCx = Math.round(cx * ratio);
+      const newCy = Math.round(cy * ratio);
+
+      // Detectar r:embed para no contar la misma imagen varias veces.
+      const embedMatch = drawingXml.match(/r:embed="([^"]+)"/);
+      const embedId = embedMatch?.[1];
+      if (embedId) {
+        if (!embedsSeen.has(embedId)) {
+          embedsSeen.add(embedId);
+          count++;
+        }
+      } else {
+        count++;
+      }
+
+      let updated = drawingXml.replace(
+        /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
+        `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
+      );
+      updated = updated.replace(
+        /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
+        `<a:ext cx="${newCx}" cy="${newCy}"/>`,
+      );
+      return updated;
+    } catch {
+      // Drawing con estructura inesperada: dejar intacto en silencio.
+      return drawingXml;
     }
-
-    // 3) Imagen inline simple: solo reescalar si excede el área imprimible.
-    const extentMatch = drawingXml.match(/<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"\s*\/>/);
-    if (!extentMatch) return drawingXml;
-    const cx = parseInt(extentMatch[1], 10);
-    const cy = parseInt(extentMatch[2], 10);
-
-    if (cx <= usableW && cy <= limitH) return drawingXml;
-
-    const ratioW = cx > usableW ? usableW / cx : 1;
-    const ratioH = cy > limitH ? limitH / cy : 1;
-    const ratio = Math.min(ratioW, ratioH);
-    const newCx = Math.round(cx * ratio);
-    const newCy = Math.round(cy * ratio);
-
-    count++;
-    let updated = drawingXml.replace(
-      /<wp:extent\s+cx="\d+"\s+cy="\d+"\s*\/>/,
-      `<wp:extent cx="${newCx}" cy="${newCy}"/>`,
-    );
-    // Actualizar el a:ext del transform principal del mismo drawing.
-    updated = updated.replace(
-      /<a:ext\s+cx="\d+"\s+cy="\d+"\s*\/>/,
-      `<a:ext cx="${newCx}" cy="${newCy}"/>`,
-    );
-    return updated;
   });
 
   return { xml: out, count };
