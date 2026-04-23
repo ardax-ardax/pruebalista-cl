@@ -75,6 +75,11 @@ const Index = () => {
   const [diagnostics, setDiagnostics] = useState<DocDiagnostics | null>(null);
   const [changes, setChanges] = useState<ChangeReport[]>([]);
 
+  // Preflight: diálogo cuando el .docx tiene elementos riesgosos
+  const [preflightOpen, setPreflightOpen] = useState(false);
+  const [preflightFindings, setPreflightFindings] = useState<PreflightFinding[]>([]);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
   // Campos para componer el nombre de archivo según la convención del colegio:
   // {prefijo}_N°{n}_{Asignatura}_{Curso}
   const [docNumber, setDocNumber] = useState("1");
