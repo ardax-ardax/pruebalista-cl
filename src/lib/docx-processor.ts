@@ -148,6 +148,17 @@ export async function applyTemplate(
   let sectionCreated = false;
   let originalStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
   let processedStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
+  let extendedDiagnostics: {
+    optionFormatInconsistencies: { before: number; after: number };
+    questionFormatInconsistencies: { before: number; after: number };
+    autoFixesApplied: string[];
+    warnings: string[];
+  } = {
+    optionFormatInconsistencies: { before: 0, after: 0 },
+    questionFormatInconsistencies: { before: 0, after: 0 },
+    autoFixesApplied: [],
+    warnings: [],
+  };
   if (documentFile) {
     let docContent = await documentFile.async("string");
     originalStats = computeDocStats(docContent);
@@ -334,6 +345,10 @@ export async function applyTemplate(
     originalPageBreaks: originalStats.pageBreaks,
     processedPageBreaks: processedStats.pageBreaks,
     addedPageBreaks: Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks),
+    optionFormatInconsistencies: extendedDiagnostics.optionFormatInconsistencies,
+    questionFormatInconsistencies: extendedDiagnostics.questionFormatInconsistencies,
+    autoFixesApplied: extendedDiagnostics.autoFixesApplied,
+    warnings: extendedDiagnostics.warnings,
   };
 
   return { blob, changes, originalSummary, diagnostics };
