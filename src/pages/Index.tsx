@@ -213,6 +213,8 @@ const Index = () => {
     setOriginalFile(null);
     setResultBlob(null);
     setPreviewHtml("");
+    setOriginalHtml("");
+    setDiagnostics(null);
     setChanges([]);
     setStage("idle");
     setProgress(0);
