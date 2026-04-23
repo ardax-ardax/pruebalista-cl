@@ -16,6 +16,7 @@ import {
   TextRun,
   WidthType,
   HeightRule,
+  VerticalAlign,
 } from "docx";
 import { saveAs } from "file-saver";
 
