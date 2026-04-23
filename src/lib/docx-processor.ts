@@ -16,12 +16,47 @@ export interface BannerData {
   gradeLabel?: string;
 }
 
+export interface DocDiagnostics {
+  originalPages: number;
+  processedPages: number;
+  originalImages: number;
+  processedImages: number;
+  originalTables: number;
+  processedTables: number;
+  originalPageBreaks: number;
+  processedPageBreaks: number;
+  addedPageBreaks: number;
+}
+
 export interface ProcessResult {
   blob: Blob;
   changes: ChangeReport[];
   originalSummary: {
     bodyFont?: string;
     bodySize?: number;
+  };
+  diagnostics: DocDiagnostics;
+}
+
+function countOccurrences(xml: string, regex: RegExp): number {
+  const matches = xml.match(regex);
+  return matches ? matches.length : 0;
+}
+
+function computeDocStats(xml: string): {
+  pages: number;
+  images: number;
+  tables: number;
+  pageBreaks: number;
+} {
+  const pageBreaks = countOccurrences(xml, /<w:br\b[^/]*w:type="page"/g);
+  const images = countOccurrences(xml, /<w:drawing\b/g);
+  const tables = countOccurrences(xml, /<w:tbl\b(?!Pr)/g);
+  return {
+    pages: pageBreaks + 1,
+    images,
+    tables,
+    pageBreaks,
   };
 }
 
