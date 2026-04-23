@@ -791,6 +791,30 @@ export async function applyTemplate(
       (xml) => applyParagraphFormattingString(xml, template),
     );
 
+    // Colapsar párrafos vacíos consecutivos para evitar huecos enormes entre preguntas
+    let blankParagraphsRemoved = 0;
+    const collapseRes = runPass(
+      "colapso de líneas en blanco",
+      passWarnings,
+      () => collapseBlankParagraphs(docContent),
+      { xml: docContent, removed: 0 },
+    );
+    docContent = collapseRes.xml;
+    blankParagraphsRemoved = collapseRes.removed;
+
+    // Ritmo visual para evaluaciones (preguntas vs opciones)
+    let questionsRhythm = 0;
+    let optionsRhythm = 0;
+    const rhythmRes = runPass(
+      "ritmo visual preguntas/opciones",
+      passWarnings,
+      () => applyQuestionRhythm(docContent, template),
+      { xml: docContent, questions: 0, options: 0 },
+    );
+    docContent = rhythmRes.xml;
+    questionsRhythm = rhythmRes.questions;
+    optionsRhythm = rhythmRes.options;
+
     const tablesRes = runPass(
       "optimización de tablas",
       passWarnings,
