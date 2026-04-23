@@ -290,6 +290,13 @@ const Index = () => {
 
   return (
     <AppLayout>
+      <PreflightDialog
+        open={preflightOpen}
+        fileName={pendingFile?.name}
+        findings={preflightFindings}
+        onConfirm={handlePreflightConfirm}
+        onCancel={handlePreflightCancel}
+      />
       {/* Hero */}
       <section className="mb-8 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
