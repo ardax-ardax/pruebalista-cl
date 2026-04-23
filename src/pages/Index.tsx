@@ -133,7 +133,12 @@ const Index = () => {
       toast.success("Documento estandarizado correctamente");
     } catch (e) {
       console.error(e);
-      toast.error("No se pudo procesar el documento. ¿Es un .docx válido?");
+      const msg = e instanceof Error ? e.message : "";
+      if (/body element|docx/i.test(msg)) {
+        toast.error("El documento contiene elementos avanzados que no pudimos procesar. Intenta guardarlo como .docx desde Word y vuelve a subirlo.");
+      } else {
+        toast.error("No se pudo procesar el documento. Revisa que sea un archivo .docx generado por Word.");
+      }
       setStage("idle");
       setProgress(0);
     }
