@@ -14,6 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 import schoolLogo from "@/assets/logo-colegio.jpg";
@@ -28,6 +35,13 @@ import {
 } from "@/lib/templates";
 import { applyTemplate, type ChangeReport } from "@/lib/docx-processor";
 import { exportHtmlToPdf } from "@/lib/pdf-export";
+import {
+  loadGrades,
+  loadSubjects,
+  sanitizeFileToken,
+  type GradeOption,
+  type SubjectOption,
+} from "@/lib/catalog";
 
 type Stage = "idle" | "processing" | "ready";
 
