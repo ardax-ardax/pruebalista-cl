@@ -49,6 +49,7 @@ export interface Question {
   type: QuestionType;
   title?: string; // título corto del enunciado (opcional)
   prompt: string; // texto principal o título de sección
+  instructions?: string; // instrucciones opcionales bajo title (solo section-title)
   points?: number;
   image?: QuestionImage | null;
   imageLayout?: ImageLayout; // solo aplica a multiple-choice + image; default "block"
