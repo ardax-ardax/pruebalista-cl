@@ -1701,6 +1701,148 @@ async function linkPartToSections(zip: JSZip, refName: "headerReference" | "foot
  * Tamaños en twips (1 cm ≈ 567 twips). Ancho útil de hoja Oficio (21,59 cm)
  * con márgenes 2,5/2 = 16,9 cm ≈ 9580 twips.
  */
+/**
+ * Detecta si el documento ya trae un encabezado/portada equivalente al banner del colegio.
+ * Solo revisa los primeros ~6 elementos del body (suficiente para portada,
+ * sin tocar contenido posterior).
+ *
+ *  - "table-banner": hay una tabla al inicio cuyo texto contiene 2+ palabras clave de banner.
+ *  - "title-only": no hay tabla pero hay 1-4 párrafos al inicio con texto tipo "EVALUACIÓN…".
+ *  - "none": ni tabla ni texto de portada — inyectar normal.
+ */
+type BannerDetection =
+  | { kind: "none" }
+  | { kind: "table-banner"; tableXml: string; hadDrawing: boolean }
+  | { kind: "title-only"; paragraphs: string[] };
+
+const BANNER_KEYWORDS = [
+  "profesor",
+  "asignatura",
+  "curso",
+  "calificación",
+  "calificacion",
+  "puntaje",
+  "fecha",
+  "nombre",
+  "alumno",
+  "estudiante",
+];
+
+const COVER_TITLE_KEYWORDS = [
+  "evaluación",
+  "evaluacion",
+  "guía",
+  "guia",
+  "prueba",
+  "control",
+];
+
+function detectExistingBanner(docContent: string): BannerDetection {
+  const bodyMatch = docContent.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
+  if (!bodyMatch) return { kind: "none" };
+  const body = bodyMatch[1];
+
+  // Capturar los primeros ~6 hijos directos del body (tablas o párrafos)
+  const childRegex = /<w:(tbl|p)\b[^>]*>[\s\S]*?<\/w:\1>|<w:p\b[^>]*\/>/g;
+  const firstChildren: { tag: "tbl" | "p"; xml: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = childRegex.exec(body)) && firstChildren.length < 6) {
+    const xml = m[0];
+    const tag = xml.startsWith("<w:tbl") ? "tbl" : "p";
+    firstChildren.push({ tag, xml });
+  }
+  if (firstChildren.length === 0) return { kind: "none" };
+
+  // Caso 1 — primera tabla en los primeros 3 elementos
+  const firstThree = firstChildren.slice(0, 3);
+  const firstTableIdx = firstThree.findIndex((c) => c.tag === "tbl");
+  if (firstTableIdx >= 0) {
+    const tableXml = firstThree[firstTableIdx].xml;
+    const tableText = extractParagraphText(tableXml).toLowerCase();
+    let hits = 0;
+    for (const kw of BANNER_KEYWORDS) {
+      if (tableText.includes(kw)) hits++;
+    }
+    if (hits >= 2) {
+      const hadDrawing = /<w:drawing\b/.test(tableXml) || /<w:pict\b/.test(tableXml);
+      return { kind: "table-banner", tableXml, hadDrawing };
+    }
+  }
+
+  // Caso 2 — sin tabla al inicio, párrafos de portada
+  if (firstTableIdx < 0) {
+    const coverParagraphs: string[] = [];
+    for (const c of firstChildren.slice(0, 4)) {
+      if (c.tag !== "p") break;
+      const txt = extractParagraphText(c.xml).toLowerCase().trim();
+      if (!txt) {
+        // párrafo vacío, lo arrastramos como "portada"
+        coverParagraphs.push(c.xml);
+        continue;
+      }
+      const isCover = COVER_TITLE_KEYWORDS.some((kw) => txt.includes(kw));
+      if (isCover) {
+        coverParagraphs.push(c.xml);
+      } else {
+        break;
+      }
+    }
+    // Considerar portada solo si hay al menos un párrafo con palabra clave
+    const hasRealCover = coverParagraphs.some((p) => {
+      const t = extractParagraphText(p).toLowerCase().trim();
+      return t && COVER_TITLE_KEYWORDS.some((kw) => t.includes(kw));
+    });
+    if (hasRealCover) return { kind: "title-only", paragraphs: coverParagraphs };
+  }
+
+  return { kind: "none" };
+}
+
+/**
+ * Después de insertar el banner, eliminar los próximos 3 párrafos que dupliquen
+ * texto que ya quedó dentro del banner (asignatura, curso, profesor, "EVALUACIÓN").
+ */
+function dedupeAdjacentTitles(
+  docContent: string,
+  bannerInsertedAfter: string,
+  bannerKeywords: string[],
+): { xml: string; removed: number } {
+  const idx = docContent.indexOf(bannerInsertedAfter);
+  if (idx < 0) return { xml: docContent, removed: 0 };
+
+  // Posición justo después del banner insertado
+  const startSearch = idx + bannerInsertedAfter.length;
+  const tail = docContent.slice(startSearch);
+
+  // Capturar hasta 4 párrafos siguientes (saltamos el <w:p> de cierre del banner)
+  const paragraphRegex = /<w:p\b[^>]*>[\s\S]*?<\/w:p>|<w:p\b[^>]*\/>/g;
+  paragraphRegex.lastIndex = 0;
+  const matches: { xml: string; index: number; length: number }[] = [];
+  let pm: RegExpExecArray | null;
+  while ((pm = paragraphRegex.exec(tail)) && matches.length < 4) {
+    matches.push({ xml: pm[0], index: pm.index, length: pm[0].length });
+  }
+
+  const lowerKeywords = bannerKeywords.map((k) => k.toLowerCase()).filter((k) => k.length >= 4);
+  const toRemove: { index: number; length: number }[] = [];
+  for (const p of matches) {
+    const text = extractParagraphText(p.xml).toLowerCase().trim();
+    if (!text) continue;
+    // Si el párrafo es corto y todo su contenido aparece dentro de las keywords del banner
+    const isDuplicate = lowerKeywords.some((kw) => text.includes(kw)) && text.length < 120;
+    if (isDuplicate) toRemove.push({ index: p.index, length: p.length });
+  }
+
+  if (toRemove.length === 0) return { xml: docContent, removed: 0 };
+
+  // Reconstruir tail eliminando de atrás hacia adelante
+  let newTail = tail;
+  for (let i = toRemove.length - 1; i >= 0; i--) {
+    newTail = newTail.slice(0, toRemove[i].index) + newTail.slice(toRemove[i].index + toRemove[i].length);
+  }
+  return { xml: docContent.slice(0, startSearch) + newTail, removed: toRemove.length };
+}
+
 async function insertInstitutionBanner(
   zip: JSZip,
   t: FormatTemplate,
@@ -1709,10 +1851,24 @@ async function insertInstitutionBanner(
   gradeLabel: string,
   logoDataUrl: string | null,
   showCalificacion: boolean,
-) {
+): Promise<{ replaced: boolean; coverRemoved: number; titlesRemoved: number }> {
   const documentFile = zip.file("word/document.xml");
-  if (!documentFile) return;
+  if (!documentFile) return { replaced: false, coverRemoved: 0, titlesRemoved: 0 };
   let docContent = await documentFile.async("string");
+
+  // 0) Detectar portada existente y limpiarla antes de inyectar
+  const detection = detectExistingBanner(docContent);
+  let replaced = false;
+  let coverRemoved = 0;
+  if (detection.kind === "table-banner") {
+    docContent = docContent.replace(detection.tableXml, "");
+    replaced = true;
+  } else if (detection.kind === "title-only") {
+    for (const p of detection.paragraphs) {
+      docContent = docContent.replace(p, "");
+      coverRemoved++;
+    }
+  }
 
   // 1) Embed del logo (si corresponde)
   let logoRelId: string | null = null;
