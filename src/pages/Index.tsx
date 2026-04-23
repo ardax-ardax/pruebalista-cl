@@ -417,6 +417,9 @@ const Index = () => {
                       Exportar a PDF
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Si no ves los cambios, asegúrate de abrir la versión recién descargada (no el archivo original).
+                  </p>
                 </CardContent>
               </Card>
 
