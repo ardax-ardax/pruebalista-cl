@@ -81,11 +81,19 @@ export interface Assessment {
 export const newId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-// Las imágenes nunca pueden ocupar más del 20% del ancho útil.
+// Tope estándar (left/right): 20%. Tope para alineación centro: 50%.
 export const MAX_IMAGE_WIDTH_PCT = 20;
+export const MAX_IMAGE_WIDTH_CENTER_PCT = 50;
 export const MIN_IMAGE_WIDTH_PCT = 10;
 export const clampWidthPct = (n: number): number =>
   Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, Number.isFinite(n) ? n : MAX_IMAGE_WIDTH_PCT));
+export const clampWidthPctByAlign = (
+  n: number,
+  alignment: "left" | "center" | "right",
+): number => {
+  const max = alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT;
+  return Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(max, Number.isFinite(n) ? n : max));
+};
 
 export const emptyAssessment = (templateId: string): Assessment => ({
   id: newId(),

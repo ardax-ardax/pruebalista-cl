@@ -52,8 +52,11 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
 // para calcular height a partir de width preservando aspect ratio.
 function buildImageRun(img: QuestionImage, contentWidthCm: number, maxHeightCm?: number, allowFullWidth?: boolean): ImageRun {
   const { data, type } = dataUrlToUint8Array(img.src);
-  // Clamp a 20% (compat con borradores antiguos) salvo que se pida full width (caso split).
-  const safeWidthPct = allowFullWidth ? Math.max(10, Math.min(100, img.widthPct)) : Math.max(10, Math.min(20, img.widthPct));
+  // Clamp: full width si se pide; en otro caso centro=50%, left/right=20%.
+  const maxByAlign = img.alignment === "center" ? 50 : 20;
+  const safeWidthPct = allowFullWidth
+    ? Math.max(10, Math.min(100, img.widthPct))
+    : Math.max(10, Math.min(maxByAlign, img.widthPct));
   const targetWidthCm = contentWidthCm * (safeWidthPct / 100);
   let widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
 
@@ -347,12 +350,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
         children: [
           new Paragraph({
-            alignment:
-              q.image.alignment === "left"
-                ? AlignmentType.LEFT
-                : q.image.alignment === "right"
-                  ? AlignmentType.RIGHT
-                  : AlignmentType.CENTER,
+            // En layout split siempre centramos la imagen dentro de la columna.
+            alignment: AlignmentType.CENTER,
             spacing: { before: 60, after: 60 },
             children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm, true)],
           }),

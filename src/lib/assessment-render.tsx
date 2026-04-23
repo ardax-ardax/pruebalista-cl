@@ -201,8 +201,9 @@ function renderImageHtml(img: QuestionImage): string {
   const { left: L, right: R, top: T, bottom: B } = img.crop;
   const visibleW = Math.max(1, 100 - L - R);
   const visibleH = Math.max(1, 100 - T - B);
-  // Clamp a 20% del ancho disponible (compat con borradores antiguos).
-  const safeWidthPct = Math.max(10, Math.min(20, img.widthPct));
+  // Clamp dependiente de alineación: centro hasta 50%, left/right hasta 20%.
+  const maxPct = img.alignment === "center" ? 50 : 20;
+  const safeWidthPct = Math.max(10, Math.min(maxPct, img.widthPct));
   const wrapperWidth = `${safeWidthPct}%`;
   const natW = img.naturalW ?? 4;
   const natH = img.naturalH ?? 3;
@@ -265,14 +266,15 @@ function renderContainedImageHtml(img: QuestionImage): string {
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
 
   if (!hasCrop) {
-    return `<div class="pa-image-wrap pa-align-${img.alignment}"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
+    // En layout split siempre centramos la imagen dentro de la celda.
+    return `<div class="pa-image-wrap pa-align-center"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
   }
 
   const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
   // Para crop con object-fit no funciona; usamos wrapper con aspect-ratio + overflow hidden
   // y la <img> escalada con margenes negativos relativos al wrapper.
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
-  return `<div class="pa-image-wrap pa-align-${img.alignment}"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
+  return `<div class="pa-image-wrap pa-align-center"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
 }
 
 export const _internal = { renderImageHtml };
