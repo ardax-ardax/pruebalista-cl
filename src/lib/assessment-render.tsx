@@ -93,11 +93,38 @@ export const ASSESSMENT_CSS = `
   .pa-statements { break-inside: avoid; page-break-inside: avoid; }
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
   .pa-mc-split .pa-mc-text { width: 60%; padding-right: 8pt; }
-  .pa-mc-split .pa-mc-image { width: 40%; padding-left: 8pt; height: 1px; }
-  .pa-mc-image .pa-image-wrap { width: 100%; height: 100%; margin: 0; text-align: center; display: block; }
-  .pa-mc-image .pa-image-crop { display: inline-block; height: 100%; width: auto; max-width: 100%; aspect-ratio: var(--pa-ar, auto); }
-  .pa-mc-image .pa-image-crop-inner { width: 100%; height: 100%; overflow: hidden; position: relative; }
-  .pa-mc-image .pa-image-plain { display: inline-block; height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+  .pa-mc-split td.pa-mc-image { width: 40%; padding-left: 8pt; position: relative; }
+  .pa-mc-image .pa-image-wrap {
+    position: absolute;
+    inset: 0 0 0 8pt;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pa-mc-image .pa-image-plain {
+    max-height: 100%;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+  .pa-mc-image .pa-image-crop {
+    max-height: 100%;
+    max-width: 100%;
+    height: 100%;
+    width: auto;
+    aspect-ratio: var(--pa-ar, auto);
+    display: inline-block;
+    overflow: hidden;
+    position: relative;
+  }
+  .pa-mc-image .pa-image-crop-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
 `;
 
 const escape = (s: string) =>
