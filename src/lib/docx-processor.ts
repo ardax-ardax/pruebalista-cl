@@ -383,6 +383,170 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// =====================================================================
+// Sanitización + validación final del .docx
+// =====================================================================
+
+/**
+ * Elimina caracteres de control prohibidos por XML 1.0
+ * (\x00-\x08, \x0B, \x0C, \x0E-\x1F).
+ * Word rechaza el archivo con "archivo dañado" si están presentes.
+ * Conserva \t (\x09), \n (\x0A), \r (\x0D).
+ */
+function stripInvalidXmlChars(xml: string): string {
+  // eslint-disable-next-line no-control-regex
+  return xml.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+}
+
+/**
+ * Asegura que el `<w:document>` raíz declare los namespaces que usan los
+ * elementos que inyectamos (banner, headers, footers): xmlns:wp, xmlns:a,
+ * xmlns:pic, xmlns:r. Sin esto, parsers estrictos como Word marcan el
+ * archivo como corrupto ("unbound prefix") aunque las redeclaraciones
+ * locales en cada drawing existan.
+ *
+ * Si el XML carece por completo del root <w:document> (p. ej. una pasada
+ * previa lo eliminó), lo reconstruye envolviendo el contenido existente.
+ */
+function ensureDocumentRootNamespaces(xml: string): string {
+  const REQUIRED: Array<[string, string]> = [
+    ["xmlns:w", W_NS],
+    ["xmlns:r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
+    ["xmlns:wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"],
+    ["xmlns:a", "http://schemas.openxmlformats.org/drawingml/2006/main"],
+    ["xmlns:pic", "http://schemas.openxmlformats.org/drawingml/2006/picture"],
+    ["xmlns:mc", "http://schemas.openxmlformats.org/markup-compatibility/2006"],
+  ];
+
+  let out = xml;
+  // Asegurar declaración XML
+  if (!/^<\?xml\b/.test(out.trimStart())) {
+    out = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${out}`;
+  }
+
+  // Caso 1: existe la apertura <w:document>
+  const rootMatch = out.match(/<w:document\b([^>]*)>/);
+  if (rootMatch) {
+    const existingAttrs = rootMatch[1];
+    let newAttrs = existingAttrs;
+    for (const [prefix, uri] of REQUIRED) {
+      const re = new RegExp(`\\b${prefix.replace(":", "\\:")}\\s*=`);
+      if (!re.test(newAttrs)) {
+        newAttrs += ` ${prefix}="${uri}"`;
+      }
+    }
+    if (newAttrs !== existingAttrs) {
+      out = out.replace(/<w:document\b([^>]*)>/, `<w:document${newAttrs}>`);
+    }
+    // Asegurar </w:document>
+    if (!/<\/w:document>\s*$/.test(out)) {
+      out = out.replace(/\s*$/, "</w:document>");
+    }
+    return out;
+  }
+
+  // Caso 2: el root se perdió en alguna pasada — reconstruirlo envolviendo
+  // todo lo que tengamos (típicamente arranca en <w:body>).
+  const nsAttrs = REQUIRED.map(([p, u]) => `${p}="${u}"`).join(" ");
+  // Quitar declaración XML del cuerpo si quedó duplicada
+  const body = out.replace(/^<\?xml[^?]*\?>\s*/, "");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${nsAttrs}>${body}</w:document>`;
+}
+
+/**
+ * Si el primer hijo de <w:body> es <w:tbl>, OOXML exige un <w:p/> previo.
+ * Word rechaza el archivo si esto no se cumple. Lo mismo aplica al final
+ * (último hijo no puede ser <w:tbl>; debe haber un <w:p> con sectPr).
+ */
+function ensureBodyParagraphBoundaries(xml: string): string {
+  let out = xml;
+  out = out.replace(/(<w:body\b[^>]*>)\s*<w:tbl\b/, (_m, open) => `${open}<w:p/><w:tbl`);
+  return out;
+}
+
+export interface FinalValidationIssue {
+  severity: "fatal" | "warning";
+  part: string;
+  message: string;
+}
+
+/**
+ * Valida el ZIP final justo antes de entregarlo al usuario.
+ * - Parsea cada XML clave con DOMParser y detecta <parsererror>.
+ * - Verifica que cada r:id referenciado en document.xml exista en .rels.
+ * Devuelve la lista de problemas (vacía si todo OK).
+ */
+async function validateProcessedDocx(zip: JSZip): Promise<FinalValidationIssue[]> {
+  const issues: FinalValidationIssue[] = [];
+  const parts = [
+    "word/document.xml",
+    "word/styles.xml",
+    "word/numbering.xml",
+    "word/header1.xml",
+    "word/footer1.xml",
+    "[Content_Types].xml",
+    "word/_rels/document.xml.rels",
+  ];
+
+  // DOMParser solo está en navegador; en SSR/test cae por undefined.
+  const DOMParserCtor = typeof DOMParser !== "undefined" ? DOMParser : null;
+
+  for (const path of parts) {
+    const file = zip.file(path);
+    if (!file) continue;
+    const content = await file.async("string");
+    if (DOMParserCtor) {
+      try {
+        const parser = new DOMParserCtor();
+        const doc = parser.parseFromString(content, "text/xml");
+        const errNode = doc.querySelector("parsererror");
+        if (errNode) {
+          const msg = (errNode.textContent || "").replace(/\s+/g, " ").slice(0, 200);
+          issues.push({
+            severity: "fatal",
+            part: path,
+            message: `XML inválido: ${msg || "estructura malformada"}`,
+          });
+        }
+      } catch (e) {
+        issues.push({
+          severity: "fatal",
+          part: path,
+          message: `No se pudo parsear: ${e instanceof Error ? e.message : String(e)}`,
+        });
+      }
+    }
+  }
+
+  // Cross-check r:id → relationships
+  const docFile = zip.file("word/document.xml");
+  const relsFile = zip.file("word/_rels/document.xml.rels");
+  if (docFile && relsFile) {
+    const docXml = await docFile.async("string");
+    const relsXml = await relsFile.async("string");
+    const declaredIds = new Set(
+      Array.from(relsXml.matchAll(/<Relationship\b[^>]*\bId="([^"]+)"/g)).map((m) => m[1]),
+    );
+    const referencedIds = new Set(
+      Array.from(docXml.matchAll(/\br:(?:id|embed|link)="([^"]+)"/g)).map((m) => m[1]),
+    );
+    const missing: string[] = [];
+    referencedIds.forEach((id) => {
+      if (!declaredIds.has(id)) missing.push(id);
+    });
+    if (missing.length > 0) {
+      issues.push({
+        severity: "warning",
+        part: "word/_rels/document.xml.rels",
+        message: `Referencias rId huérfanas en document.xml: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+
 /**
  * Aplica una plantilla a un buffer .docx y devuelve el blob modificado + reporte.
  */
@@ -688,6 +852,43 @@ export async function applyTemplate(
       category: "Pie de página",
       description: `Pie de página aplicado: ${parts.join(", ") || "vacío"}`,
     });
+  }
+
+  // ===== Sanitización + validación final del ZIP =====
+  // Aplicar sanitizers a los XML clave antes de generar el blob.
+  for (const path of [
+    "word/document.xml",
+    "word/header1.xml",
+    "word/footer1.xml",
+  ]) {
+    const f = zip.file(path);
+    if (!f) continue;
+    let xml = await f.async("string");
+    xml = stripInvalidXmlChars(xml);
+    if (path === "word/document.xml") {
+      xml = ensureDocumentRootNamespaces(xml);
+      xml = ensureBodyParagraphBoundaries(xml);
+    }
+    zip.file(path, xml);
+  }
+
+  // Validar el resultado y registrar issues como warnings/fatales.
+  const validationIssues = await validateProcessedDocx(zip);
+  const fatalIssues = validationIssues.filter((i) => i.severity === "fatal");
+  const warningIssues = validationIssues.filter((i) => i.severity === "warning");
+
+  if (fatalIssues.length > 0) {
+    const detail = fatalIssues
+      .map((i) => `${i.part}: ${i.message}`)
+      .join(" | ");
+    throw new DocxProcessingError(
+      "validación final del .docx",
+      `El procesamiento generó un .docx inválido. ${detail}`,
+    );
+  }
+
+  for (const w of warningIssues) {
+    extendedDiagnostics.warnings.push(`Validación final (${w.part}): ${w.message}`);
   }
 
   const blob = await zip.generateAsync({
@@ -1317,10 +1518,14 @@ async function linkPartToSections(zip: JSZip, refName: "headerReference" | "foot
   let content = await documentFile.async("string");
 
   const refTag = `<w:${refName} w:type="default" r:id="${relId}"/>`;
-  const removeRegex = new RegExp(`<w:${refName}\\b[^/]*/>`, "g");
+  // Solo eliminar la referencia "default" existente (preservar "first" y "even").
+  const removeDefaultRegex = new RegExp(
+    `<w:${refName}\\b[^/]*\\bw:type="default"[^/]*/>`,
+    "g",
+  );
 
   content = content.replace(/<w:sectPr\b[^>]*>([\s\S]*?)<\/w:sectPr>/g, (full, inner) => {
-    let updated = (inner as string).replace(removeRegex, "");
+    let updated = (inner as string).replace(removeDefaultRegex, "");
     updated = refTag + updated;
     return full.replace(inner, updated);
   });
@@ -1389,7 +1594,10 @@ async function insertInstitutionBanner(
   const dataCell = buildDataCell(colData, fontName, sz, teacherLabel, subjectLabel, gradeLabel);
   const califCell = showCalificacion ? buildCalificacionCell(colCalif, fontName, sz) : "";
 
+  // OOXML: <w:tbl> no puede ser el primer ni último hijo del body. Envolvemos
+  // siempre con <w:p/> antes y un <w:p> con espaciado después.
   const tableXml =
+    `<w:p/>` +
     `<w:tbl>` +
     `<w:tblPr>` +
     `<w:tblW w:w="${totalWidth}" w:type="dxa"/>` +
@@ -1408,7 +1616,10 @@ async function insertInstitutionBanner(
     `</w:tbl>` +
     `<w:p><w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr></w:p>`;
 
-  // 4) Inyectar justo después de <w:body ...> (apertura)
+  // 4) Asegurar namespaces en el root antes de inyectar drawing/banner.
+  docContent = ensureDocumentRootNamespaces(docContent);
+
+  // 5) Inyectar justo después de <w:body ...> (apertura)
   docContent = docContent.replace(
     /<w:body\b[^>]*>/,
     (match) => `${match}${tableXml}`,
