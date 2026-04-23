@@ -129,7 +129,26 @@ export async function applyTemplate(
   }
 
   // 3. Encabezado y pie de página
-  if (template.header.enabled) {
+  const headerStyle = template.header.style ?? "classic";
+  const isBanner = headerStyle === "banner-evaluacion" || headerStyle === "banner-guia";
+
+  if (isBanner) {
+    await insertInstitutionBanner(
+      zip,
+      template,
+      bannerData?.teacherLabel ?? "",
+      bannerData?.subjectLabel ?? "",
+      bannerData?.gradeLabel ?? "",
+      logoDataUrl,
+      headerStyle === "banner-evaluacion",
+    );
+    changes.push({
+      category: "Encabezado",
+      description: `Banner institucional insertado al inicio del documento${
+        template.header.showLogo && logoDataUrl ? " con logo del colegio" : ""
+      }${headerStyle === "banner-evaluacion" ? " y recuadro de Calificación" : ""}.`,
+    });
+  } else if (template.header.enabled) {
     await applyHeader(zip, template, logoDataUrl);
     changes.push({
       category: "Encabezado",
