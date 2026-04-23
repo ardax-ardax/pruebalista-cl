@@ -63,6 +63,8 @@ const Index = () => {
   const [progress, setProgress] = useState(0);
   const [resultBlob, setResultBlob] = useState<Blob | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string>("");
+  const [originalHtml, setOriginalHtml] = useState<string>("");
+  const [diagnostics, setDiagnostics] = useState<DocDiagnostics | null>(null);
   const [changes, setChanges] = useState<ChangeReport[]>([]);
 
   // Campos para componer el nombre de archivo según la convención del colegio:
