@@ -353,7 +353,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
                   ? AlignmentType.RIGHT
                   : AlignmentType.CENTER,
             spacing: { before: 60, after: 60 },
-            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm)],
+            children: [buildImageRun({ ...q.image, widthPct: 100 }, imgColCm, maxImgHeightCm, true)],
           }),
         ],
       });
