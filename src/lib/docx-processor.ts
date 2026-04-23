@@ -237,7 +237,19 @@ export async function applyTemplate(
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   });
 
-  return { blob, changes, originalSummary };
+  const diagnostics: DocDiagnostics = {
+    originalPages: originalStats.pages,
+    processedPages: processedStats.pages,
+    originalImages: originalStats.images,
+    processedImages: processedStats.images,
+    originalTables: originalStats.tables,
+    processedTables: processedStats.tables,
+    originalPageBreaks: originalStats.pageBreaks,
+    processedPageBreaks: processedStats.pageBreaks,
+    addedPageBreaks: Math.max(0, processedStats.pageBreaks - originalStats.pageBreaks),
+  };
+
+  return { blob, changes, originalSummary, diagnostics };
 }
 
 // ===================== styles.xml (DOMParser, seguro) =====================
