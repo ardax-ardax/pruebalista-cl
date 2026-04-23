@@ -1783,13 +1783,14 @@ function applyQuestionRhythm(xml: string, t: FormatTemplate): { xml: string; que
   const optionRe = /^\s*[a-eA-E]\s*[\)\.\-]/;
   const headingPrefixRe = /^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X)\s*[\)\.\-]/;
 
-  const questionSpacing = `<w:spacing w:before="160" w:after="60" w:line="276" w:lineRule="auto"/>`;
-  const optionSpacing = `<w:spacing w:before="0" w:after="0" w:line="276" w:lineRule="auto"/>`;
+  const questionSpacing = `<w:spacing w:before="240" w:after="120" w:line="276" w:lineRule="auto"/>`;
+  const optionSpacing = `<w:spacing w:before="0" w:after="40" w:line="276" w:lineRule="auto"/>`;
+  const imageSpacing = `<w:spacing w:before="80" w:after="80" w:line="276" w:lineRule="auto"/>`;
 
   const newXml = withProtectedRegions(xml, (masked) =>
     masked.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
       const text = extractParagraphText(full).trim();
-      if (!text) return full;
+      const hasDrawing = /<w:drawing\b/.test(full) || /<w:pict\b/.test(full);
       const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
       const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
       const styleVal = pStyleMatch?.[1] ?? "";
@@ -1798,7 +1799,12 @@ function applyQuestionRhythm(xml: string, t: FormatTemplate): { xml: string; que
       }
 
       let newSpacing: string | null = null;
-      if (headingPrefixRe.test(text)) {
+      if (hasDrawing && !text) {
+        // Párrafo con solo imagen → spacing compacto
+        newSpacing = imageSpacing;
+      } else if (!text) {
+        return full;
+      } else if (headingPrefixRe.test(text)) {
         return full;
       } else if (questionRe.test(text)) {
         newSpacing = questionSpacing;
