@@ -1469,11 +1469,13 @@ function normalizeNumbering(
   questionsTextFixed: number;
   optionsListFixed: number;
   questionsListFixed: number;
+  duplicateNumberingStripped: number;
 } {
   let optionsTextFixed = 0;
   let questionsTextFixed = 0;
   let optionsListFixed = 0;
   let questionsListFixed = 0;
+  let duplicateNumberingStripped = 0;
 
   // 1) Texto plano: solo tocar el primer <w:t> de cada párrafo cuyo TEXTO COMPLETO
   // del párrafo arranque con un patrón de opción/pregunta no canónico.
@@ -1487,6 +1489,33 @@ function normalizeNumbering(
     const newBody = body.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
       const text = extractParagraphText(paragraph);
       if (!text) return paragraph;
+
+      // 1a) Doble numeración: párrafo con <w:numPr> Y texto que empieza con
+      // numeración manual (1), 1., a), a., etc.). Word ya pinta la nativa,
+      // así que eliminamos la manual del texto para evitar "1) 1) Texto…".
+      const hasNumPr = /<w:numPr\b/.test(paragraph);
+      if (hasNumPr) {
+        const manualPrefix = text.match(/^(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/);
+        if (manualPrefix) {
+          const newPara = paragraph.replace(
+            /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+            (_full, openT, content, closeT) => {
+              const updated = (content as string).replace(
+                /^(\s*)(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/,
+                (_m, lead) => lead,
+              );
+              return `${openT}${updated}${closeT}`;
+            },
+          );
+          if (newPara !== paragraph) {
+            duplicateNumberingStripped++;
+            return newPara;
+          }
+        }
+        // Si tiene numPr pero no prefijo manual, no tocar el texto: la
+        // numeración nativa ya está canonicalizada por la pasada de numbering.xml.
+        return paragraph;
+      }
 
       // Opción no canónica
       const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
