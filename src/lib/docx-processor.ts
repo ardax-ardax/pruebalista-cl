@@ -824,6 +824,19 @@ export async function applyTemplate(
     docContent = tablesRes.xml;
     tableOptimizations = tablesRes.count;
 
+    // Convertir imágenes flotantes a inline ANTES de redimensionarlas, para
+    // evitar que el texto se acomode al costado de la imagen (rompiendo el
+    // layout pregunta → imagen → opciones).
+    let imagesUnfloated = 0;
+    const unfloatRes = runPass(
+      "linealización de imágenes flotantes",
+      passWarnings,
+      () => unfloatImagesForLinearLayout(docContent),
+      { xml: docContent, converted: 0 },
+    );
+    docContent = unfloatRes.xml;
+    imagesUnfloated = unfloatRes.converted;
+
     const imagesRes = runPass(
       "ajuste de imágenes",
       passWarnings,
