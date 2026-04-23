@@ -300,11 +300,10 @@ function renderContainedImageHtml(img: QuestionImage): string {
   const natW = img.naturalW ?? 4;
   const natH = img.naturalH ?? 3;
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
-  // En layout split MC siempre centramos la imagen en su columna.
+  // En layout split MC/VF siempre centramos la imagen y forzamos ancho completo de columna,
+  // ignorando widthPct guardado (compatibilidad con datos antiguos en 20%).
   const alignClass = `pa-align-center`;
-  // widthPct se interpreta como % del ancho de la columna de imagen (10–100).
-  const safeWidthPct = Math.max(10, Math.min(100, img.widthPct || 100));
-  const widthStyle = `width:${safeWidthPct}%;`;
+  const widthStyle = `width:100%;`;
 
   if (!hasCrop) {
     // Sin crop: ocupa el % indicado de la columna; max-height de la celda evita exceder el alto.

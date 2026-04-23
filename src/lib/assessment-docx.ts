@@ -328,7 +328,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
       margins: { top: 0, bottom: 0, left: 0, right: 120 },
       children: textParagraphs,
     });
-    const safeImgPct = Math.max(10, Math.min(100, q.image!.widthPct || 100));
+    // Forzamos ancho completo de columna en split MC/VF (ignoramos widthPct guardado).
+    const safeImgPct = 100;
     const imgCell = new TableCell({
       borders,
       width: { size: Math.round(contentWidthTwip * 0.4), type: WidthType.DXA },

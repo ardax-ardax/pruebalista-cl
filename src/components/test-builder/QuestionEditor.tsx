@@ -153,7 +153,7 @@ export const QuestionEditor = ({
               />
               {(question.type === "multiple-choice" || question.type === "true-false") && question.image && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  La imagen se ubica en una columna a la derecha {question.type === "multiple-choice" ? "de las opciones" : "de las afirmaciones"}, centrada. Usá el control de ancho para ajustar su tamaño dentro de la columna.
+                  La imagen se ubica en una columna a la derecha {question.type === "multiple-choice" ? "de las opciones" : "de las afirmaciones"}, centrada y ocupando el alto disponible.
                 </p>
               )}
             </div>

@@ -72,8 +72,8 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
   // En modo columna (MC/VF), forzar 100% de ancho y centrado para que ocupe toda la columna.
   useEffect(() => {
     if (!allowFullWidth || !value) return;
-    if (value.widthPct !== MAX_IMAGE_WIDTH_PCT || value.alignment !== "center") {
-      onChange({ ...value, widthPct: MAX_IMAGE_WIDTH_PCT, alignment: "center" });
+    if (value.widthPct !== 100 || value.alignment !== "center") {
+      onChange({ ...value, widthPct: 100, alignment: "center" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowFullWidth, value?.src]);
@@ -84,7 +84,7 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     onChange({
       src,
       alt: f.name,
-      widthPct: MAX_IMAGE_WIDTH_PCT,
+      widthPct: allowFullWidth ? 100 : MAX_IMAGE_WIDTH_PCT,
       alignment: "center",
       crop: { left: 0, right: 0, top: 0, bottom: 0 },
       naturalW: w,
