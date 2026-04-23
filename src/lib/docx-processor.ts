@@ -1103,50 +1103,53 @@ function applyParagraphFormattingString(xml: string, t: FormatTemplate): string 
   const newSpacing = `<w:spacing w:before="${beforeTwips}" w:after="${afterTwips}" w:line="${lineTwips}" w:lineRule="auto"/>`;
 
   // Procesar solo párrafos — <w:p ...> ... </w:p>
-  return xml.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
-    // Detectar si tiene pStyle de heading
-    const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
-    const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
-    const styleVal = pStyleMatch?.[1] ?? "";
-    const isHeading = /^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal);
+  // Proteger regiones con <w:p> anidados antes de aplicar la regex no codiciosa.
+  return withProtectedRegions(xml, (masked) =>
+    masked.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
+      // Detectar si tiene pStyle de heading
+      const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
+      const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
+      const styleVal = pStyleMatch?.[1] ?? "";
+      const isHeading = /^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal);
 
-    let updatedInner = inner as string;
+      let updatedInner = inner as string;
 
-    if (pPrMatch) {
-      // Reemplazar/insertar spacing y jc dentro del pPr existente
-      updatedInner = updatedInner.replace(
-        /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
-        (_f, pAttrs, pInner) => {
-          let p = pInner as string;
-          // spacing
-          if (/<w:spacing\b[^/]*\/>/.test(p)) {
-            p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing);
-          } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
-            p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing);
-          } else {
-            p = p + newSpacing;
-          }
-          // jc — solo para el cuerpo, no headings
-          if (!isHeading) {
-            const jcTag = `<w:jc w:val="${jcVal}"/>`;
-            if (/<w:jc\s+[^/]*\/>/.test(p)) {
-              p = p.replace(/<w:jc\s+[^/]*\/>/, jcTag);
+      if (pPrMatch) {
+        // Reemplazar/insertar spacing y jc dentro del pPr existente
+        updatedInner = updatedInner.replace(
+          /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+          (_f, pAttrs, pInner) => {
+            let p = pInner as string;
+            // spacing
+            if (/<w:spacing\b[^/]*\/>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing);
+            } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing);
             } else {
-              p = p + jcTag;
+              p = p + newSpacing;
             }
-          }
-          return `<w:pPr${pAttrs}>${p}</w:pPr>`;
-        },
-      );
-    } else {
-      // Crear pPr al inicio del párrafo
-      const jcTag = !isHeading ? `<w:jc w:val="${jcVal}"/>` : "";
-      const newPPr = `<w:pPr>${newSpacing}${jcTag}</w:pPr>`;
-      updatedInner = newPPr + updatedInner;
-    }
+            // jc — solo para el cuerpo, no headings
+            if (!isHeading) {
+              const jcTag = `<w:jc w:val="${jcVal}"/>`;
+              if (/<w:jc\s+[^/]*\/>/.test(p)) {
+                p = p.replace(/<w:jc\s+[^/]*\/>/, jcTag);
+              } else {
+                p = p + jcTag;
+              }
+            }
+            return `<w:pPr${pAttrs}>${p}</w:pPr>`;
+          },
+        );
+      } else {
+        // Crear pPr al inicio del párrafo
+        const jcTag = !isHeading ? `<w:jc w:val="${jcVal}"/>` : "";
+        const newPPr = `<w:pPr>${newSpacing}${jcTag}</w:pPr>`;
+        updatedInner = newPPr + updatedInner;
+      }
 
-    return `<w:p${attrs}>${updatedInner}</w:p>`;
-  });
+      return `<w:p${attrs}>${updatedInner}</w:p>`;
+    }),
+  );
 }
 
 // ===================== Encabezado / Pie =====================
