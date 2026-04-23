@@ -177,9 +177,9 @@ function bannerTable(ctx: BuildContext): Table {
       new TableRow({
         height: { value: 1100, rule: HeightRule.ATLEAST },
         children: [
-          new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: logoChildren }),
-          new TableCell({ borders, width: { size: w(0.56), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: infoChildren }),
-          new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" }, children: gradeChildren }),
+          new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, children: logoChildren }),
+          new TableCell({ borders, width: { size: w(0.56), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, children: infoChildren }),
+          new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" }, children: gradeChildren }),
         ],
       }),
     ],
