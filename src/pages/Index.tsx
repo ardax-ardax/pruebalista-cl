@@ -178,9 +178,15 @@ const Index = () => {
     const stage = err?.stage;
     const detail = err?.detail || err?.message || String(e);
     const technical = stage ? `[${stage}] ${detail}` : detail;
-    const friendly = stage
-      ? `Falló la pasada "${stage}". ${detail}`
-      : `No se pudo procesar el documento. Detalle técnico: ${detail}`;
+
+    // Si el error de validación final menciona un prefijo XML no declarado,
+    // extraerlo y resaltarlo para que el usuario sepa qué reportar a soporte.
+    const prefixMatch = detail.match(/Namespace prefix (\w+) for/i);
+    const friendly = prefixMatch
+      ? `El .docx usa el prefijo XML "${prefixMatch[1]}:" que no se pudo declarar automáticamente. Reporta a soporte con este detalle: prefijo "${prefixMatch[1]}" no soportado.`
+      : stage
+        ? `Falló la pasada "${stage}". ${detail}`
+        : `No se pudo procesar el documento. Detalle técnico: ${detail}`;
 
     toast.error(friendly, {
       duration: 12000,
