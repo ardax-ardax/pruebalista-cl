@@ -47,6 +47,7 @@ export type ImageLayout = "block" | "side-right" | "side-left";
 export interface Question {
   id: string;
   type: QuestionType;
+  title?: string; // título corto del enunciado (opcional)
   prompt: string; // texto principal o título de sección
   points?: number;
   image?: QuestionImage | null;
@@ -79,6 +80,12 @@ export interface Assessment {
 
 export const newId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+// Las imágenes nunca pueden ocupar más del 20% del ancho útil.
+export const MAX_IMAGE_WIDTH_PCT = 20;
+export const MIN_IMAGE_WIDTH_PCT = 10;
+export const clampWidthPct = (n: number): number =>
+  Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, Number.isFinite(n) ? n : MAX_IMAGE_WIDTH_PCT));
 
 export const emptyAssessment = (templateId: string): Assessment => ({
   id: newId(),

@@ -51,7 +51,9 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: "png" |
 // para calcular height a partir de width preservando aspect ratio.
 function buildImageRun(img: QuestionImage, contentWidthCm: number): ImageRun {
   const { data, type } = dataUrlToUint8Array(img.src);
-  const targetWidthCm = contentWidthCm * (img.widthPct / 100);
+  // Clamp a 20% (compat con borradores antiguos).
+  const safeWidthPct = Math.max(10, Math.min(20, img.widthPct));
+  const targetWidthCm = contentWidthCm * (safeWidthPct / 100);
   const widthPx = Math.round(targetWidthCm * 37.8); // 1cm ≈ 37.8 px
 
   const { left: L, right: R, top: T, bottom: B } = img.crop;
@@ -224,6 +226,16 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     return out;
   }
 
+  // Título opcional del enunciado
+  if (q.title) {
+    out.push(
+      new Paragraph({
+        spacing: { before: 120, after: 0 },
+        children: [new TextRun({ text: q.title, bold: true, size: baseSize })],
+      }),
+    );
+  }
+
   // Cabecera de pregunta
   const totalPts =
     q.type === "true-false"
@@ -239,7 +251,7 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   out.push(
     new Paragraph({
       alignment: AlignmentType.JUSTIFIED,
-      spacing: { before: 120, after: 60 },
+      spacing: { before: q.title ? 0 : 120, after: 60 },
       children: headerRuns,
     }),
   );
@@ -275,26 +287,26 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
     if (isSplit && q.image) {
       const contentWidthTwip = cmToTwip(contentWidthCm);
-      const textColCm = contentWidthCm * 0.6;
-      const imgColCm = contentWidthCm * 0.4;
+      const textColCm = contentWidthCm * 0.8;
+      const imgColCm = contentWidthCm * 0.2;
       const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
       const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
       const textCell = new TableCell({
         borders,
-        width: { size: Math.round(contentWidthTwip * 0.6), type: WidthType.DXA },
+        width: { size: Math.round(contentWidthTwip * 0.8), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 0, right: 120 },
         children: buildOptionParagraphs(textColCm, 0),
       });
       const imgCell = new TableCell({
         borders,
-        width: { size: Math.round(contentWidthTwip * 0.4), type: WidthType.DXA },
+        width: { size: Math.round(contentWidthTwip * 0.2), type: WidthType.DXA },
         margins: { top: 0, bottom: 0, left: 120, right: 0 },
         children: [imageParagraph({ ...q.image, widthPct: 100 }, imgColCm)],
       });
       out.push(
         new Table({
           width: { size: contentWidthTwip, type: WidthType.DXA },
-          columnWidths: [Math.round(contentWidthTwip * 0.6), Math.round(contentWidthTwip * 0.4)],
+          columnWidths: [Math.round(contentWidthTwip * 0.8), Math.round(contentWidthTwip * 0.2)],
           rows: [
             new TableRow({
               children: layout === "side-left" ? [imgCell, textCell] : [textCell, imgCell],

@@ -62,6 +62,7 @@ export const ASSESSMENT_CSS = `
   .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
   .pa-instructions strong { font-weight: bold; }
   .pa-question { margin: 0 0 10pt; page-break-inside: avoid; }
+  .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; }
   .pa-question-header { font-weight: bold; font-size: 10pt; margin-bottom: 3pt; }
   .pa-question-prompt { text-align: justify; }
   .pa-question-points { float: right; font-weight: normal; font-style: italic; }
@@ -84,8 +85,8 @@ export const ASSESSMENT_CSS = `
   .pa-image-plain { display: inline-block; height: auto; }
   .pa-mc-split { width: 100%; border-collapse: collapse; margin-top: 4pt; table-layout: fixed; }
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
-  .pa-mc-split .pa-mc-text { width: 60%; padding-right: 8pt; }
-  .pa-mc-split .pa-mc-image { width: 40%; padding-left: 8pt; }
+  .pa-mc-split .pa-mc-text { width: 80%; padding-right: 8pt; }
+  .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; }
 `;
 
 const escape = (s: string) =>
@@ -142,7 +143,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       const pts = totalPts
         ? `<span class="pa-question-points">(${totalPts} pt${totalPts === 1 ? "" : "s"})</span>`
         : "";
-      const header = `<div class="pa-question-header">${pts}${qNum}) ${escape(q.prompt)}</div>`;
+      const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
+      const header = `${titleHtml}<div class="pa-question-header">${pts}${qNum}) ${escape(q.prompt)}</div>`;
       const layout = q.imageLayout ?? "block";
       const isSplit = q.type === "multiple-choice" && q.image && (layout === "side-right" || layout === "side-left");
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
@@ -188,7 +190,9 @@ function renderImageHtml(img: QuestionImage): string {
   const { left: L, right: R, top: T, bottom: B } = img.crop;
   const visibleW = Math.max(1, 100 - L - R);
   const visibleH = Math.max(1, 100 - T - B);
-  const wrapperWidth = `${img.widthPct}%`;
+  // Clamp a 20% del ancho disponible (compat con borradores antiguos).
+  const safeWidthPct = Math.max(10, Math.min(20, img.widthPct));
+  const wrapperWidth = `${safeWidthPct}%`;
   const natW = img.naturalW ?? 4;
   const natH = img.naturalH ?? 3;
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;

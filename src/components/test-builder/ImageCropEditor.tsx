@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronsUpDown, Crop as CropIcon, Trash2, Upload } from "lucide-react";
-import type { ImageCrop, QuestionImage } from "@/lib/assessment-schema";
+import { clampWidthPct, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type ImageCrop, type QuestionImage } from "@/lib/assessment-schema";
 import { ImageCropDialog } from "./ImageCropDialog";
 
 interface Props {
@@ -75,7 +75,7 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
     onChange({
       src,
       alt: f.name,
-      widthPct: compact ? 80 : 60,
+      widthPct: MAX_IMAGE_WIDTH_PCT,
       alignment: "center",
       crop: { left: 0, right: 0, top: 0, bottom: 0 },
       naturalW: w,
@@ -114,11 +114,12 @@ export const ImageCropEditor = ({ value, onChange, compact }: Props) => {
               <Label className="text-xs">Ancho (%)</Label>
               <Input
                 type="number"
-                min={10}
-                max={100}
-                value={value.widthPct}
-                onChange={(e) => onChange({ ...value, widthPct: Math.max(10, Math.min(100, Number(e.target.value) || 60)) })}
+                min={MIN_IMAGE_WIDTH_PCT}
+                max={MAX_IMAGE_WIDTH_PCT}
+                value={Math.min(MAX_IMAGE_WIDTH_PCT, value.widthPct)}
+                onChange={(e) => onChange({ ...value, widthPct: clampWidthPct(Number(e.target.value)) })}
               />
+              <p className="text-[10px] text-muted-foreground mt-1">Máx. {MAX_IMAGE_WIDTH_PCT}% del ancho disponible</p>
             </div>
             <div>
               <Label className="text-xs">Alineación</Label>
