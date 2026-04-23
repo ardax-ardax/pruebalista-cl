@@ -128,22 +128,31 @@ const Index = () => {
     setProgress(15);
     try {
       const buffer = await file.arrayBuffer();
-      setProgress(40);
+      // Buffer separado para mammoth del original (mammoth consume el buffer)
+      const originalBufferForPreview = buffer.slice(0);
+      setProgress(30);
       // Resolver labels legibles para el banner (no los `value` sanitizados)
       const teacherLabel = teachers.find((x) => x.value === teacher)?.label ?? "";
       const subjectLabel = subjects.find((x) => x.value === subject)?.label ?? "";
       const gradeLabel = grades.find((x) => x.value === grade)?.label ?? "";
-      const result = await applyTemplate(buffer, template, logo, {
-        teacherLabel,
-        subjectLabel,
-        gradeLabel,
-      });
+
+      // Procesar y renderizar original en paralelo
+      const [result, originalHtmlRes] = await Promise.all([
+        applyTemplate(buffer, template, logo, {
+          teacherLabel,
+          subjectLabel,
+          gradeLabel,
+        }),
+        mammoth.convertToHtml({ arrayBuffer: originalBufferForPreview }).catch(() => ({ value: "" })),
+      ]);
       setProgress(75);
       const previewBuffer = await result.blob.arrayBuffer();
       const html = await mammoth.convertToHtml({ arrayBuffer: previewBuffer });
       setProgress(95);
       setResultBlob(result.blob);
       setPreviewHtml(html.value);
+      setOriginalHtml(originalHtmlRes.value);
+      setDiagnostics(result.diagnostics);
       setChanges(result.changes);
       setProgress(100);
       setStage("ready");
