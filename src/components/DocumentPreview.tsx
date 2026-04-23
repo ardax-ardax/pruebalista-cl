@@ -118,22 +118,37 @@ function PreviewPanel({
         onScroll={onScroll}
         className="bg-white border-x border-b border-border rounded-b-lg overflow-auto h-[560px]"
       >
-        <div
-          style={{
-            transform: `scale(${zoom})`,
-            transformOrigin: "top left",
-            width: `${100 / zoom}%`,
-          }}
-        >
+        {html ? (
           <div
-            className="docx-preview p-6 prose prose-sm max-w-none"
             style={{
-              fontFamily: template.typography.bodyFont,
-              textAlign: template.body.alignment,
+              transform: `scale(${zoom})`,
+              transformOrigin: "top left",
+              width: `${100 / zoom}%`,
             }}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        </div>
+          >
+            <div
+              className="docx-preview p-6 prose prose-sm max-w-none"
+              style={{
+                fontFamily: template.typography.bodyFont,
+                textAlign: template.body.alignment,
+              }}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center p-6 text-center">
+            <div className="max-w-sm space-y-2">
+              <div className="text-sm font-medium text-foreground">
+                Previsualización no disponible
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Este documento contiene elementos que el visor web no puede renderizar
+                (cuadros de texto complejos, contenido alternativo, objetos embebidos).
+                El archivo .docx procesado es válido — descárgalo y ábrelo en Word para verlo.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
