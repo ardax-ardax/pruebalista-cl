@@ -62,7 +62,7 @@ export class DocxProcessingError extends Error {
 }
 
 export interface PreflightFinding {
-  kind: "sdt" | "smartart" | "vml" | "ole" | "altchunk";
+  kind: "sdt" | "smartart" | "vml" | "ole" | "altchunk" | "textbox" | "altcontent";
   count: number;
   label: string;
 }
@@ -185,8 +185,82 @@ export async function validateDocxStructure(
       label: `${altChunkCount} fragmento(s) externos (HTML/RTF embebido)`,
     });
   }
+  const textboxCount = countOccurrences(docXml, /<w:txbxContent\b/g);
+  if (textboxCount > 0) {
+    findings.push({
+      kind: "textbox",
+      count: textboxCount,
+      label: `${textboxCount} cuadro(s) de texto (contenido anidado, se preservará tal cual)`,
+    });
+  }
+  // Solo reportar mc:AlternateContent si tiene Fallback no trivial (no solo un placeholder vacío)
+  const altContentMatches = docXml.match(/<mc:AlternateContent\b[\s\S]*?<\/mc:AlternateContent>/g) ?? [];
+  const altContentNonTrivial = altContentMatches.filter((b) =>
+    /<mc:Fallback\b[\s\S]*?<w:[a-z]/i.test(b),
+  ).length;
+  if (altContentNonTrivial > 0) {
+    findings.push({
+      kind: "altcontent",
+      count: altContentNonTrivial,
+      label: `${altContentNonTrivial} bloque(s) de contenido alternativo (compatibilidad Word, se preservará tal cual)`,
+    });
+  }
 
   return { ok: true, findings };
+}
+
+// =====================================================================
+// Protección de regiones con anidamiento OOXML
+// =====================================================================
+//
+// Word permite anidar <w:p> y <w:r> dentro de:
+//   - <w:txbxContent> (cuadros de texto dentro de drawings)
+//   - <mc:AlternateContent> (contenido alternativo Word 2007+ con fallback)
+//   - <w:sdt> (controles de contenido)
+//
+// Nuestras pasadas que iteran <w:p>/<w:r> con regex no codiciosa
+// (`[\s\S]*?</w:p>`) cierran prematuramente al encontrar el </w:p> interior,
+// dejando el </w:p> exterior huérfano y rompiendo el balance de tags.
+// Mammoth.js entonces no encuentra <w:body> y aborta.
+//
+// Solución: antes de cada pasada riesgosa, "ocultar" estas regiones con un
+// placeholder único. La regex no las ve, los conteos quedan balanceados, y
+// al terminar restauramos el contenido original byte-a-byte.
+
+const PROTECTED_BLOCK_PATTERNS: RegExp[] = [
+  /<mc:AlternateContent\b[\s\S]*?<\/mc:AlternateContent>/g,
+  /<w:txbxContent\b[\s\S]*?<\/w:txbxContent>/g,
+  /<w:sdt\b[\s\S]*?<\/w:sdt>/g,
+];
+
+function withProtectedRegions(xml: string, fn: (masked: string) => string): string {
+  const stash: string[] = [];
+  let masked = xml;
+  for (const pattern of PROTECTED_BLOCK_PATTERNS) {
+    masked = masked.replace(pattern, (block) => {
+      const token = `__LOV_PROTECTED_${stash.length}__`;
+      stash.push(block);
+      return token;
+    });
+  }
+  const result = fn(masked);
+  // Restaurar en orden inverso al ordinal — los tokens son únicos por índice.
+  return result.replace(/__LOV_PROTECTED_(\d+)__/g, (_m, idx) => {
+    const i = parseInt(idx, 10);
+    return stash[i] ?? _m;
+  });
+}
+
+// Conteo simple de aperturas/cierres para validar balance de tags clave
+// después de cada pasada. No es un parser XML, pero detecta el caso típico
+// de regex no codiciosa que cierra en un tag anidado.
+function tagBalance(xml: string): { body: number; p: number; r: number } {
+  const open = (re: RegExp) => (xml.match(re) ?? []).length;
+  return {
+    body: open(/<w:body\b/g) - open(/<\/w:body>/g),
+    p: open(/<w:p\b(?![a-zA-Z])/g) - open(/<\/w:p>/g),
+    r: open(/<w:r\b(?![a-zA-Z])/g) - open(/<\/w:r>/g),
+  };
 }
 
 /**
@@ -210,6 +284,49 @@ function runPass<T>(
     console.warn(`[docx-processor] Pasada "${stage}" falló:`, e);
     return fallback;
   }
+}
+
+/**
+ * Variante de runPass para transformaciones XML: valida balance de tags
+ * <w:body>, <w:p>, <w:r> después de la pasada. Si la pasada deja el XML
+ * desbalanceado (típico de regex no codiciosa que cierra en un <w:p> anidado),
+ * descarta el resultado y mantiene el original con un warning legible.
+ */
+function runXmlPass(
+  stage: string,
+  warnings: string[],
+  inputXml: string,
+  fn: (xml: string) => string,
+): string {
+  const before = tagBalance(inputXml);
+  let result: string;
+  try {
+    result = fn(inputXml);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    const tagHint = detail.match(/<\/?[\w:]+/)?.[0];
+    const suffix = tagHint ? ` (cerca de \`${tagHint}\`)` : "";
+    warnings.push(`No se pudo aplicar "${stage}"${suffix}. Se mantuvo el contenido original de esa pasada.`);
+    console.warn(`[docx-processor] Pasada "${stage}" falló:`, e);
+    return inputXml;
+  }
+  const after = tagBalance(result);
+  if (after.body !== before.body || after.p !== before.p || after.r !== before.r) {
+    // Buscar dónde aparece el primer desbalance para dar pista en el warning
+    let hint = "";
+    const firstDelta = after.p !== before.p ? "<w:p>" : after.r !== before.r ? "<w:r>" : "<w:body>";
+    const idx = result.indexOf(`${firstDelta}`);
+    if (idx >= 0) {
+      const start = Math.max(0, idx - 60);
+      hint = ` Fragmento: ${result.slice(start, start + 120).replace(/\s+/g, " ")}`;
+    }
+    warnings.push(
+      `La pasada "${stage}" dejó el XML desbalanceado (${firstDelta}: ${before.p}→${after.p} p, ${before.r}→${after.r} r). Se revirtió.${hint}`,
+    );
+    console.warn(`[docx-processor] Pasada "${stage}" desbalanceó tags`, { before, after });
+    return inputXml;
+  }
+  return result;
 }
 
 function countOccurrences(xml: string, regex: RegExp): number {
@@ -354,11 +471,11 @@ export async function applyTemplate(
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
 
-    docContent = runPass(
+    docContent = runXmlPass(
       "formato de párrafos",
       passWarnings,
-      () => applyParagraphFormattingString(docContent, template),
       docContent,
+      (xml) => applyParagraphFormattingString(xml, template),
     );
 
     const tablesRes = runPass(
@@ -379,16 +496,17 @@ export async function applyTemplate(
     docContent = imagesRes.xml;
     imageRescales = imagesRes.count;
 
-    docContent = runPass(
+    docContent = runXmlPass(
       "tipografía directa en runs",
       passWarnings,
-      () => forceDirectFontFormatting(docContent, template),
       docContent,
+      (xml) => forceDirectFontFormatting(xml, template),
     );
 
     // Normalización de numeración (texto plano + numbering.xml)
     const numberingFile = zip.file("word/numbering.xml");
     let numberingXml = numberingFile ? await numberingFile.async("string") : null;
+    const beforeNumBalance = tagBalance(docContent);
     const normRes = runPass(
       "normalización de numeración",
       passWarnings,
@@ -403,8 +521,24 @@ export async function applyTemplate(
         duplicateNumberingStripped: 0,
       },
     );
-    docContent = normRes.documentXml;
-    numberingXml = normRes.numberingXml;
+    // Validar balance post-pasada de numeración; si rompió XML, descartar.
+    const afterNumBalance = tagBalance(normRes.documentXml);
+    if (
+      afterNumBalance.body !== beforeNumBalance.body ||
+      afterNumBalance.p !== beforeNumBalance.p ||
+      afterNumBalance.r !== beforeNumBalance.r
+    ) {
+      passWarnings.push(
+        `La pasada "normalización de numeración" dejó el XML desbalanceado (p: ${beforeNumBalance.p}→${afterNumBalance.p}, r: ${beforeNumBalance.r}→${afterNumBalance.r}). Se revirtió.`,
+      );
+      console.warn(`[docx-processor] normalización de numeración revertida`, {
+        beforeNumBalance,
+        afterNumBalance,
+      });
+    } else {
+      docContent = normRes.documentXml;
+      numberingXml = normRes.numberingXml;
+    }
     if (numberingFile && numberingXml) {
       zip.file("word/numbering.xml", numberingXml);
     }
@@ -927,45 +1061,49 @@ function forceDirectFontFormatting(xml: string, t: FormatTemplate): string {
   if (!bodyMatch) return xml;
   const body = bodyMatch[1];
 
-  const newBody = body.replace(/<w:r\b([^>]*)>([\s\S]*?)<\/w:r>/g, (full, attrs, inner) => {
-    // Saltar runs que contienen drawings, símbolos especiales o instrucciones de campo.
-    if (/<w:drawing\b|<w:sym\b|<w:pict\b|<w:object\b|<w:fldChar\b|<w:instrText\b/.test(inner)) {
-      return full;
-    }
-    // Si no contiene texto, saltar (evita normalizar runs estructurales).
-    if (!/<w:t\b|<w:tab\b|<w:br\b/.test(inner)) return full;
+  // Proteger regiones con <w:p>/<w:r> anidados (cuadros de texto, AlternateContent, sdt)
+  // antes de aplicar la regex no codiciosa, que de otro modo cerraría en el </w:r> interior.
+  const newBody = withProtectedRegions(body, (maskedBody) =>
+    maskedBody.replace(/<w:r\b([^>]*)>([\s\S]*?)<\/w:r>/g, (full, attrs, inner) => {
+      // Saltar runs que contienen drawings, símbolos especiales o instrucciones de campo.
+      if (/<w:drawing\b|<w:sym\b|<w:pict\b|<w:object\b|<w:fldChar\b|<w:instrText\b/.test(inner)) {
+        return full;
+      }
+      // Si no contiene texto, saltar (evita normalizar runs estructurales).
+      if (!/<w:t\b|<w:tab\b|<w:br\b/.test(inner)) return full;
 
-    const rPrMatch = (inner as string).match(/^<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/);
-    if (rPrMatch) {
-      let rPrInner = rPrMatch[1];
-      // Reemplazar/insertar rFonts
-      if (/<w:rFonts\b[^/]*\/>/.test(rPrInner)) {
-        rPrInner = rPrInner.replace(/<w:rFonts\b[^/]*\/>/, rFontsTag);
-      } else {
-        rPrInner = rFontsTag + rPrInner;
+      const rPrMatch = (inner as string).match(/^<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/);
+      if (rPrMatch) {
+        let rPrInner = rPrMatch[1];
+        // Reemplazar/insertar rFonts
+        if (/<w:rFonts\b[^/]*\/>/.test(rPrInner)) {
+          rPrInner = rPrInner.replace(/<w:rFonts\b[^/]*\/>/, rFontsTag);
+        } else {
+          rPrInner = rFontsTag + rPrInner;
+        }
+        // Reemplazar/insertar sz y szCs
+        if (/<w:sz\b[^/]*\/>/.test(rPrInner)) {
+          rPrInner = rPrInner.replace(/<w:sz\b[^/]*\/>/, `<w:sz w:val="${sz}"/>`);
+        } else {
+          rPrInner = rPrInner + `<w:sz w:val="${sz}"/>`;
+        }
+        if (/<w:szCs\b[^/]*\/>/.test(rPrInner)) {
+          rPrInner = rPrInner.replace(/<w:szCs\b[^/]*\/>/, `<w:szCs w:val="${sz}"/>`);
+        } else {
+          rPrInner = rPrInner + `<w:szCs w:val="${sz}"/>`;
+        }
+        const newInner = (inner as string).replace(
+          /^<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/,
+          `<w:rPr>${rPrInner}</w:rPr>`,
+        );
+        return `<w:r${attrs}>${newInner}</w:r>`;
       }
-      // Reemplazar/insertar sz y szCs
-      if (/<w:sz\b[^/]*\/>/.test(rPrInner)) {
-        rPrInner = rPrInner.replace(/<w:sz\b[^/]*\/>/, `<w:sz w:val="${sz}"/>`);
-      } else {
-        rPrInner = rPrInner + `<w:sz w:val="${sz}"/>`;
-      }
-      if (/<w:szCs\b[^/]*\/>/.test(rPrInner)) {
-        rPrInner = rPrInner.replace(/<w:szCs\b[^/]*\/>/, `<w:szCs w:val="${sz}"/>`);
-      } else {
-        rPrInner = rPrInner + `<w:szCs w:val="${sz}"/>`;
-      }
-      const newInner = (inner as string).replace(
-        /^<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/,
-        `<w:rPr>${rPrInner}</w:rPr>`,
-      );
-      return `<w:r${attrs}>${newInner}</w:r>`;
-    }
 
-    // No tiene rPr — insertar uno mínimo al inicio del run.
-    const newRPr = `<w:rPr>${rFontsTag}${szTag}</w:rPr>`;
-    return `<w:r${attrs}>${newRPr}${inner}</w:r>`;
-  });
+      // No tiene rPr — insertar uno mínimo al inicio del run.
+      const newRPr = `<w:rPr>${rFontsTag}${szTag}</w:rPr>`;
+      return `<w:r${attrs}>${newRPr}${inner}</w:r>`;
+    }),
+  );
 
   return xml.replace(
     /(<w:body\b[^>]*>)[\s\S]*(<\/w:body>)/,
@@ -982,50 +1120,53 @@ function applyParagraphFormattingString(xml: string, t: FormatTemplate): string 
   const newSpacing = `<w:spacing w:before="${beforeTwips}" w:after="${afterTwips}" w:line="${lineTwips}" w:lineRule="auto"/>`;
 
   // Procesar solo párrafos — <w:p ...> ... </w:p>
-  return xml.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
-    // Detectar si tiene pStyle de heading
-    const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
-    const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
-    const styleVal = pStyleMatch?.[1] ?? "";
-    const isHeading = /^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal);
+  // Proteger regiones con <w:p> anidados antes de aplicar la regex no codiciosa.
+  return withProtectedRegions(xml, (masked) =>
+    masked.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (full, attrs, inner) => {
+      // Detectar si tiene pStyle de heading
+      const pPrMatch = (inner as string).match(/<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/);
+      const pStyleMatch = pPrMatch?.[1].match(/<w:pStyle\s+w:val="([^"]+)"/);
+      const styleVal = pStyleMatch?.[1] ?? "";
+      const isHeading = /^Heading\d$/i.test(styleVal) || /^Ttulo\d$/i.test(styleVal) || /^Title$/i.test(styleVal);
 
-    let updatedInner = inner as string;
+      let updatedInner = inner as string;
 
-    if (pPrMatch) {
-      // Reemplazar/insertar spacing y jc dentro del pPr existente
-      updatedInner = updatedInner.replace(
-        /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
-        (_f, pAttrs, pInner) => {
-          let p = pInner as string;
-          // spacing
-          if (/<w:spacing\b[^/]*\/>/.test(p)) {
-            p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing);
-          } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
-            p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing);
-          } else {
-            p = p + newSpacing;
-          }
-          // jc — solo para el cuerpo, no headings
-          if (!isHeading) {
-            const jcTag = `<w:jc w:val="${jcVal}"/>`;
-            if (/<w:jc\s+[^/]*\/>/.test(p)) {
-              p = p.replace(/<w:jc\s+[^/]*\/>/, jcTag);
+      if (pPrMatch) {
+        // Reemplazar/insertar spacing y jc dentro del pPr existente
+        updatedInner = updatedInner.replace(
+          /<w:pPr\b([^>]*)>([\s\S]*?)<\/w:pPr>/,
+          (_f, pAttrs, pInner) => {
+            let p = pInner as string;
+            // spacing
+            if (/<w:spacing\b[^/]*\/>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^/]*\/>/, newSpacing);
+            } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(p)) {
+              p = p.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, newSpacing);
             } else {
-              p = p + jcTag;
+              p = p + newSpacing;
             }
-          }
-          return `<w:pPr${pAttrs}>${p}</w:pPr>`;
-        },
-      );
-    } else {
-      // Crear pPr al inicio del párrafo
-      const jcTag = !isHeading ? `<w:jc w:val="${jcVal}"/>` : "";
-      const newPPr = `<w:pPr>${newSpacing}${jcTag}</w:pPr>`;
-      updatedInner = newPPr + updatedInner;
-    }
+            // jc — solo para el cuerpo, no headings
+            if (!isHeading) {
+              const jcTag = `<w:jc w:val="${jcVal}"/>`;
+              if (/<w:jc\s+[^/]*\/>/.test(p)) {
+                p = p.replace(/<w:jc\s+[^/]*\/>/, jcTag);
+              } else {
+                p = p + jcTag;
+              }
+            }
+            return `<w:pPr${pAttrs}>${p}</w:pPr>`;
+          },
+        );
+      } else {
+        // Crear pPr al inicio del párrafo
+        const jcTag = !isHeading ? `<w:jc w:val="${jcVal}"/>` : "";
+        const newPPr = `<w:pPr>${newSpacing}${jcTag}</w:pPr>`;
+        updatedInner = newPPr + updatedInner;
+      }
 
-    return `<w:p${attrs}>${updatedInner}</w:p>`;
-  });
+      return `<w:p${attrs}>${updatedInner}</w:p>`;
+    }),
+  );
 }
 
 // ===================== Encabezado / Pie =====================
@@ -1505,80 +1646,80 @@ function normalizeNumbering(
     const body = bodyMatch[2];
     const close = bodyMatch[3];
 
-    const newBody = body.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
-      const text = extractParagraphText(paragraph);
-      if (!text) return paragraph;
+    // Proteger regiones con <w:p> anidados (txbxContent, mc:AlternateContent, sdt)
+    // antes de iterar con regex no codiciosa.
+    const newBody = withProtectedRegions(body, (maskedBody) =>
+      maskedBody.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
+        const text = extractParagraphText(paragraph);
+        if (!text) return paragraph;
 
-      // 1a) Doble numeración: párrafo con <w:numPr> Y texto que empieza con
-      // numeración manual (1), 1., a), a., etc.). Word ya pinta la nativa,
-      // así que eliminamos la manual del texto para evitar "1) 1) Texto…".
-      const hasNumPr = /<w:numPr\b/.test(paragraph);
-      if (hasNumPr) {
-        const manualPrefix = text.match(/^(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/);
-        if (manualPrefix) {
-          const newPara = paragraph.replace(
-            /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
-            (_full, openT, content, closeT) => {
-              const updated = (content as string).replace(
-                /^(\s*)(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/,
-                (_m, lead) => lead,
-              );
-              return `${openT}${updated}${closeT}`;
-            },
-          );
-          if (newPara !== paragraph) {
-            duplicateNumberingStripped++;
+        // 1a) Doble numeración: párrafo con <w:numPr> Y texto que empieza con
+        // numeración manual (1), 1., a), a., etc.). Word ya pinta la nativa,
+        // así que eliminamos la manual del texto para evitar "1) 1) Texto…".
+        const hasNumPr = /<w:numPr\b/.test(paragraph);
+        if (hasNumPr) {
+          const manualPrefix = text.match(/^(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/);
+          if (manualPrefix) {
+            const newPara = paragraph.replace(
+              /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+              (_full, openT, content, closeT) => {
+                const updated = (content as string).replace(
+                  /^(\s*)(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/,
+                  (_m, lead) => lead,
+                );
+                return `${openT}${updated}${closeT}`;
+              },
+            );
+            if (newPara !== paragraph) {
+              duplicateNumberingStripped++;
+              return newPara;
+            }
+          }
+          return paragraph;
+        }
+
+        // Opción no canónica
+        const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
+        if (optMatch) {
+          const letter = optMatch[1];
+          const sep = optMatch[2];
+          if (!(letter === letter.toLowerCase() && sep === ")")) {
+            const newPara = paragraph.replace(
+              /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+              (_full, openT, content, closeT) => {
+                const updated = (content as string).replace(
+                  /^(\s*)([a-zA-Z])\s*[.\-)]\s+/,
+                  (_m, lead, l) => `${lead}${(l as string).toLowerCase()}) `,
+                );
+                return `${openT}${updated}${closeT}`;
+              },
+            );
+            if (newPara !== paragraph) optionsTextFixed++;
             return newPara;
           }
+          return paragraph;
         }
-        // Si tiene numPr pero no prefijo manual, no tocar el texto: la
-        // numeración nativa ya está canonicalizada por la pasada de numbering.xml.
-        return paragraph;
-      }
 
-      // Opción no canónica
-      const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
-      if (optMatch) {
-        const letter = optMatch[1];
-        const sep = optMatch[2];
-        if (!(letter === letter.toLowerCase() && sep === ")")) {
-          // Reemplazar dentro del primer <w:t>: encontrar el patrón al inicio
-          // del primer texto y normalizar a `<letra-minúscula>) `.
+        // Pregunta no canónica
+        const qMatch = text.match(/^(\d{1,2})\s*([.\-])\s+/);
+        if (qMatch) {
           const newPara = paragraph.replace(
             /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
             (_full, openT, content, closeT) => {
               const updated = (content as string).replace(
-                /^(\s*)([a-zA-Z])\s*[.\-)]\s+/,
-                (_m, lead, l) => `${lead}${(l as string).toLowerCase()}) `,
+                /^(\s*)(\d{1,2})\s*[.\-]\s+/,
+                (_m, lead, n) => `${lead}${n}) `,
               );
               return `${openT}${updated}${closeT}`;
             },
           );
-          if (newPara !== paragraph) optionsTextFixed++;
+          if (newPara !== paragraph) questionsTextFixed++;
           return newPara;
         }
+
         return paragraph;
-      }
-
-      // Pregunta no canónica
-      const qMatch = text.match(/^(\d{1,2})\s*([.\-])\s+/);
-      if (qMatch) {
-        const newPara = paragraph.replace(
-          /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
-          (_full, openT, content, closeT) => {
-            const updated = (content as string).replace(
-              /^(\s*)(\d{1,2})\s*[.\-]\s+/,
-              (_m, lead, n) => `${lead}${n}) `,
-            );
-            return `${openT}${updated}${closeT}`;
-          },
-        );
-        if (newPara !== paragraph) questionsTextFixed++;
-        return newPara;
-      }
-
-      return paragraph;
-    });
+      }),
+    );
 
     outDoc = `${open}${newBody}${close}`;
   }
