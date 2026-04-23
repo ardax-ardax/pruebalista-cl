@@ -270,7 +270,8 @@ function renderContainedImageHtml(img: QuestionImage): string {
   const natW = img.naturalW ?? 4;
   const natH = img.naturalH ?? 3;
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
-  const alignClass = `pa-align-${img.alignment}`;
+  // En layout split MC siempre centramos la imagen en su columna.
+  const alignClass = `pa-align-center`;
 
   if (!hasCrop) {
     // Sin crop: ocupa toda la columna; max-height de la celda evita exceder el alto.
