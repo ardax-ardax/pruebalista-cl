@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import mammoth from "mammoth";
 import { saveAs } from "file-saver";
-import { Download, FileDown, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
+import { ChevronDown, Download, FileDown, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateCard } from "@/components/TemplateCard";
@@ -37,6 +37,7 @@ import { applyTemplate, type ChangeReport, type DocDiagnostics } from "@/lib/doc
 import { exportHtmlToPdf } from "@/lib/pdf-export";
 import { DocumentPreview } from "@/components/DocumentPreview";
 import { DiscrepancyAlert } from "@/components/DiscrepancyAlert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   loadGrades,
   loadSubjects,
