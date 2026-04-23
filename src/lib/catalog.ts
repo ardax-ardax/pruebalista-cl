@@ -10,35 +10,43 @@ export interface CatalogOption {
 export type SubjectOption = CatalogOption;
 export type GradeOption = CatalogOption;
 
+// Asignaturas oficiales del colegio (extraídas de los horarios entregados).
+// El `value` es el token usado en el nombre de archivo (sin espacios ni símbolos).
 export const DEFAULT_SUBJECTS: SubjectOption[] = [
-  { label: "Lenguaje", value: "Lenguaje" },
+  { label: "Lenguaje y Comunicación", value: "Lenguaje" },
+  { label: "Lengua y Literatura", value: "Lengua" },
   { label: "Matemática", value: "Matemática" },
-  { label: "Historia", value: "Historia" },
-  { label: "Ciencias", value: "Ciencias" },
+  { label: "Taller de Habilidades Matemática", value: "TDHMatemática" },
+  { label: "Ciencias Naturales", value: "Ciencias" },
+  { label: "Historia, Geografía y Ciencias Sociales", value: "Historia" },
   { label: "Inglés", value: "Inglés" },
-  { label: "Arte", value: "Arte" },
-  { label: "Música", value: "Música" },
-  { label: "Educación Física", value: "EducaciónFísica" },
   { label: "Tecnología", value: "Tecnología" },
-  { label: "Religión", value: "Religión" },
+  { label: "Música", value: "Música" },
+  { label: "Artes Visuales", value: "Artes" },
+  { label: "Educación Física y Salud", value: "EdFísica" },
   { label: "Orientación", value: "Orientación" },
+  { label: "Religión", value: "Religión" },
 ];
 
+// Cursos: Básica con formato "1º Básico", Media con "I Medio A/B" en romanos.
+// (Sin Prekínder ni Kínder según convención del colegio.)
 export const DEFAULT_GRADES: GradeOption[] = [
-  { label: "Prekínder", value: "Prekínder" },
-  { label: "Kínder", value: "Kínder" },
-  { label: "1° Básico", value: "1Básico" },
-  { label: "2° Básico", value: "2Básico" },
-  { label: "3° Básico", value: "3Básico" },
-  { label: "4° Básico", value: "4Básico" },
-  { label: "5° Básico", value: "5Básico" },
-  { label: "6° Básico", value: "6Básico" },
-  { label: "7° Básico", value: "7Básico" },
-  { label: "8° Básico", value: "8Básico" },
-  { label: "1° Medio", value: "1Medio" },
-  { label: "2° Medio", value: "2Medio" },
-  { label: "3° Medio", value: "3Medio" },
-  { label: "4° Medio", value: "4Medio" },
+  { label: "1º Básico", value: "1ºBásico" },
+  { label: "2º Básico", value: "2ºBásico" },
+  { label: "3º Básico", value: "3ºBásico" },
+  { label: "4º Básico", value: "4ºBásico" },
+  { label: "5º Básico", value: "5ºBásico" },
+  { label: "6º Básico", value: "6ºBásico" },
+  { label: "7º Básico", value: "7ºBásico" },
+  { label: "8º Básico", value: "8ºBásico" },
+  { label: "I Medio A", value: "IMedioA" },
+  { label: "I Medio B", value: "IMedioB" },
+  { label: "II Medio A", value: "IIMedioA" },
+  { label: "II Medio B", value: "IIMedioB" },
+  { label: "III Medio A", value: "IIIMedioA" },
+  { label: "III Medio B", value: "IIIMedioB" },
+  { label: "IV Medio A", value: "IVMedioA" },
+  { label: "IV Medio B", value: "IVMedioB" },
 ];
 
 const SUBJECTS_KEY = "doc-standardizer:subjects";
