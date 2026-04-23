@@ -82,6 +82,10 @@ export const ASSESSMENT_CSS = `
   .pa-image-crop { display: inline-block; overflow: hidden; vertical-align: top; position: relative; }
   .pa-image-crop img { display: block; max-width: none; height: auto; }
   .pa-image-plain { display: inline-block; height: auto; }
+  .pa-mc-split { width: 100%; border-collapse: collapse; margin-top: 4pt; table-layout: fixed; }
+  .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
+  .pa-mc-split .pa-mc-text { width: 60%; padding-right: 8pt; }
+  .pa-mc-split .pa-mc-image { width: 40%; padding-left: 8pt; }
 `;
 
 const escape = (s: string) =>
