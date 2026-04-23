@@ -62,7 +62,6 @@ export function richTextToPlain(input: string): string {
 interface RunStyle {
   bold?: boolean;
   italics?: boolean;
-  underline?: boolean;
   size?: number;
 }
 
