@@ -1629,80 +1629,80 @@ function normalizeNumbering(
     const body = bodyMatch[2];
     const close = bodyMatch[3];
 
-    const newBody = body.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
-      const text = extractParagraphText(paragraph);
-      if (!text) return paragraph;
+    // Proteger regiones con <w:p> anidados (txbxContent, mc:AlternateContent, sdt)
+    // antes de iterar con regex no codiciosa.
+    const newBody = withProtectedRegions(body, (maskedBody) =>
+      maskedBody.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, (paragraph) => {
+        const text = extractParagraphText(paragraph);
+        if (!text) return paragraph;
 
-      // 1a) Doble numeración: párrafo con <w:numPr> Y texto que empieza con
-      // numeración manual (1), 1., a), a., etc.). Word ya pinta la nativa,
-      // así que eliminamos la manual del texto para evitar "1) 1) Texto…".
-      const hasNumPr = /<w:numPr\b/.test(paragraph);
-      if (hasNumPr) {
-        const manualPrefix = text.match(/^(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/);
-        if (manualPrefix) {
-          const newPara = paragraph.replace(
-            /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
-            (_full, openT, content, closeT) => {
-              const updated = (content as string).replace(
-                /^(\s*)(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/,
-                (_m, lead) => lead,
-              );
-              return `${openT}${updated}${closeT}`;
-            },
-          );
-          if (newPara !== paragraph) {
-            duplicateNumberingStripped++;
+        // 1a) Doble numeración: párrafo con <w:numPr> Y texto que empieza con
+        // numeración manual (1), 1., a), a., etc.). Word ya pinta la nativa,
+        // así que eliminamos la manual del texto para evitar "1) 1) Texto…".
+        const hasNumPr = /<w:numPr\b/.test(paragraph);
+        if (hasNumPr) {
+          const manualPrefix = text.match(/^(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/);
+          if (manualPrefix) {
+            const newPara = paragraph.replace(
+              /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+              (_full, openT, content, closeT) => {
+                const updated = (content as string).replace(
+                  /^(\s*)(?:\d{1,2}|[a-zA-Z])\s*[.)\-]\s+/,
+                  (_m, lead) => lead,
+                );
+                return `${openT}${updated}${closeT}`;
+              },
+            );
+            if (newPara !== paragraph) {
+              duplicateNumberingStripped++;
+              return newPara;
+            }
+          }
+          return paragraph;
+        }
+
+        // Opción no canónica
+        const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
+        if (optMatch) {
+          const letter = optMatch[1];
+          const sep = optMatch[2];
+          if (!(letter === letter.toLowerCase() && sep === ")")) {
+            const newPara = paragraph.replace(
+              /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
+              (_full, openT, content, closeT) => {
+                const updated = (content as string).replace(
+                  /^(\s*)([a-zA-Z])\s*[.\-)]\s+/,
+                  (_m, lead, l) => `${lead}${(l as string).toLowerCase()}) `,
+                );
+                return `${openT}${updated}${closeT}`;
+              },
+            );
+            if (newPara !== paragraph) optionsTextFixed++;
             return newPara;
           }
+          return paragraph;
         }
-        // Si tiene numPr pero no prefijo manual, no tocar el texto: la
-        // numeración nativa ya está canonicalizada por la pasada de numbering.xml.
-        return paragraph;
-      }
 
-      // Opción no canónica
-      const optMatch = text.match(/^([a-zA-Z])\s*([.\-)])\s+/);
-      if (optMatch) {
-        const letter = optMatch[1];
-        const sep = optMatch[2];
-        if (!(letter === letter.toLowerCase() && sep === ")")) {
-          // Reemplazar dentro del primer <w:t>: encontrar el patrón al inicio
-          // del primer texto y normalizar a `<letra-minúscula>) `.
+        // Pregunta no canónica
+        const qMatch = text.match(/^(\d{1,2})\s*([.\-])\s+/);
+        if (qMatch) {
           const newPara = paragraph.replace(
             /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
             (_full, openT, content, closeT) => {
               const updated = (content as string).replace(
-                /^(\s*)([a-zA-Z])\s*[.\-)]\s+/,
-                (_m, lead, l) => `${lead}${(l as string).toLowerCase()}) `,
+                /^(\s*)(\d{1,2})\s*[.\-]\s+/,
+                (_m, lead, n) => `${lead}${n}) `,
               );
               return `${openT}${updated}${closeT}`;
             },
           );
-          if (newPara !== paragraph) optionsTextFixed++;
+          if (newPara !== paragraph) questionsTextFixed++;
           return newPara;
         }
+
         return paragraph;
-      }
-
-      // Pregunta no canónica
-      const qMatch = text.match(/^(\d{1,2})\s*([.\-])\s+/);
-      if (qMatch) {
-        const newPara = paragraph.replace(
-          /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/,
-          (_full, openT, content, closeT) => {
-            const updated = (content as string).replace(
-              /^(\s*)(\d{1,2})\s*[.\-]\s+/,
-              (_m, lead, n) => `${lead}${n}) `,
-            );
-            return `${openT}${updated}${closeT}`;
-          },
-        );
-        if (newPara !== paragraph) questionsTextFixed++;
-        return newPara;
-      }
-
-      return paragraph;
-    });
+      }),
+    );
 
     outDoc = `${open}${newBody}${close}`;
   }
