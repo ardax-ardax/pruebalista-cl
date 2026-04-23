@@ -58,7 +58,10 @@ export const TemplateCard = ({ template, selected, onSelect }: Props) => {
           >
             Título principal
           </div>
-          <div className="text-[6px] leading-tight text-slate-700 space-y-0.5">
+          <div
+            className="text-[6px] leading-tight text-slate-700 space-y-0.5"
+            style={{ textAlign: t.body.alignment }}
+          >
             <div>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.</div>
             <div>Tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim.</div>
             <div>Veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea.</div>

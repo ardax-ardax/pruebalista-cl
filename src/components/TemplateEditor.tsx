@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FONT_OPTIONS, type FormatTemplate, type Alignment } from "@/lib/templates";
+import { FONT_OPTIONS, SCHOOL_PAGE_SIZE, A4_PAGE_SIZE, LETTER_PAGE_SIZE, type FormatTemplate, type Alignment } from "@/lib/templates";
 
 interface Props {
   template: FormatTemplate;
