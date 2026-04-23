@@ -133,7 +133,67 @@ const Index = () => {
       return;
     }
     setOriginalFile(file);
+
+    // Preflight: validar estructura antes de procesar
+    try {
+      const buffer = await file.arrayBuffer();
+      const preflight = await validateDocxStructure(buffer);
+      if (!preflight.ok && preflight.fatal) {
+        toast.error(preflight.fatal.message);
+        return;
+      }
+      if (preflight.findings.length > 0) {
+        // Pedir confirmación antes de procesar
+        setPreflightFindings(preflight.findings);
+        setPendingFile(file);
+        setPreflightOpen(true);
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("No se pudo leer el archivo. Asegúrate de que sea un .docx válido.");
+      return;
+    }
+
     await processDocument(file, workingTemplate);
+  };
+
+  const handlePreflightConfirm = async () => {
+    setPreflightOpen(false);
+    if (pendingFile && workingTemplate) {
+      const file = pendingFile;
+      setPendingFile(null);
+      await processDocument(file, workingTemplate);
+    }
+  };
+
+  const handlePreflightCancel = () => {
+    setPreflightOpen(false);
+    setPendingFile(null);
+    setPreflightFindings([]);
+  };
+
+  const showProcessingError = (e: unknown) => {
+    const err = e as { name?: string; stage?: string; detail?: string; message?: string };
+    const stage = err?.stage;
+    const detail = err?.detail || err?.message || String(e);
+    const technical = stage ? `[${stage}] ${detail}` : detail;
+    const friendly = stage
+      ? `Falló la pasada "${stage}". ${detail}`
+      : `No se pudo procesar el documento. Detalle técnico: ${detail}`;
+
+    toast.error(friendly, {
+      duration: 12000,
+      action: {
+        label: "Copiar detalle",
+        onClick: () => {
+          navigator.clipboard?.writeText(technical).then(
+            () => toast.success("Detalle técnico copiado"),
+            () => toast.error("No se pudo copiar"),
+          );
+        },
+      },
+    });
   };
 
   const processDocument = async (file: File, template: FormatTemplate) => {
@@ -172,12 +232,7 @@ const Index = () => {
       toast.success("Documento estandarizado correctamente");
     } catch (e) {
       console.error(e);
-      const msg = e instanceof Error ? e.message : "";
-      if (/body element|docx/i.test(msg)) {
-        toast.error("El documento contiene elementos avanzados que no pudimos procesar. Intenta guardarlo como .docx desde Word y vuelve a subirlo.");
-      } else {
-        toast.error("No se pudo procesar el documento. Revisa que sea un archivo .docx generado por Word.");
-      }
+      showProcessingError(e);
       setStage("idle");
       setProgress(0);
     }
