@@ -94,10 +94,10 @@ export const ASSESSMENT_CSS = `
   .pa-mc-split td { vertical-align: top; padding: 0; border: 0; }
   .pa-mc-split .pa-mc-text { width: 80%; padding-right: 8pt; }
   .pa-mc-split .pa-mc-image { width: 20%; padding-left: 8pt; height: 1px; }
-  .pa-mc-image .pa-image-wrap { height: 100%; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; margin: 0; }
-  .pa-mc-image .pa-image-crop { max-height: 100%; max-width: 100%; }
+  .pa-mc-image .pa-image-wrap { width: 100%; height: 100%; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; margin: 0; }
+  .pa-mc-image .pa-image-crop { width: 100%; max-width: 100%; max-height: 100%; }
   .pa-mc-image .pa-image-crop-inner { width: 100%; height: 100%; overflow: hidden; position: relative; }
-  .pa-mc-image .pa-image-plain { max-height: 100%; max-width: 100%; height: auto; width: auto; object-fit: contain; }
+  .pa-mc-image .pa-image-plain { width: 100%; max-width: 100%; max-height: 100%; height: auto; object-fit: contain; }
 `;
 
 const escape = (s: string) =>
@@ -268,13 +268,13 @@ function renderContainedImageHtml(img: QuestionImage): string {
   const hasCrop = L > 0 || R > 0 || T > 0 || B > 0;
 
   if (!hasCrop) {
-    // En layout split siempre centramos la imagen dentro de la celda.
+    // Sin crop: ocupa toda la columna; max-height de la celda evita exceder el alto.
     return `<div class="pa-image-wrap pa-align-center"><img class="pa-image-plain" src="${img.src}" alt="${escape(img.alt ?? "")}" /></div>`;
   }
 
   const ratio = (natW * (visibleW / 100)) / Math.max(1, natH * (visibleH / 100));
-  // Para crop con object-fit no funciona; usamos wrapper con aspect-ratio + overflow hidden
-  // y la <img> escalada con margenes negativos relativos al wrapper.
+  // Wrapper a 100% del ancho de columna con aspect-ratio del recorte.
+  // max-height de la celda reducirá la imagen manteniendo proporción.
   const inner = `<div class="pa-image-crop-inner"><img src="${img.src}" alt="${escape(img.alt ?? "")}" style="position:absolute;width:${(100 / visibleW) * 100}%;height:auto;left:${-(L / visibleW) * 100}%;top:${-(T / visibleH) * 100}%;" /></div>`;
   return `<div class="pa-image-wrap pa-align-center"><span class="pa-image-crop" style="aspect-ratio:${ratio};width:100%;">${inner}</span></div>`;
 }

@@ -1,0 +1,146 @@
+// Preview paginado tipo Word: mide el HTML generado por renderAssessmentHtml,
+// reparte sus bloques de primer nivel en hojas A4 (según template.pageSize),
+// respetando page-break-inside: avoid. No duplica lógica de render.
+
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ASSESSMENT_CSS, renderAssessmentHtml, type RenderContext } from "@/lib/assessment-render";
+
+const CM_TO_PX = 37.8; // 1cm ≈ 37.8 px @96dpi
+
+interface PageGeom {
+  widthPx: number;
+  heightPx: number;
+  padTopPx: number;
+  padRightPx: number;
+  padBottomPx: number;
+  padLeftPx: number;
+  usableHeightPx: number;
+  usableWidthPx: number;
+}
+
+function geomFromTemplate(ctx: RenderContext): PageGeom {
+  const t = ctx.template;
+  const widthPx = t.pageSize.widthCm * CM_TO_PX;
+  const heightPx = t.pageSize.heightCm * CM_TO_PX;
+  const padTopPx = (t.spacing.marginTop ?? 2) * CM_TO_PX;
+  const padRightPx = (t.spacing.marginRight ?? 2) * CM_TO_PX;
+  const padBottomPx = (t.spacing.marginBottom ?? 2) * CM_TO_PX;
+  const padLeftPx = (t.spacing.marginLeft ?? 2.5) * CM_TO_PX;
+  return {
+    widthPx,
+    heightPx,
+    padTopPx,
+    padRightPx,
+    padBottomPx,
+    padLeftPx,
+    usableHeightPx: heightPx - padTopPx - padBottomPx,
+    usableWidthPx: widthPx - padLeftPx - padRightPx,
+  };
+}
+
+export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
+  const html = useMemo(() => renderAssessmentHtml(ctx), [ctx]);
+  const geom = useMemo(() => geomFromTemplate(ctx), [ctx]);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [pages, setPages] = useState<string[]>([html]);
+
+  useLayoutEffect(() => {
+    const root = measureRef.current;
+    if (!root) return;
+    // El nodo raíz renderizado por renderAssessmentHtml es <div class="pa-page">.
+    const paPage = root.querySelector(".pa-page") as HTMLElement | null;
+    if (!paPage) return;
+    const blocks = Array.from(paPage.children) as HTMLElement[];
+    if (blocks.length === 0) {
+      setPages([html]);
+      return;
+    }
+
+    const pagesHtml: string[] = [];
+    let current: string[] = [];
+    let usedH = 0;
+    const limit = geom.usableHeightPx;
+
+    for (const el of blocks) {
+      const h = el.getBoundingClientRect().height;
+      const margin = parseFloat(getComputedStyle(el).marginTop) + parseFloat(getComputedStyle(el).marginBottom);
+      const total = h + (isFinite(margin) ? margin : 0);
+
+      if (current.length > 0 && usedH + total > limit) {
+        pagesHtml.push(current.join(""));
+        current = [];
+        usedH = 0;
+      }
+      current.push(el.outerHTML);
+      usedH += total;
+    }
+    if (current.length > 0) pagesHtml.push(current.join(""));
+    if (pagesHtml.length === 0) pagesHtml.push(html);
+
+    setPages(pagesHtml);
+  }, [html, geom.usableHeightPx, geom.usableWidthPx]);
+
+  // Re-paginar si cambia tamaño del contenedor (cambios de zoom).
+  useEffect(() => {
+    const handle = () => {
+      // dispara re-medición al disparar el efecto de layout via state-toggle implícito
+      // forzamos nuevo render replicando el mismo html (referencia distinta)
+      setPages((p) => [...p]);
+    };
+    window.addEventListener("resize", handle);
+    return () => window.removeEventListener("resize", handle);
+  }, []);
+
+  return (
+    <div className="overflow-auto rounded-md border border-border bg-muted p-6">
+      <style>{ASSESSMENT_CSS}</style>
+      {/* Render off-screen para medir bloques con el ancho real de página */}
+      <div
+        ref={measureRef}
+        aria-hidden
+        style={{
+          position: "absolute",
+          visibility: "hidden",
+          pointerEvents: "none",
+          left: -99999,
+          top: 0,
+          width: geom.usableWidthPx,
+          background: "white",
+          color: "black",
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+
+      <div className="flex flex-col items-center gap-6">
+        {pages.map((pageHtml, idx) => (
+          <div key={idx} className="flex flex-col items-center">
+            <div
+              style={{
+                background: "white",
+                color: "black",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
+                width: geom.widthPx,
+                height: geom.heightPx,
+                paddingTop: geom.padTopPx,
+                paddingRight: geom.padRightPx,
+                paddingBottom: geom.padBottomPx,
+                paddingLeft: geom.padLeftPx,
+                boxSizing: "border-box",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                className="pa-page"
+                style={{ width: "100%", height: "100%" }}
+                dangerouslySetInnerHTML={{ __html: pageHtml }}
+              />
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Página {idx + 1} de {pages.length}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
