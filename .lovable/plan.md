@@ -1,52 +1,40 @@
 
-# Estandarizador de Documentos Word para el Colegio
+# Selectores de Curso y Asignatura en el nombre de archivo
 
-Una web sin login donde cualquier miembro del equipo sube un documento Word, elige una plantilla del colegio, y descarga el documento ya formateado de forma uniforme.
+Reemplazar los inputs de texto libre de "Asignatura" y "Curso" en el paso 3 (Nombre del archivo) por **menús desplegables** con listas predefinidas, para evitar errores de tipeo (ej. "Histora", "7° básico" vs "7Básico") y garantizar nombres de archivo consistentes.
 
-## Flujo de uso
+## Cambios en la interfaz
 
-1. **Pantalla principal** — selección de plantilla (ej. "Circular", "Examen", "Informe", "Comunicado") con vista de cómo se ve cada una.
-2. **Personalización opcional** — antes de subir, puede ajustar parámetros sobre la plantilla (tipografía, márgenes, etc.).
-3. **Subida del .docx** — arrastrar y soltar o seleccionar archivo.
-4. **Procesamiento automático** — se aplican todos los parámetros al documento.
-5. **Vista previa** — el documento ya formateado se muestra en pantalla página por página.
-6. **Reporte de cambios** — lista clara de qué se modificó (ej. "Fuente cambiada de Times a Arial", "Márgenes ajustados a 2.5cm", "Logo añadido al encabezado").
-7. **Descarga** — botón para bajar el .docx corregido y opción adicional de PDF.
+**Paso 3 — Nombre del archivo:**
+- "Número": se mantiene como input numérico.
+- "Asignatura": pasa a ser un **selector** con la lista oficial de asignaturas del colegio.
+- "Curso": pasa a ser un **selector** con la lista oficial de cursos del colegio.
+- El nombre final del archivo se sigue construyendo igual: `{Prefijo}_N°{n}_{Asignatura}_{Curso}` (ej. `Ev_Sumativa_N°1_Historia_7Básico`).
 
-## Parámetros configurables (por plantilla)
+## Listas propuestas
 
-- **Tipografía**: fuente del cuerpo, fuente de títulos, tamaños para cuerpo / H1 / H2 / H3
-- **Márgenes y espaciado**: márgenes (sup/inf/izq/der), interlineado, espacio antes/después de párrafos
-- **Encabezado**: logo del colegio (subible), nombre de la institución, alineación
-- **Pie de página**: texto fijo, número de página, fecha
-- **Estilos de títulos**: color, negrita, alineación, tamaño por nivel
-- **Listas**: tipo de viñeta y numeración estandarizadas
+**Asignaturas** (nombres ya en formato sin espacios para el archivo):
+- Lenguaje, Matemática, Historia, Ciencias, Inglés, Arte, Música, EducaciónFísica, Tecnología, Religión, Orientación
 
-## Plantillas predefinidas (editables)
+**Cursos** (formato compacto del colegio, ej. `7Básico`):
+- 1Básico, 2Básico, 3Básico, 4Básico, 5Básico, 6Básico, 7Básico, 8Básico
+- 1Medio, 2Medio, 3Medio, 4Medio
+- Prekínder, Kínder
 
-Vienen 3-4 plantillas listas para usar como punto de partida:
-- **Circular oficial** — formal, con logo y pie institucional
-- **Examen** — encabezado con espacio para datos del alumno
-- **Informe interno** — título grande, cuerpo limpio
-- **Comunicado a familias** — tono cercano, encabezado destacado
+Cada opción mostrará una etiqueta legible (ej. "Educación Física", "7° Básico") pero al insertarse en el nombre del archivo usará el valor compacto sin espacios ni símbolos.
 
-Cada plantilla se puede duplicar y modificar; las personalizaciones se guardan en el navegador (localStorage) para no perderse entre sesiones.
+## Personalización desde Configuración
 
-## Página de configuración (admin)
+En la página **Configuración** se añadirá una sección nueva "Asignaturas y cursos" donde el equipo administrador podrá:
+- Agregar, editar o eliminar asignaturas.
+- Agregar, editar o eliminar cursos.
+- Restaurar la lista por defecto del colegio.
 
-Sección separada donde se gestionan las plantillas: crear, editar, duplicar, eliminar, y subir el logo del colegio. Sin login, accesible desde el menú — orientada a quien administra los formatos.
+Las listas se guardan en `localStorage` (igual que las plantillas y el logo), así cualquier cambio queda persistido en el navegador para todo el equipo que use ese equipo.
 
-## Logo del colegio
+## Detalles técnicos
 
-Se sube una sola vez desde la configuración y se reutiliza en todas las plantillas que lo incluyan en el encabezado.
-
-## Procesamiento técnico
-
-- El documento se procesa **en el navegador** (sin servidor), garantizando privacidad de los archivos del colegio.
-- Se descomprime el .docx, se modifican los XML internos según los parámetros, y se vuelve a empaquetar.
-- La conversión a PDF se hace también del lado cliente.
-- Vista previa renderizada en pantalla mostrando el resultado final.
-
-## Diseño visual
-
-Interfaz limpia y profesional adecuada para un entorno educativo: tipografía clara, paleta sobria (azul institucional + neutros), tarjetas grandes para las plantillas con vista previa, indicadores de progreso durante el procesamiento, y mensajes de éxito/error claros en español.
+- Nuevo módulo `src/lib/catalog.ts` con tipos `SubjectOption` / `GradeOption` (`{ label, value }`), las listas por defecto, y funciones `loadSubjects/saveSubjects/loadGrades/saveGrades`.
+- `src/pages/Index.tsx`: reemplazar los `Input` de asignatura y curso por componentes `Select` (ya disponible en `src/components/ui/select.tsx`). El estado pasa a guardar el `value` compacto seleccionado.
+- `src/pages/Configuracion.tsx`: nueva sección con dos editores de lista (agregar/quitar/editar etiqueta y valor) y botón "Restaurar por defecto".
+- Si una plantilla custom no requiere nombre estandarizado, el paso 3 sigue oculto como ahora.
