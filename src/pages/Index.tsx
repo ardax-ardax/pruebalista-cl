@@ -396,72 +396,79 @@ const Index = () => {
           )}
 
           {stage === "ready" && (
-            <div className="grid lg:grid-cols-3 gap-6">
-              {/* Preview */}
-              <Card className="lg:col-span-2 shadow-card">
-                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                  <CardTitle className="text-base">Vista previa</CardTitle>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleReprocess} className="gap-1.5">
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Reaplicar
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleReset}>
-                      Otro archivo
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-lg border border-border bg-white shadow-inner overflow-hidden">
-                    <div
-                      className="docx-preview p-8 max-h-[640px] overflow-y-auto prose prose-sm max-w-none"
-                      style={{
-                        fontFamily: workingTemplate.typography.bodyFont,
-                        textAlign: workingTemplate.body.alignment,
-                      }}
-                      dangerouslySetInnerHTML={{ __html: previewHtml }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-2 italic">
-                    Nota: la vista previa web puede mostrar imágenes recortadas u objetos flotantes de forma distinta a Word. La referencia válida es siempre el archivo .docx descargado abierto en Word.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                    <Button onClick={handleDownloadDocx} className="gap-2 bg-gradient-primary">
-                      <Download className="h-4 w-4" />
-                      Descargar .docx
-                    </Button>
-                    <Button onClick={handleDownloadPdf} variant="outline" className="gap-2">
-                      <FileDown className="h-4 w-4" />
-                      Exportar a PDF
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Si no ves los cambios, asegúrate de abrir la versión recién descargada (no el archivo original).
-                  </p>
-                </CardContent>
-              </Card>
+            <div className="space-y-6">
+              {/* Acciones superiores */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-foreground">Vista previa</h3>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleReprocess} className="gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Reaplicar
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleReset}>
+                    Otro archivo
+                  </Button>
+                </div>
+              </div>
 
-              {/* Changes report */}
-              <Card className="shadow-card h-fit">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-accent" />
-                    Cambios aplicados
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {changes.map((c, i) => (
-                      <li key={i} className="border-l-2 border-primary pl-3">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-primary">
-                          {c.category}
-                        </div>
-                        <div className="text-sm text-foreground mt-0.5">{c.description}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              {/* Alerta de discrepancias */}
+              {diagnostics && (
+                <DiscrepancyAlert diagnostics={diagnostics} />
+              )}
+
+              {/* Vista previa con tabs, zoom y scroll sincronizado */}
+              <DocumentPreview
+                originalHtml={originalHtml}
+                processedHtml={previewHtml}
+                originalFileName={originalFile?.name}
+                processedFileName={`${buildStandardFileName()}.docx`}
+                template={workingTemplate}
+                originalPages={diagnostics?.originalPages}
+                processedPages={diagnostics?.processedPages}
+              />
+
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Botones de descarga */}
+                <Card className="lg:col-span-2 shadow-card">
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Button onClick={handleDownloadDocx} className="gap-2 bg-gradient-primary">
+                        <Download className="h-4 w-4" />
+                        Descargar .docx
+                      </Button>
+                      <Button onClick={handleDownloadPdf} variant="outline" className="gap-2">
+                        <FileDown className="h-4 w-4" />
+                        Exportar a PDF
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Si no ves los cambios, asegúrate de abrir la versión recién descargada (no el archivo original).
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Reporte de cambios */}
+                <Card className="shadow-card h-fit">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-accent" />
+                      Cambios aplicados
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-3">
+                      {changes.map((c, i) => (
+                        <li key={i} className="border-l-2 border-primary pl-3">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            {c.category}
+                          </div>
+                          <div className="text-sm text-foreground mt-0.5">{c.description}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
         </section>
