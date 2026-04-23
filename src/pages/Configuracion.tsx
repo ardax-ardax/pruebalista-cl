@@ -4,6 +4,7 @@ import { ArrowLeft, Copy, Plus, Save, Trash2, Upload, X } from "lucide-react";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
+import { CatalogManager } from "@/components/CatalogManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,16 @@ import {
   saveTemplates,
   type FormatTemplate,
 } from "@/lib/templates";
+import {
+  loadGrades,
+  loadSubjects,
+  resetGrades,
+  resetSubjects,
+  saveGrades,
+  saveSubjects,
+  type GradeOption,
+  type SubjectOption,
+} from "@/lib/catalog";
 
 const Configuracion = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
