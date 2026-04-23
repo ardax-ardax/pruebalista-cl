@@ -1557,7 +1557,10 @@ async function insertInstitutionBanner(
   const dataCell = buildDataCell(colData, fontName, sz, teacherLabel, subjectLabel, gradeLabel);
   const califCell = showCalificacion ? buildCalificacionCell(colCalif, fontName, sz) : "";
 
+  // OOXML: <w:tbl> no puede ser el primer ni último hijo del body. Envolvemos
+  // siempre con <w:p/> antes y un <w:p> con espaciado después.
   const tableXml =
+    `<w:p/>` +
     `<w:tbl>` +
     `<w:tblPr>` +
     `<w:tblW w:w="${totalWidth}" w:type="dxa"/>` +
@@ -1576,7 +1579,10 @@ async function insertInstitutionBanner(
     `</w:tbl>` +
     `<w:p><w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr></w:p>`;
 
-  // 4) Inyectar justo después de <w:body ...> (apertura)
+  // 4) Asegurar namespaces en el root antes de inyectar drawing/banner.
+  docContent = ensureDocumentRootNamespaces(docContent);
+
+  // 5) Inyectar justo después de <w:body ...> (apertura)
   docContent = docContent.replace(
     /<w:body\b[^>]*>/,
     (match) => `${match}${tableXml}`,
