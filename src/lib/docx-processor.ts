@@ -142,8 +142,11 @@ export async function applyTemplate(
   let tableOptimizations = 0;
   let imageRescales = 0;
   let sectionCreated = false;
+  let originalStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
+  let processedStats = { pages: 1, images: 0, tables: 0, pageBreaks: 0 };
   if (documentFile) {
     let docContent = await documentFile.async("string");
+    originalStats = computeDocStats(docContent);
     const marginsRes = applyMarginsString(docContent, template);
     docContent = marginsRes.xml;
     sectionCreated = marginsRes.created;
@@ -157,6 +160,7 @@ export async function applyTemplate(
     // Normalizar formato directo de runs en el cuerpo: forzar tipografía/tamaño
     // para que Word no use la fuente original almacenada en cada <w:rPr>.
     docContent = forceDirectFontFormatting(docContent, template);
+    processedStats = computeDocStats(docContent);
     zip.file("word/document.xml", docContent);
 
     changes.push({
