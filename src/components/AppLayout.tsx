@@ -18,6 +18,7 @@ import {
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
+  const isEmbedded = useIsEmbedded();
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
