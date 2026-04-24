@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FilePlus2, FileText, Library, LogOut, Settings } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, Library, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
+  const isEmbedded = useIsEmbedded();
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
@@ -54,6 +56,18 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isEmbedded && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openInNewTab(window.location.pathname)}
+                className="ml-1 gap-2"
+                title="Abrir en pantalla completa"
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span className="hidden sm:inline">Pantalla completa</span>
+              </Button>
+            )}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -90,11 +104,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </header>
       <main className="container py-8">{children}</main>
-      <footer className="border-t border-border py-6 mt-12">
-        <div className="container text-center text-xs text-muted-foreground">
-          Procesamiento 100% en el navegador. Tus documentos no se suben a ningún servidor.
-        </div>
-      </footer>
+      {!isEmbedded && (
+        <footer className="border-t border-border py-6 mt-12">
+          <div className="container text-center text-xs text-muted-foreground">
+            Procesamiento 100% en el navegador. Tus documentos no se suben a ningún servidor.
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
