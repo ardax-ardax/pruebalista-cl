@@ -1,119 +1,134 @@
-// Persistencia de evaluaciones en IndexedDB (vía idb-keyval) con cache en
-// memoria para mantener una API síncrona compatible con el código existente.
-// Antes usábamos localStorage pero las imágenes base64 saturan rápido la cuota
-// de ~5MB. IndexedDB permite cientos de MB.
+// Persistencia: pruebas guardadas viven en Lovable Cloud (Supabase) por usuario,
+// con RLS. El borrador (mientras se edita una prueba nueva) sigue en IndexedDB
+// porque es local al dispositivo.
 import { get, set, del } from "idb-keyval";
 import { migrateQuestion, type Assessment } from "./assessment-schema";
+import { supabase } from "@/integrations/supabase/client";
 
 const KEY_DRAFT = "estandarizador.assessment.draft.v1";
-const KEY_LIB = "estandarizador.assessment.library.v1";
+const KEY_LOCAL_LIB = "estandarizador.assessment.library.v1";
 
 const migrate = (a: Assessment): Assessment => ({
   ...a,
   questions: (a.questions ?? []).map(migrateQuestion),
 });
 
-// ============ Cache en memoria + hidratación inicial ============
+// ============ Borrador (local) ============
 let draftCache: Assessment | null = null;
-let libCache: Assessment[] = [];
-let ready = false;
-let readyPromise: Promise<void> | null = null;
+let draftReady = false;
+let draftReadyPromise: Promise<void> | null = null;
 
-const hydrate = async () => {
+const hydrateDraft = async () => {
   try {
-    // Migración suave desde localStorage si quedó algo allí.
-    const lsLib = localStorage.getItem(KEY_LIB);
-    const lsDraft = localStorage.getItem(KEY_DRAFT);
-
-    const idbLib = await get<Assessment[]>(KEY_LIB);
     const idbDraft = await get<Assessment>(KEY_DRAFT);
-
-    if (idbLib) {
-      libCache = idbLib.map(migrate);
-    } else if (lsLib) {
-      try {
-        libCache = (JSON.parse(lsLib) as Assessment[]).map(migrate);
-        await set(KEY_LIB, libCache);
-      } catch {
-        libCache = [];
-      }
-    }
-
-    if (idbDraft) {
-      draftCache = migrate(idbDraft);
-    } else if (lsDraft) {
-      try {
-        draftCache = migrate(JSON.parse(lsDraft) as Assessment);
-        await set(KEY_DRAFT, draftCache);
-      } catch {
-        draftCache = null;
-      }
-    }
-
-    // Liberar localStorage para evitar futuros QuotaExceeded.
-    try {
-      localStorage.removeItem(KEY_LIB);
-      localStorage.removeItem(KEY_DRAFT);
-    } catch {
-      /* ignore */
-    }
+    if (idbDraft) draftCache = migrate(idbDraft);
   } catch (e) {
-    console.warn("No se pudo hidratar storage", e);
+    console.warn("No se pudo hidratar borrador", e);
   } finally {
-    ready = true;
+    draftReady = true;
   }
 };
 
 export const ensureStorageReady = (): Promise<void> => {
-  if (ready) return Promise.resolve();
-  if (!readyPromise) readyPromise = hydrate();
-  return readyPromise;
+  if (draftReady) return Promise.resolve();
+  if (!draftReadyPromise) draftReadyPromise = hydrateDraft();
+  return draftReadyPromise;
 };
 
-// Disparar hidratación de inmediato al importar el módulo.
 ensureStorageReady();
 
-const persistLib = () => {
-  set(KEY_LIB, libCache).catch((e) => console.warn("No se pudo guardar la biblioteca", e));
-};
-const persistDraft = () => {
-  if (draftCache) {
-    set(KEY_DRAFT, draftCache).catch((e) => console.warn("No se pudo guardar el borrador", e));
-  } else {
-    del(KEY_DRAFT).catch(() => undefined);
-  }
-};
-
-// ============ Borrador ============
 export const saveDraft = (a: Assessment) => {
   draftCache = { ...a, updatedAt: Date.now() };
-  persistDraft();
+  set(KEY_DRAFT, draftCache).catch((e) => console.warn("No se pudo guardar el borrador", e));
 };
 
 export const loadDraft = (): Assessment | null => draftCache;
 
 export const clearDraft = () => {
   draftCache = null;
-  persistDraft();
+  del(KEY_DRAFT).catch(() => undefined);
 };
 
-// ============ Biblioteca ============
-export const listAssessments = (): Assessment[] =>
-  [...libCache].sort((a, b) => b.updatedAt - a.updatedAt);
+// ============ Biblioteca (cloud) ============
+type Row = {
+  id: string;
+  user_id: string;
+  title: string;
+  data: Assessment;
+  created_at: string;
+  updated_at: string;
+};
 
-export const upsertAssessment = (a: Assessment): Assessment => {
+const rowToAssessment = (r: Row): Assessment => migrate(r.data);
+
+export const listAssessments = async (): Promise<Assessment[]> => {
+  const { data, error } = await supabase
+    .from("assessments")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) {
+    console.error("listAssessments", error);
+    return [];
+  }
+  return (data as unknown as Row[]).map(rowToAssessment);
+};
+
+export const listAssessmentsWithOwner = async (): Promise<Array<{ assessment: Assessment; userId: string }>> => {
+  const { data, error } = await supabase
+    .from("assessments")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) {
+    console.error("listAssessmentsWithOwner", error);
+    return [];
+  }
+  return (data as unknown as Row[]).map((r) => ({ assessment: rowToAssessment(r), userId: r.user_id }));
+};
+
+export const getAssessment = async (id: string): Promise<Assessment | null> => {
+  const { data, error } = await supabase
+    .from("assessments")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("getAssessment", error);
+    return null;
+  }
+  return data ? rowToAssessment(data as unknown as Row) : null;
+};
+
+export const upsertAssessment = async (a: Assessment): Promise<Assessment> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No hay sesión iniciada");
   const next: Assessment = { ...a, updatedAt: Date.now() };
-  const idx = libCache.findIndex((x) => x.id === a.id);
-  if (idx >= 0) libCache[idx] = next;
-  else libCache.unshift(next);
-  persistLib();
+  const { error } = await supabase
+    .from("assessments")
+    .upsert({
+      id: next.id,
+      user_id: user.id,
+      title: next.meta.title ?? "",
+      data: next as unknown as Record<string, unknown>,
+    }, { onConflict: "id" });
+  if (error) throw error;
   return next;
 };
 
-export const getAssessment = (id: string): Assessment | null =>
-  libCache.find((a) => a.id === id) ?? null;
+export const deleteAssessment = async (id: string): Promise<void> => {
+  const { error } = await supabase.from("assessments").delete().eq("id", id);
+  if (error) throw error;
+};
 
-export const deleteAssessment = (id: string) => {
-  libCache = libCache.filter((a) => a.id !== id);
-  persistLib();
+// ============ Importación one-shot desde IndexedDB local ============
+export const getLocalLegacyAssessments = async (): Promise<Assessment[]> => {
+  try {
+    const items = await get<Assessment[]>(KEY_LOCAL_LIB);
+    return items ? items.map(migrate) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const clearLocalLegacyAssessments = async (): Promise<void> => {
+  try { await del(KEY_LOCAL_LIB); } catch { /* ignore */ }
 };
