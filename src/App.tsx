@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/AuthGuard";
+import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
 import MisPruebas from "./pages/MisPruebas.tsx";
 import Configuracion from "./pages/Configuracion.tsx";
@@ -24,7 +25,7 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
             <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
-            <Route path="/configuracion" element={<AuthGuard><Configuracion /></AuthGuard>} />
+            <Route path="/configuracion" element={<AuthGuard><AdminGuard><Configuracion /></AdminGuard></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
