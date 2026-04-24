@@ -1,42 +1,37 @@
-# Imagen en preguntas de desarrollo
+# Filtro por docente para el administrador
 
-Aplica a preguntas de tipo **Desarrollo corto** (`short-answer`). La imagen del enunciado se renderiza siempre **centrada** y por encima de las líneas de respuesta (esto último ya ocurre hoy). Cambia el rango y el valor por defecto del ancho.
+Permite que el administrador filtre la lista de "Mis pruebas" por un docente concreto, mostrando nombre/email en lugar de UUIDs.
 
 ## Cambios
 
-1. **Ancho de imagen para desarrollo**
-   - Rango permitido: **10% – 80%** del ancho disponible.
-   - Valor por defecto al subir una imagen: **50%**.
-   - Alineación: **centro fija** (sin selector izquierda/derecha para este tipo de pregunta).
+### 1. Backend — tabla `profiles`
 
-2. **Editor (`QuestionEditor.tsx`)**
-   - En `short-answer`, mostrar el editor de imagen en un modo nuevo (centrado forzado, ancho hasta 80%, default 50%).
-   - Resto de tipos (info-block, section-title) siguen igual con los topes actuales.
+Migración SQL nueva:
+- Tabla `public.profiles` (`id` referenciando `auth.users(id) on delete cascade`, `email`, `display_name`, `avatar_url`, `created_at`, `updated_at`).
+- RLS habilitada con políticas:
+  - SELECT/UPDATE/INSERT: `id = auth.uid() OR has_role(auth.uid(), 'admin')`.
+- Trigger `trg_profiles_updated_at` con `set_updated_at()`.
+- Reemplazo de `handle_new_user()` para que, además de asignar rol, inserte una fila en `profiles` con datos de `raw_user_meta_data` (`full_name` / `name` / fallback al local-part del email) y `avatar_url`.
+- Backfill: insertar perfiles para los usuarios ya existentes en `auth.users`.
 
-3. **Render HTML/PDF (`assessment-render.tsx`)**
-   - La imagen del enunciado ya se inserta antes del cuerpo en `short-answer`. No requiere cambios estructurales; respeta el `widthPct` y alineación centro.
+### 2. Frontend — `MisPruebas.tsx`
 
-4. **Render DOCX (`assessment-docx.ts`)**
-   - Igual: ya emite la imagen antes de las líneas. Respetará el nuevo `widthPct` y centrado.
+- Cuando el admin tiene "Ver todas" activo, mostrar un nuevo selector **"Docente"** con:
+  - Opción "Todos los docentes" (estado actual).
+  - Una opción por cada autor presente en la lista de pruebas, con su `display_name` (o email si no hay nombre).
+- Al elegir un docente, filtrar `visible` a `userId === selectedTeacherId`.
+- Mostrar el nombre del autor en cada tarjeta cuando es de otro docente (sustituye al texto "otro docente").
 
-## Detalles técnicos
+### 3. Carga de perfiles
 
-- En `assessment-schema.ts`:
-  - Añadir constantes `MAX_IMAGE_WIDTH_DEV_PCT = 80` y `DEFAULT_IMAGE_WIDTH_DEV_PCT = 50`.
-  - Añadir helper `clampWidthPctDev(n)` que limita a `[10, 80]`.
-
-- En `ImageCropEditor.tsx`:
-  - Añadir prop `mode?: "default" | "column" | "development"` (o un par de props equivalentes: `maxWidthOverride`, `defaultWidthOverride`, `lockCenter`).
-  - Modo `development`: alineación forzada `center`, slider/input con máx 80, default 50, ocultar selector de alineación.
-  - Migración suave: si una imagen existente tiene `widthPct > 80` o `alignment !== "center"`, se ajusta al cargarse (efecto similar al actual `allowFullWidth`).
-
-- En `QuestionEditor.tsx`:
-  - Para `short-answer`, usar `<ImageCropEditor mode="development" ... />` en lugar del editor genérico.
+- Nueva función `listProfiles()` en `src/lib/profiles.ts` que hace `select id, email, display_name, avatar_url from profiles`.
+- En `MisPruebas`, si `isAdmin`, cargar perfiles una vez y mantener un mapa `userId -> profile`.
+- Para no-admins no se cargan perfiles (RLS solo deja ver el suyo).
 
 ## Archivos afectados
 
-- `src/lib/assessment-schema.ts`
-- `src/components/test-builder/ImageCropEditor.tsx`
-- `src/components/test-builder/QuestionEditor.tsx`
+- Migración SQL nueva (vía herramienta de migración).
+- `src/lib/profiles.ts` (nuevo).
+- `src/pages/MisPruebas.tsx` (selector + uso de nombres).
 
-¿Apruebas el plan?
+¿Apruebas?
