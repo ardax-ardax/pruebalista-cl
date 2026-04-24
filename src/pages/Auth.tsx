@@ -1,0 +1,43 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+
+const AuthPage = () => {
+  const { user, loading, signInWithGoogle } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) navigate("/", { replace: true });
+  }, [user, loading, navigate]);
+
+  const handleGoogle = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      toast.error("No se pudo iniciar sesión: " + (e as Error).message);
+    }
+  };
+
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-card">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">Estandarizador de Pruebas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground text-center">
+            Inicia sesión con tu cuenta Google para acceder a tus pruebas.
+          </p>
+          <Button onClick={handleGoogle} className="w-full" size="lg">
+            Continuar con Google
+          </Button>
+        </CardContent>
+      </Card>
+    </main>
+  );
+};
+
+export default AuthPage;

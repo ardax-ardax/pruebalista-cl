@@ -54,27 +54,32 @@ const CrearPrueba = () => {
     setInstitutionName(loadInstitutionName() || "New Little College La Florida");
 
     // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
-    if (editingId) {
-      const found = getAssessment(editingId);
-      if (found) {
-        setAssessment(found);
-      } else if (t.length > 0) {
-        toast.error("No se encontró la prueba");
-        setAssessment(emptyAssessment(t[0].id));
+    (async () => {
+      if (editingId) {
+        const found = await getAssessment(editingId);
+        if (found) {
+          setAssessment(found);
+        } else if (t.length > 0) {
+          toast.error("No se encontró la prueba");
+          setAssessment(emptyAssessment(t[0].id));
+        }
+      } else {
+        const draft = loadDraft();
+        if (draft) setAssessment(draft);
+        else if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
       }
-    } else {
-      const draft = loadDraft();
-      if (draft) setAssessment(draft);
-      else if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
-    }
+    })();
   }, [editingId]);
 
-  // Autosave: si editamos una prueba guardada, actualizamos la biblioteca.
-  // Si es una nueva, guardamos como borrador.
+  // Autosave: si editamos una prueba guardada, actualizamos en la nube.
+  // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
     if (!assessment) return;
-    if (editingId) upsertAssessment(assessment);
-    else saveDraft(assessment);
+    if (editingId) {
+      upsertAssessment(assessment).catch((e) => console.warn("autosave", e));
+    } else {
+      saveDraft(assessment);
+    }
   }, [assessment, editingId]);
 
   const template = useMemo(
@@ -118,17 +123,20 @@ const CrearPrueba = () => {
     setTab("meta");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const err = validate();
     if (err) { toast.error(err); return; }
-    const saved = upsertAssessment(assessment);
-    setAssessment(saved);
-    if (!editingId) {
-      // Pasamos a "modo edición" para que próximos guardados actualicen este registro
-      setSearchParams({ id: saved.id });
-      clearDraft();
+    try {
+      const saved = await upsertAssessment(assessment);
+      setAssessment(saved);
+      if (!editingId) {
+        setSearchParams({ id: saved.id });
+        clearDraft();
+      }
+      toast.success("Prueba guardada");
+    } catch (e) {
+      toast.error("No se pudo guardar: " + (e as Error).message);
     }
-    toast.success("Prueba guardada");
   };
 
   const validate = (): string | null => {
