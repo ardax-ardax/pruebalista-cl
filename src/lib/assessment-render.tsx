@@ -190,8 +190,9 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         : "";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
       const header = `${titleHtml}<div class="pa-question-header">${pts}<span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
-      // Para selección múltiple o V/F con imagen siempre forzamos split: texto izq, imagen der centrada.
-      const isSplit = (q.type === "multiple-choice" || q.type === "true-false") && !!q.image;
+      // Split solo si el usuario eligió 2 columnas (con retrocompatibilidad: si tenía imagen y no se eligió, asumir 2 columnas).
+      const wantsTwo = (q.type === "multiple-choice" || q.type === "true-false") && (q.useTwoColumns ?? !!q.image);
+      const isSplit = wantsTwo && !!q.image;
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
       let body = "";
       if (q.type === "multiple-choice") {

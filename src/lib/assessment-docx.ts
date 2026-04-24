@@ -308,8 +308,9 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     children: headerRuns,
   });
 
-  // MC o V/F con imagen → siempre split (texto izquierda, imagen derecha centrada).
-  const isSplit = (q.type === "multiple-choice" || q.type === "true-false") && !!q.image;
+  // Split solo si el usuario eligió 2 columnas (retrocompatibilidad: imagen presente sin flag → 2 columnas).
+  const wantsTwo = (q.type === "multiple-choice" || q.type === "true-false") && (q.useTwoColumns ?? !!q.image);
+  const isSplit = wantsTwo && !!q.image;
 
   if (q.image && !isSplit) {
     const align =
