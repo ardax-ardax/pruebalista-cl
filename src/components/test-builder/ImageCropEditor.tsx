@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Crop as CropIcon, Trash2, Upload } from "lucide-react";
-import { clampWidthPctByAlign, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type QuestionImage } from "@/lib/assessment-schema";
+import { clampWidthPctByAlign, DEFAULT_IMAGE_WIDTH_DEV_PCT, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_DEV_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type QuestionImage } from "@/lib/assessment-schema";
 import { ImageCropDialog } from "./ImageCropDialog";
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   /** Permite usar todo el rango 10–100% del slider de ancho, ignorando el clamp por alineación.
    *  Útil cuando la imagen vive dentro de una columna (ej: MC split). */
   allowFullWidth?: boolean;
+  /** Modo "development": imagen siempre centrada, ancho 10–80% (default 50%), sin selector de alineación. */
+  developmentMode?: boolean;
 }
 
 const fileToDataUrl = (f: File) =>
