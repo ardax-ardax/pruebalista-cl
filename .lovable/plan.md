@@ -1,37 +1,23 @@
-# Filtro por docente para el administrador
-
-Permite que el administrador filtre la lista de "Mis pruebas" por un docente concreto, mostrando nombre/email en lugar de UUIDs.
+# Cerrar sesión + Configuración solo para admin
 
 ## Cambios
 
-### 1. Backend — tabla `profiles`
+### 1. Menú de usuario en el header
+En `src/components/AppLayout.tsx`, a la derecha de la navegación, agregar un `DropdownMenu` con:
+- Avatar del usuario (foto de Google si existe, si no iniciales del email/nombre)
+- Encabezado del menú con nombre + email + badge "Admin" si corresponde
+- Item **"Cerrar sesión"** que llama a `signOut()` desde `useAuth` y redirige a `/auth`
 
-Migración SQL nueva:
-- Tabla `public.profiles` (`id` referenciando `auth.users(id) on delete cascade`, `email`, `display_name`, `avatar_url`, `created_at`, `updated_at`).
-- RLS habilitada con políticas:
-  - SELECT/UPDATE/INSERT: `id = auth.uid() OR has_role(auth.uid(), 'admin')`.
-- Trigger `trg_profiles_updated_at` con `set_updated_at()`.
-- Reemplazo de `handle_new_user()` para que, además de asignar rol, inserte una fila en `profiles` con datos de `raw_user_meta_data` (`full_name` / `name` / fallback al local-part del email) y `avatar_url`.
-- Backfill: insertar perfiles para los usuarios ya existentes en `auth.users`.
+### 2. Restringir `/configuracion` a administradores
+- **Nuevo `src/components/AdminGuard.tsx`**: si `!isAdmin`, muestra un toast "Solo administradores" y redirige a `/`. Mientras `loading`, muestra el mismo spinner que `AuthGuard`.
+- **`src/App.tsx`**: envolver la ruta `/configuracion` con `<AuthGuard><AdminGuard>…</AdminGuard></AuthGuard>`.
+- **`src/components/AppLayout.tsx`**: ocultar el `NavItem` de "Configuración" cuando `!isAdmin` (los usuarios normales no lo ven en el nav).
 
-### 2. Frontend — `MisPruebas.tsx`
+## Archivos
+- `src/components/AppLayout.tsx` (editar) — menú de usuario y ocultar nav de Configuración para no-admin
+- `src/components/AdminGuard.tsx` (nuevo) — guard de rol admin
+- `src/App.tsx` (editar) — aplicar `AdminGuard` a `/configuracion`
 
-- Cuando el admin tiene "Ver todas" activo, mostrar un nuevo selector **"Docente"** con:
-  - Opción "Todos los docentes" (estado actual).
-  - Una opción por cada autor presente en la lista de pruebas, con su `display_name` (o email si no hay nombre).
-- Al elegir un docente, filtrar `visible` a `userId === selectedTeacherId`.
-- Mostrar el nombre del autor en cada tarjeta cuando es de otro docente (sustituye al texto "otro docente").
-
-### 3. Carga de perfiles
-
-- Nueva función `listProfiles()` en `src/lib/profiles.ts` que hace `select id, email, display_name, avatar_url from profiles`.
-- En `MisPruebas`, si `isAdmin`, cargar perfiles una vez y mantener un mapa `userId -> profile`.
-- Para no-admins no se cargan perfiles (RLS solo deja ver el suyo).
-
-## Archivos afectados
-
-- Migración SQL nueva (vía herramienta de migración).
-- `src/lib/profiles.ts` (nuevo).
-- `src/pages/MisPruebas.tsx` (selector + uso de nombres).
-
-¿Apruebas?
+## Notas
+- No se tocan tablas ni RLS: `isAdmin` ya viene de `useAuth` (consulta a `user_roles`).
+- Los usuarios no-admin siguen pudiendo crear pruebas y ver "Mis pruebas".

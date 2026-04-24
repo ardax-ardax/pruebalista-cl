@@ -1,8 +1,42 @@
-import { NavLink } from "react-router-dom";
-import { FilePlus2, FileText, Library, Settings } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { FilePlus2, FileText, Library, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const displayName =
+    (meta.full_name as string) ||
+    (meta.name as string) ||
+    (user?.email ? user.email.split("@")[0] : "Usuario");
+  const avatarUrl = (meta.avatar_url as string) || (meta.picture as string) || undefined;
+  const initials = displayName
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
@@ -19,7 +53,39 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <nav className="flex items-center gap-1">
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
-            <NavItem to="/configuracion" label="Configuración" icon={Settings} />
+            {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="ml-1 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+                      <AvatarFallback className="text-xs">{initials || "U"}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuLabel className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">{displayName}</span>
+                      {isAdmin && (
+                        <Badge variant="secondary" className="text-[10px]">Admin</Badge>
+                      )}
+                    </div>
+                    {user.email && (
+                      <div className="text-xs font-normal text-muted-foreground truncate">
+                        {user.email}
+                      </div>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="gap-2 text-destructive focus:text-destructive">
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
         </div>
       </header>
