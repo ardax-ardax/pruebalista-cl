@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { ChevronDown, ChevronUp, Copy, Plus, Trash2 } from "lucide-react";
 import {
   newId,
@@ -145,26 +146,44 @@ export const QuestionEditor = ({
                 </div>
               )}
             </div>
-            <div>
-              <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
-              <ImageCropEditor
-                value={question.image}
-                allowFullWidth={question.type === "multiple-choice" || question.type === "true-false"}
-                onChange={(img) => {
-                  // En selección múltiple o V/F con imagen, forzamos layout en columna (imagen derecha centrada).
-                  if ((question.type === "multiple-choice" || question.type === "true-false") && img) {
-                    update({ image: img, imageLayout: "side-right" });
-                  } else {
-                    update({ image: img });
-                  }
-                }}
-              />
-              {(question.type === "multiple-choice" || question.type === "true-false") && question.image && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  La imagen se ubica en una columna a la derecha {question.type === "multiple-choice" ? "de las opciones" : "de las afirmaciones"}, centrada y ocupando el alto disponible.
-                </p>
-              )}
-            </div>
+            {(question.type === "multiple-choice" || question.type === "true-false") && (() => {
+              const useTwo = question.useTwoColumns ?? !!question.image;
+              return (
+                <>
+                  <div className="flex items-center justify-between rounded-md border border-border p-3">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-medium">Usar dos columnas (imagen a la derecha)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        En una columna no hay imagen. En dos columnas, la imagen va siempre a la derecha.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useTwo}
+                      onCheckedChange={(v) => update({ useTwoColumns: v })}
+                    />
+                  </div>
+                  {useTwo && (
+                    <div>
+                      <Label className="text-xs mb-1 block">Imagen del enunciado</Label>
+                      <ImageCropEditor
+                        value={question.image}
+                        allowFullWidth
+                        onChange={(img) => update({ image: img, imageLayout: "side-right" })}
+                      />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            {question.type !== "multiple-choice" && question.type !== "true-false" && (
+              <div>
+                <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
+                <ImageCropEditor
+                  value={question.image}
+                  onChange={(img) => update({ image: img })}
+                />
+              </div>
+            )}
           </>
         )}
 

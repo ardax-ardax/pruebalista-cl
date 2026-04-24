@@ -56,6 +56,7 @@ export interface Question {
   options?: Option[]; // para multiple-choice
   statements?: TfStatement[]; // para true-false (lista de afirmaciones)
   answerLines?: number; // para short-answer
+  useTwoColumns?: boolean; // solo aplica a multiple-choice y true-false
 }
 
 export interface AssessmentMeta {
