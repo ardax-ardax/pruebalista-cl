@@ -1,68 +1,37 @@
-# Plan: Adaptar la app para funcionar embebida (iframe) en WordPress
+# Arreglar detección de admin (error 403 en `has_role`)
 
-## Objetivo
+## Diagnóstico
 
-Permitir que la app se inserte dentro de una página de WordPress mediante un `<iframe>` y que la experiencia sea correcta a pesar de las limitaciones que impone estar embebida (sobre todo el login con Google, que Google bloquea dentro de iframes).
+Los logs de red muestran que la consulta a `user_roles` desde el cliente devuelve **403** con el mensaje:
 
-## Qué hará el usuario final
-
-1. En WordPress pegará un bloque HTML con el iframe apuntando a `https://pruebas-nlc.lovable.app`.
-2. La app detectará automáticamente que está embebida y se adaptará:
-   - Header más compacto.
-   - Botón visible de "Abrir en pantalla completa".
-   - En la pantalla de login, aviso claro y botón para abrir la app en una pestaña nueva (necesario para Google OAuth).
-3. Una vez autenticado en la pestaña nueva, el usuario puede volver al iframe y la sesión funcionará (siempre que el navegador permita cookies de terceros; en Safari puede no persistir).
-
----
-
-## Cambios técnicos
-
-### 1. Hook `useIsEmbedded`
-Nuevo archivo `src/hooks/useIsEmbedded.ts` que devuelve `true` si `window.self !== window.top`.
-
-### 2. `Auth.tsx` — login adaptado al iframe
-Cuando esté embebido:
-- Mostrar aviso: *"Por motivos de seguridad de Google, el inicio de sesión no funciona dentro de marcos. Abre la app en pantalla completa para iniciar sesión."*
-- Botón principal: **"Abrir en pantalla completa"** → abre `window.top.location` o nueva pestaña con la URL pública.
-- Botón secundario (texto pequeño): "Intentar igualmente con Google" por si funciona en algún navegador.
-
-Cuando NO esté embebido: comportamiento actual (botón Google directo).
-
-### 3. `AppLayout.tsx` — header con botón "Abrir en pantalla completa"
-- Cuando `isEmbedded` sea `true`, añadir un botón en el header con icono `ExternalLink` que abre la app en una pestaña nueva (rompiendo el iframe).
-- Opcional: ocultar el footer "Procesamiento 100% en el navegador..." para ganar espacio vertical cuando esté embebida.
-
-### 4. Snippet de WordPress (entrega)
-Te entregaré el HTML listo para pegar en un bloque "HTML personalizado" de WordPress, con versión responsive:
-
-```html
-<div style="position:relative;width:100%;height:90vh;min-height:600px;">
-  <iframe
-    src="https://pruebas-nlc.lovable.app"
-    style="position:absolute;inset:0;width:100%;height:100%;border:0;"
-    allow="clipboard-write"
-    loading="lazy"
-    title="Sistema de Pruebas">
-  </iframe>
-</div>
+```
+permission denied for function has_role
 ```
 
----
+Esto ocurre porque la política RLS de `user_roles` ("Users can view their own roles") usa `has_role(auth.uid(), 'admin')` en su `USING`, pero el rol `authenticated` de PostgREST no tiene `EXECUTE` sobre esa función. Cuando PostgREST evalúa la política, la llamada a la función falla y se rechaza la consulta — incluso aunque el usuario solo quiera ver sus propios roles.
 
-## Archivos a crear / editar
+Resultado: el frontend nunca confirma que el usuario es admin → `isAdmin` queda en `false` → no aparece "Configuración" en el menú.
 
-- `src/hooks/useIsEmbedded.ts` (nuevo)
-- `src/pages/Auth.tsx` (editar)
-- `src/components/AppLayout.tsx` (editar)
+El usuario `admin@cnlc.cl` SÍ tiene el rol admin asignado (el trigger `handle_new_user` lo asignó al registrarse), el problema es solo de permisos para leerlo.
 
-## Lo que NO se hará en este plan
+## Cambios
 
-- No se configura subdominio personalizado (`app.tudominio.com`). Si más adelante quieres esa opción (que resolvería el problema de cookies en Safari y haría que Google login funcione dentro del iframe), lo abordamos en un plan aparte.
-- No se modifica la lógica de autenticación ni la base de datos.
+### Migración SQL
+1. `GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated, anon;`
+2. Simplificar la política SELECT de `user_roles` para que un usuario pueda ver sus propios roles **sin** depender de `has_role` (evita el problema y es más simple):
+   ```sql
+   DROP POLICY "Users can view their own roles" ON public.user_roles;
+   CREATE POLICY "Users can view their own roles"
+     ON public.user_roles FOR SELECT TO authenticated
+     USING (user_id = auth.uid());
+   ```
+   La política "Admins can manage roles" sigue cubriendo el caso admin.
 
-## Limitaciones que persisten (informativas)
+### Verificación posterior
+Tras aplicar la migración, recargar la app con la sesión de `admin@cnlc.cl` y comprobar que:
+- La consulta a `user_roles` devuelve `200` con `[{"role":"admin"}]`.
+- Aparece el badge "Admin" en el menú de usuario y el enlace "Configuración" en el header.
 
-- **Safari + cookies de terceros**: la sesión puede no persistir dentro del iframe para algunos usuarios. Mitigación real = subdominio propio (Opción C en la conversación previa).
-- **Google OAuth dentro del iframe**: bloqueado por Google. Por eso el flujo será "abrir en pestaña nueva para login".
+## Archivos
 
-¿Apruebas el plan?
+- Nueva migración SQL (sin cambios en código frontend; `useAuth` ya consulta correctamente).
