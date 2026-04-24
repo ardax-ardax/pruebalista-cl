@@ -102,13 +102,12 @@ export const upsertAssessment = async (a: Assessment): Promise<Assessment> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No hay sesión iniciada");
   const next: Assessment = { ...a, updatedAt: Date.now() };
-  const row = {
+  const { error } = await supabase.from("assessments").upsert([{
     id: next.id,
     user_id: user.id,
     title: next.meta.title ?? "",
-    data: next as unknown as Record<string, unknown>,
-  };
-  const { error } = await supabase.from("assessments").upsert(row, { onConflict: "id" });
+    data: next as never,
+  }], { onConflict: "id" });
   if (error) throw error;
   return next;
 };
