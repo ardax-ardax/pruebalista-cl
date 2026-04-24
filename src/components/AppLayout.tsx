@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FilePlus2, FileText, Library, LogOut, Settings } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, Library, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
