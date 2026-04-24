@@ -167,7 +167,7 @@ function bannerTable(ctx: BuildContext): Table {
     ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Calificación", bold: true, size: ptToHalfPt(9) })] })]
     : [
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Pje. Total", bold: true, size: ptToHalfPt(9) })] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(ctx.assessment.meta.totalPoints), bold: true, size: ptToHalfPt(11) })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "", size: ptToHalfPt(11) })] }),
       ];
 
   return new Table({
@@ -202,8 +202,10 @@ function studentRow(ctx: BuildContext): Table {
           new TableCell({
             borders: cellBorders,
             width: { size: Math.round(contentWidthTwip * 0.65), type: WidthType.DXA },
+            margins: { top: 120, bottom: 80, left: 0, right: 120 },
             children: [
               new Paragraph({
+                spacing: { before: 60, after: 60 },
                 children: [
                   new TextRun({ text: "Nombre: ", bold: true, size: ptToHalfPt(9) }),
                   new TextRun({ text: ctx.assessment.meta.studentName ?? "", size: ptToHalfPt(9) }),
@@ -214,8 +216,10 @@ function studentRow(ctx: BuildContext): Table {
           new TableCell({
             borders: cellBorders,
             width: { size: Math.round(contentWidthTwip * 0.35), type: WidthType.DXA },
+            margins: { top: 120, bottom: 80, left: 120, right: 0 },
             children: [
               new Paragraph({
+                spacing: { before: 60, after: 60 },
                 children: [new TextRun({ text: "Puntaje obtenido: ", bold: true, size: ptToHalfPt(9) })],
               }),
             ],
@@ -299,9 +303,8 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
     new TextRun({ text: `${qNumber}) `, bold: true, size: baseSize }),
     ...richTextToRuns(q.prompt, { size: baseSize, bold: false }),
   ];
-  if (totalPts) {
-    headerRuns.push(new TextRun({ text: `   (${totalPts} pt${totalPts === 1 ? "" : "s"})`, italics: true, size: baseSize }));
-  }
+  // Puntaje oculto en la prueba (dato interno del docente).
+  void totalPts;
   pushP({
     alignment: AlignmentType.JUSTIFIED,
     spacing: { before: q.title ? 0 : 120, after: 60 },
@@ -497,6 +500,10 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
   const children: Array<Paragraph | Table> = [];
 
   if (template.header?.enabled) children.push(bannerTable(ctx));
+  // Separador para que la fila Nombre/Puntaje no quede pegada al banner.
+  children.push(
+    new Paragraph({ spacing: { before: 0, after: 120 }, children: [new TextRun("")] }),
+  );
   children.push(studentRow(ctx));
 
   if (assessment.meta.title) {
