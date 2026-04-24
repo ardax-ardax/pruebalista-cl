@@ -5,7 +5,9 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   ImageRun,
+  PageNumber,
   PageOrientation,
   Packer,
   Paragraph,
@@ -274,14 +276,16 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   }
   if (q.type === "info-block") {
     // info-block se mantiene junto con la pregunta siguiente.
+    const isPlain = q.infoStyle === "plain";
     return [
       new Paragraph({
         spacing: { before: 120, after: 120 },
-        shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" },
-        border: { left: { style: BorderStyle.SINGLE, size: 12, color: "000000", space: 4 } },
+        alignment: isPlain ? AlignmentType.JUSTIFIED : undefined,
+        shading: isPlain ? undefined : { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" },
+        border: isPlain ? undefined : { left: { style: BorderStyle.SINGLE, size: 12, color: "000000", space: 4 } },
         keepLines: true,
         keepNext: true,
-        children: [new TextRun({ text: q.prompt, italics: true, size: baseSize })],
+        children: [new TextRun({ text: q.prompt, italics: !isPlain, size: baseSize })],
       }),
     ];
   }
