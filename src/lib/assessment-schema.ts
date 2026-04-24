@@ -57,6 +57,7 @@ export interface Question {
   statements?: TfStatement[]; // para true-false (lista de afirmaciones)
   answerLines?: number; // para short-answer
   useTwoColumns?: boolean; // solo aplica a multiple-choice y true-false
+  infoStyle?: "highlighted" | "plain"; // solo aplica a info-block; default "highlighted"
 }
 
 export interface AssessmentMeta {

@@ -106,11 +106,31 @@ export const QuestionEditor = ({
           </div>
         )}
         {question.type === "info-block" && (
-          <Textarea
-            placeholder="Texto de instrucción o contexto…"
-            value={question.prompt}
-            onChange={(e) => update({ prompt: e.target.value })}
-          />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-medium">Estilo del bloque</Label>
+                <p className="text-xs text-muted-foreground">
+                  Destacado muestra recuadro gris con barra lateral. Texto normal lo integra al flujo.
+                </p>
+              </div>
+              <Select
+                value={question.infoStyle ?? "highlighted"}
+                onValueChange={(v) => update({ infoStyle: v as "highlighted" | "plain" })}
+              >
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="highlighted">Destacado</SelectItem>
+                  <SelectItem value="plain">Texto normal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Textarea
+              placeholder="Texto de instrucción o contexto…"
+              value={question.prompt}
+              onChange={(e) => update({ prompt: e.target.value })}
+            />
+          </div>
         )}
         {isCounted && (
           <>
