@@ -149,7 +149,24 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth, deve
       <div className="flex items-start gap-3">
         <CroppedThumb img={value} maxW={compact ? 120 : 160} />
         <div className="flex-1 space-y-2">
-          {!allowFullWidth && (
+          {developmentMode ? (
+            <div>
+              <Label className="text-xs">Ancho (%)</Label>
+              <Input
+                type="number"
+                min={MIN_IMAGE_WIDTH_PCT}
+                max={MAX_IMAGE_WIDTH_DEV_PCT}
+                value={Math.min(MAX_IMAGE_WIDTH_DEV_PCT, value.widthPct)}
+                onChange={(e) => {
+                  const next = clampWidth(Number(e.target.value), value.alignment);
+                  onChange({ ...value, widthPct: next, alignment: "center" });
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Centrada · Máx. {MAX_IMAGE_WIDTH_DEV_PCT}% del ancho disponible
+              </p>
+            </div>
+          ) : !allowFullWidth && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Ancho (%)</Label>
