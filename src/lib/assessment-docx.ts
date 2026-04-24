@@ -565,6 +565,29 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
             },
           },
         },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                border: { top: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 } },
+                children: [
+                  new TextRun({
+                    text: [ctx.institutionName, ctx.subjectLabel, ctx.gradeLabel]
+                      .filter((s) => s && s.trim().length > 0)
+                      .join(" · "),
+                    size: ptToHalfPt(8),
+                    color: "555555",
+                  }),
+                  new TextRun({ text: "    —    Página ", size: ptToHalfPt(8), color: "555555" }),
+                  new TextRun({ children: [PageNumber.CURRENT], size: ptToHalfPt(8), color: "555555" }),
+                  new TextRun({ text: " de ", size: ptToHalfPt(8), color: "555555" }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], size: ptToHalfPt(8), color: "555555" }),
+                ],
+              }),
+            ],
+          }),
+        },
         children,
       },
     ],
