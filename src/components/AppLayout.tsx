@@ -56,6 +56,18 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isEmbedded && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openInNewTab(window.location.pathname)}
+                className="ml-1 gap-2"
+                title="Abrir en pantalla completa"
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span className="hidden sm:inline">Pantalla completa</span>
+              </Button>
+            )}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
