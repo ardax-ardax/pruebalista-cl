@@ -151,7 +151,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
           ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
         </td>
-        ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><strong>${meta.totalPoints}</strong></td>`}
+        ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><br/><br/></td>`}
       </tr></table>`
     : "";
 
@@ -181,15 +181,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       qNum += 1;
       const next = assessment.questions[i + 1];
       const noSep = !next || next.type === "section-title" || next.type === "info-block";
-      const totalPts =
-        q.type === "true-false"
-          ? (q.statements ?? []).reduce((s, st) => s + (st.points ?? 0), 0)
-          : (q.points ?? 0);
-      const pts = totalPts
-        ? `<span class="pa-question-points">(${totalPts} pt${totalPts === 1 ? "" : "s"})</span>`
-        : "";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
-      const header = `${titleHtml}<div class="pa-question-header">${pts}<span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
+      const header = `${titleHtml}<div class="pa-question-header"><span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
       // Split solo si el usuario eligió 2 columnas (con retrocompatibilidad: si tenía imagen y no se eligió, asumir 2 columnas).
       const wantsTwo = (q.type === "multiple-choice" || q.type === "true-false") && (q.useTwoColumns ?? !!q.image);
       const isSplit = wantsTwo && !!q.image;
