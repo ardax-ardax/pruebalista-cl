@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Crop as CropIcon, Trash2, Upload } from "lucide-react";
-import { clampWidthPctByAlign, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type QuestionImage } from "@/lib/assessment-schema";
+import { clampWidthPctByAlign, DEFAULT_IMAGE_WIDTH_DEV_PCT, MAX_IMAGE_WIDTH_CENTER_PCT, MAX_IMAGE_WIDTH_DEV_PCT, MAX_IMAGE_WIDTH_PCT, MIN_IMAGE_WIDTH_PCT, type QuestionImage } from "@/lib/assessment-schema";
 import { ImageCropDialog } from "./ImageCropDialog";
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   /** Permite usar todo el rango 10–100% del slider de ancho, ignorando el clamp por alineación.
    *  Útil cuando la imagen vive dentro de una columna (ej: MC split). */
   allowFullWidth?: boolean;
+  /** Modo "development": imagen siempre centrada, ancho 10–80% (default 50%), sin selector de alineación. */
+  developmentMode?: boolean;
 }
 
 const fileToDataUrl = (f: File) =>
@@ -61,11 +63,21 @@ const CroppedThumb = ({ img, maxW = 160 }: { img: QuestionImage; maxW?: number }
   );
 };
 
-export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Props) => {
+export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth, developmentMode }: Props) => {
   const maxWidthPct = (alignment: QuestionImage["alignment"]) =>
-    allowFullWidth ? MAX_IMAGE_WIDTH_PCT : alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT;
+    developmentMode
+      ? MAX_IMAGE_WIDTH_DEV_PCT
+      : allowFullWidth
+        ? MAX_IMAGE_WIDTH_PCT
+        : alignment === "center"
+          ? MAX_IMAGE_WIDTH_CENTER_PCT
+          : MAX_IMAGE_WIDTH_PCT;
   const clampWidth = (w: number, alignment: QuestionImage["alignment"]) =>
-    allowFullWidth ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, w)) : clampWidthPctByAlign(w, alignment);
+    developmentMode
+      ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_DEV_PCT, Number.isFinite(w) ? w : DEFAULT_IMAGE_WIDTH_DEV_PCT))
+      : allowFullWidth
+        ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, w))
+        : clampWidthPctByAlign(w, alignment);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showCropDialog, setShowCropDialog] = useState(false);
 
@@ -78,13 +90,32 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowFullWidth, value?.src]);
 
+  // En modo desarrollo: forzar centro y limitar ancho a 80%.
+  useEffect(() => {
+    if (!developmentMode || !value) return;
+    const needsAlign = value.alignment !== "center";
+    const needsClamp = value.widthPct > MAX_IMAGE_WIDTH_DEV_PCT;
+    if (needsAlign || needsClamp) {
+      onChange({
+        ...value,
+        alignment: "center",
+        widthPct: needsClamp ? MAX_IMAGE_WIDTH_DEV_PCT : value.widthPct,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [developmentMode, value?.src]);
+
   const onPick = async (f: File) => {
     const src = await fileToDataUrl(f);
     const { w, h } = await measureImage(src);
     onChange({
       src,
       alt: f.name,
-      widthPct: allowFullWidth ? 100 : MAX_IMAGE_WIDTH_PCT,
+      widthPct: developmentMode
+        ? DEFAULT_IMAGE_WIDTH_DEV_PCT
+        : allowFullWidth
+          ? 100
+          : MAX_IMAGE_WIDTH_PCT,
       alignment: "center",
       crop: { left: 0, right: 0, top: 0, bottom: 0 },
       naturalW: w,
@@ -118,7 +149,24 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
       <div className="flex items-start gap-3">
         <CroppedThumb img={value} maxW={compact ? 120 : 160} />
         <div className="flex-1 space-y-2">
-          {!allowFullWidth && (
+          {developmentMode ? (
+            <div>
+              <Label className="text-xs">Ancho (%)</Label>
+              <Input
+                type="number"
+                min={MIN_IMAGE_WIDTH_PCT}
+                max={MAX_IMAGE_WIDTH_DEV_PCT}
+                value={Math.min(MAX_IMAGE_WIDTH_DEV_PCT, value.widthPct)}
+                onChange={(e) => {
+                  const next = clampWidth(Number(e.target.value), value.alignment);
+                  onChange({ ...value, widthPct: next, alignment: "center" });
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Centrada · Máx. {MAX_IMAGE_WIDTH_DEV_PCT}% del ancho disponible
+              </p>
+            </div>
+          ) : !allowFullWidth && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Ancho (%)</Label>

@@ -200,6 +200,7 @@ export const QuestionEditor = ({
                 <Label className="text-xs mb-1 block">Imagen del enunciado (opcional)</Label>
                 <ImageCropEditor
                   value={question.image}
+                  developmentMode={question.type === "short-answer"}
                   onChange={(img) => update({ image: img })}
                 />
               </div>

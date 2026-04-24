@@ -88,6 +88,9 @@ export const newId = () =>
 export const MAX_IMAGE_WIDTH_PCT = 20;
 export const MAX_IMAGE_WIDTH_CENTER_PCT = 50;
 export const MIN_IMAGE_WIDTH_PCT = 10;
+// Para preguntas de desarrollo: imagen siempre centrada, hasta 80%, default 50%.
+export const MAX_IMAGE_WIDTH_DEV_PCT = 80;
+export const DEFAULT_IMAGE_WIDTH_DEV_PCT = 50;
 export const clampWidthPct = (n: number): number =>
   Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, Number.isFinite(n) ? n : MAX_IMAGE_WIDTH_PCT));
 export const clampWidthPctByAlign = (
@@ -97,6 +100,8 @@ export const clampWidthPctByAlign = (
   const max = alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT;
   return Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(max, Number.isFinite(n) ? n : max));
 };
+export const clampWidthPctDev = (n: number): number =>
+  Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_DEV_PCT, Number.isFinite(n) ? n : DEFAULT_IMAGE_WIDTH_DEV_PCT));
 
 export const emptyAssessment = (templateId: string): Assessment => ({
   id: newId(),

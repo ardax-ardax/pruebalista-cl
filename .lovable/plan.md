@@ -1,64 +1,42 @@
-## Objetivo
+# Imagen en preguntas de desarrollo
 
-1. Permitir que el bloque informativo se muestre como **destacado** (estilo actual con fondo gris y barra lateral) o como **texto normal** (sin recuadro).
-2. Agregar un **pie de página estandarizado** que aparezca en el preview, en el PDF y en el .docx.
+Aplica a preguntas de tipo **Desarrollo corto** (`short-answer`). La imagen del enunciado se renderiza siempre **centrada** y por encima de las líneas de respuesta (esto último ya ocurre hoy). Cambia el rango y el valor por defecto del ancho.
 
----
+## Cambios
 
-## 1. Bloque informativo: variante normal vs. destacado
+1. **Ancho de imagen para desarrollo**
+   - Rango permitido: **10% – 80%** del ancho disponible.
+   - Valor por defecto al subir una imagen: **50%**.
+   - Alineación: **centro fija** (sin selector izquierda/derecha para este tipo de pregunta).
 
-**Esquema** (`src/lib/assessment-schema.ts`)
-- Agregar campo opcional `infoStyle?: "highlighted" | "plain"` en `Question` (default: `"highlighted"` para compatibilidad con bloques ya creados).
+2. **Editor (`QuestionEditor.tsx`)**
+   - En `short-answer`, mostrar el editor de imagen en un modo nuevo (centrado forzado, ancho hasta 80%, default 50%).
+   - Resto de tipos (info-block, section-title) siguen igual con los topes actuales.
 
-**Editor** (`src/components/test-builder/QuestionEditor.tsx`)
-- En el bloque del tipo `info-block`, agregar un selector compacto (Switch o Select con dos opciones) sobre el textarea:
-  - "Destacado (recuadro gris)"
-  - "Texto normal"
-- Setea `infoStyle` en la pregunta.
+3. **Render HTML/PDF (`assessment-render.tsx`)**
+   - La imagen del enunciado ya se inserta antes del cuerpo en `short-answer`. No requiere cambios estructurales; respeta el `widthPct` y alineación centro.
 
-**Render HTML/Preview** (`src/lib/assessment-render.tsx`)
-- Añadir clase CSS `.pa-info-block-plain` con: sin background, sin border, sin padding, sin italic, margen estándar (`margin: 6pt 0;`), justificado.
-- En el render del `info-block`, elegir clase según `q.infoStyle`:
-  - `"plain"` → `<div class="pa-info-block-plain">…</div>`
-  - en otro caso → `<div class="pa-info-block">…</div>` (actual)
-
-**DOCX** (`src/lib/assessment-docx.ts`)
-- En el bloque `if (q.type === "info-block")`, si `infoStyle === "plain"`:
-  - Generar un `Paragraph` justificado, sin `shading`, sin `border`, texto no italic, mismo `keepLines`/`keepNext` y spacing similar.
-- En otro caso, mantener el render destacado actual.
-
----
-
-## 2. Pie de página estandarizado
-
-**Contenido del footer** (idéntico en preview, PDF y .docx):
-- Línea superior fina (border-top) que separa del contenido.
-- Texto centrado en una sola línea, tamaño 8pt, color gris/negro:
-  - `{Nombre del colegio} · {Asignatura} · {Curso}  —  Página X de Y`
-- Si no hay nombre de colegio configurado, omitir esa parte y conservar el resto.
-
-**Preview / PDF** (`src/lib/assessment-render.tsx`)
-- Agregar regla CSS `.pa-footer` (border-top 0.5pt, font-size 8pt, text-align center, padding-top 4pt, margin-top 12pt, color #444).
-- En `renderAssessmentHtml`, agregar al final del `.pa-page` un `<div class="pa-footer">…</div>` con el texto. Para PDF la paginación X/Y se omite (el HTML→PDF actual no tiene contadores nativos); en su lugar mostrar solo el texto institucional.
-  - Nota: si más adelante se quiere paginación real en PDF, requeriría un motor distinto. Por ahora el preview y el PDF muestran el footer "fijo" al pie del contenido.
-
-**DOCX** (`src/lib/assessment-docx.ts`)
-- Aprovechar el footer nativo de Word: en `sections[0]`, agregar la propiedad `footers: { default: new Footer({ children: [...] }) }`.
-- El Footer contiene un único `Paragraph` centrado con:
-  - `TextRun` con el texto institucional (`institutionName · subjectLabel · gradeLabel`), seguido de `  —  Página `, luego `PageNumber.CURRENT`, `" de "`, `PageNumber.TOTAL_PAGES` (usando `new TextRun` con `children: [PageNumber.CURRENT]`).
-- Importar `Footer`, `PageNumber` desde `docx`.
-- Tamaño 8pt (16 half-points), color "555555".
-
----
+4. **Render DOCX (`assessment-docx.ts`)**
+   - Igual: ya emite la imagen antes de las líneas. Respetará el nuevo `widthPct` y centrado.
 
 ## Detalles técnicos
 
-**Archivos a modificar**
-- `src/lib/assessment-schema.ts` — campo `infoStyle`.
-- `src/components/test-builder/QuestionEditor.tsx` — selector en info-block.
-- `src/lib/assessment-render.tsx` — CSS + render condicional + footer HTML.
-- `src/lib/assessment-docx.ts` — render condicional + footer nativo de Word.
+- En `assessment-schema.ts`:
+  - Añadir constantes `MAX_IMAGE_WIDTH_DEV_PCT = 80` y `DEFAULT_IMAGE_WIDTH_DEV_PCT = 50`.
+  - Añadir helper `clampWidthPctDev(n)` que limita a `[10, 80]`.
 
-**Compatibilidad**
-- Bloques existentes sin `infoStyle` se renderizan como `"highlighted"` (comportamiento actual).
-- El footer aparece automáticamente sin configuración adicional; usa los datos ya cargados en `RenderContext` / `BuildContext`.
+- En `ImageCropEditor.tsx`:
+  - Añadir prop `mode?: "default" | "column" | "development"` (o un par de props equivalentes: `maxWidthOverride`, `defaultWidthOverride`, `lockCenter`).
+  - Modo `development`: alineación forzada `center`, slider/input con máx 80, default 50, ocultar selector de alineación.
+  - Migración suave: si una imagen existente tiene `widthPct > 80` o `alignment !== "center"`, se ajusta al cargarse (efecto similar al actual `allowFullWidth`).
+
+- En `QuestionEditor.tsx`:
+  - Para `short-answer`, usar `<ImageCropEditor mode="development" ... />` en lugar del editor genérico.
+
+## Archivos afectados
+
+- `src/lib/assessment-schema.ts`
+- `src/components/test-builder/ImageCropEditor.tsx`
+- `src/components/test-builder/QuestionEditor.tsx`
+
+¿Apruebas el plan?
