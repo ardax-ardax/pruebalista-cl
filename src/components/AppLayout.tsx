@@ -104,11 +104,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </header>
       <main className="container py-8">{children}</main>
-      <footer className="border-t border-border py-6 mt-12">
-        <div className="container text-center text-xs text-muted-foreground">
-          Procesamiento 100% en el navegador. Tus documentos no se suben a ningún servidor.
-        </div>
-      </footer>
+      {!isEmbedded && (
+        <footer className="border-t border-border py-6 mt-12">
+          <div className="container text-center text-xs text-muted-foreground">
+            Procesamiento 100% en el navegador. Tus documentos no se suben a ningún servidor.
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
