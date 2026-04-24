@@ -81,8 +81,10 @@ export const ASSESSMENT_CSS = `
   .pa-statement-num { font-weight: bold; margin-right: 4pt; }
   .pa-answer-line { border-bottom: 0.5pt solid #000; height: 14pt; margin: 4pt 0; }
   .pa-info-block { background: #f3f3f3; border-left: 2pt solid #000; padding: 6pt 8pt; margin: 6pt 0 10pt; font-style: italic; break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+  .pa-info-block-plain { margin: 6pt 0 10pt; text-align: justify; break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
   .pa-section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; margin: 14pt 0 6pt; border-bottom: 0.75pt solid #000; padding-bottom: 2pt; break-after: avoid; page-break-after: avoid; }
   .pa-section-instructions { font-size: 10pt; font-style: italic; margin: 2pt 0 8pt; text-align: justify; break-after: avoid; page-break-after: avoid; }
+  .pa-footer { margin-top: 18pt; padding-top: 4pt; border-top: 0.5pt solid #000; font-size: 8pt; text-align: center; color: #444; }
   .pa-image-wrap { margin: 6pt 0; break-inside: avoid; page-break-inside: avoid; }
   .pa-image-wrap.pa-align-left { text-align: left; }
   .pa-image-wrap.pa-align-center { text-align: center; }
@@ -176,7 +178,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
         return `<div class="pa-section-title">${escape(q.prompt || "Sección")}</div>${instr}`;
       }
       if (q.type === "info-block") {
-        return `<div class="pa-info-block">${escape(q.prompt)}</div>`;
+        const cls = q.infoStyle === "plain" ? "pa-info-block-plain" : "pa-info-block";
+        return `<div class="${cls}">${escape(q.prompt)}</div>`;
       }
       qNum += 1;
       const next = assessment.questions[i + 1];
@@ -227,7 +230,12 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     })
     .join("");
 
-  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${questionsHtml}</div>`;
+  const footerParts = [institutionName, subjectLabel, gradeLabel].filter((s) => s && s.trim().length > 0);
+  const footer = footerParts.length > 0
+    ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
+    : "";
+
+  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${questionsHtml}${footer}</div>`;
 }
 
 // Render imagen sin deformación: wrapper con aspect-ratio basado en dimensiones
