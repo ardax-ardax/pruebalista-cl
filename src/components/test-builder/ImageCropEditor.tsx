@@ -63,11 +63,21 @@ const CroppedThumb = ({ img, maxW = 160 }: { img: QuestionImage; maxW?: number }
   );
 };
 
-export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Props) => {
+export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth, developmentMode }: Props) => {
   const maxWidthPct = (alignment: QuestionImage["alignment"]) =>
-    allowFullWidth ? MAX_IMAGE_WIDTH_PCT : alignment === "center" ? MAX_IMAGE_WIDTH_CENTER_PCT : MAX_IMAGE_WIDTH_PCT;
+    developmentMode
+      ? MAX_IMAGE_WIDTH_DEV_PCT
+      : allowFullWidth
+        ? MAX_IMAGE_WIDTH_PCT
+        : alignment === "center"
+          ? MAX_IMAGE_WIDTH_CENTER_PCT
+          : MAX_IMAGE_WIDTH_PCT;
   const clampWidth = (w: number, alignment: QuestionImage["alignment"]) =>
-    allowFullWidth ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, w)) : clampWidthPctByAlign(w, alignment);
+    developmentMode
+      ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_DEV_PCT, Number.isFinite(w) ? w : DEFAULT_IMAGE_WIDTH_DEV_PCT))
+      : allowFullWidth
+        ? Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_PCT, w))
+        : clampWidthPctByAlign(w, alignment);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showCropDialog, setShowCropDialog] = useState(false);
 
@@ -80,13 +90,32 @@ export const ImageCropEditor = ({ value, onChange, compact, allowFullWidth }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowFullWidth, value?.src]);
 
+  // En modo desarrollo: forzar centro y limitar ancho a 80%.
+  useEffect(() => {
+    if (!developmentMode || !value) return;
+    const needsAlign = value.alignment !== "center";
+    const needsClamp = value.widthPct > MAX_IMAGE_WIDTH_DEV_PCT;
+    if (needsAlign || needsClamp) {
+      onChange({
+        ...value,
+        alignment: "center",
+        widthPct: needsClamp ? MAX_IMAGE_WIDTH_DEV_PCT : value.widthPct,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [developmentMode, value?.src]);
+
   const onPick = async (f: File) => {
     const src = await fileToDataUrl(f);
     const { w, h } = await measureImage(src);
     onChange({
       src,
       alt: f.name,
-      widthPct: allowFullWidth ? 100 : MAX_IMAGE_WIDTH_PCT,
+      widthPct: developmentMode
+        ? DEFAULT_IMAGE_WIDTH_DEV_PCT
+        : allowFullWidth
+          ? 100
+          : MAX_IMAGE_WIDTH_PCT,
       alignment: "center",
       crop: { left: 0, right: 0, top: 0, bottom: 0 },
       naturalW: w,
