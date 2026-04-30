@@ -116,6 +116,21 @@ const CrearPrueba = () => {
     })();
   }, [editingId]);
 
+  // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
+  // o al volver a esta pestaña (asegura que la vista previa siempre vea el
+  // último logo guardado en Configuración).
+  useEffect(() => {
+    const refreshBranding = () => {
+      setLogo(loadLogo());
+      setInstitutionName(loadInstitutionName() || "New Little College La Florida");
+    };
+    window.addEventListener("storage", refreshBranding);
+    window.addEventListener("focus", refreshBranding);
+    return () => {
+      window.removeEventListener("storage", refreshBranding);
+      window.removeEventListener("focus", refreshBranding);
+    };
+
   // Autosave: si editamos una prueba guardada, actualizamos en la nube.
   // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
