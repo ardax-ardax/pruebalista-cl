@@ -25,6 +25,30 @@ export interface OverrideOA {
 const LS_KEY = "curriculum_overrides_v1";
 
 let cache: OverrideOA[] | null = null;
+// Promesa "in-flight" para deduplicar fetches paralelos y evitar repetir la
+// descarga al cambiar entre cursos. Una vez resuelta, las llamadas siguientes
+// usan la cache en memoria de inmediato.
+let cloudPromise: Promise<{ ok: boolean; count: number; error?: string }> | null = null;
+let cloudHydratedAt = 0;
+const CLOUD_TTL_MS = 5 * 60 * 1000; // 5 min: refresca si pasa más tiempo
+
+// Natural sort para códigos como "OA 1", "OA 2", ..., "OA 10".
+// Devuelve negativo si a < b. Usa el primer número embebido.
+const naturalCompare = (a: string, b: string): number => {
+  const re = /(\d+)/g;
+  const ax = a.match(re)?.map(Number) ?? [];
+  const bx = b.match(re)?.map(Number) ?? [];
+  const len = Math.max(ax.length, bx.length);
+  for (let i = 0; i < len; i++) {
+    const av = ax[i] ?? -1;
+    const bv = bx[i] ?? -1;
+    if (av !== bv) return av - bv;
+  }
+  return a.localeCompare(b);
+};
+
+export const naturalSortByCode = <T extends { code?: string; oa_code?: string }>(arr: T[]): T[] =>
+  [...arr].sort((x, y) => naturalCompare((x.code ?? x.oa_code ?? ""), (y.code ?? y.oa_code ?? "")));
 
 const safeRead = (): OverrideOA[] => {
   if (typeof window === "undefined") return [];
