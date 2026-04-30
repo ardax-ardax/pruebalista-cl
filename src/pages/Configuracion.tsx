@@ -299,6 +299,9 @@ const Configuracion = () => {
         </CardContent>
       </Card>
 
+      {/* Gestión Curricular (solo admin) */}
+      {isAdmin && <CurriculumManager />}
+
       {/* Plantillas */}
       <div className="flex items-center justify-between mb-4">
         <div>
