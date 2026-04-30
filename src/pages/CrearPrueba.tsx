@@ -33,7 +33,7 @@ import { exportAssessmentToDocx } from "@/lib/assessment-docx";
 import { buildAssessmentFileName } from "@/lib/assessment-file-name";
 import { useAuth } from "@/hooks/useAuth";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
-import { loadAppSettings, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
+import { loadAppSettings, loadDefaultInstitutionLogo, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
 
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
@@ -99,8 +99,8 @@ const CrearPrueba = () => {
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName() || "New Little College La Florida");
     loadAppSettings()
-      .then((s) => {
-        setLogo(s.institution_logo);
+      .then(async (s) => {
+        setLogo(s.institution_logo || await loadDefaultInstitutionLogo());
         setInstitutionName(s.institution_name || "New Little College La Florida");
       })
       .catch(() => {/* keep local */});
@@ -131,8 +131,8 @@ const CrearPrueba = () => {
       setLogo(loadLogo());
       setInstitutionName(loadInstitutionName() || "New Little College La Florida");
       loadAppSettings()
-        .then((s) => {
-          setLogo(s.institution_logo);
+        .then(async (s) => {
+          setLogo(s.institution_logo || await loadDefaultInstitutionLogo());
           setInstitutionName(s.institution_name || "New Little College La Florida");
         })
         .catch(() => {/* keep local */});
