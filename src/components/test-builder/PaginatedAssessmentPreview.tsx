@@ -49,9 +49,16 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
   useLayoutEffect(() => {
     const root = measureRef.current;
     if (!root) return;
-    // El nodo raíz renderizado por renderAssessmentHtml es <div class="pa-page">.
     const paPage = root.querySelector(".pa-page") as HTMLElement | null;
     if (!paPage) return;
+    // En modo "ensayo" (SIMCE/PAES) el contenido está envuelto en `.pa-content`
+    // con CSS columns, por lo que paginarlo manualmente romperia el flujo.
+    // Dejamos al motor de columnas/print del navegador hacer el reparto y
+    // mostramos una sola "página visual" alta para el preview.
+    if (paPage.dataset.essayMode) {
+      setPages([html]);
+      return;
+    }
     const blocks = Array.from(paPage.children) as HTMLElement[];
     if (blocks.length === 0) {
       setPages([html]);
