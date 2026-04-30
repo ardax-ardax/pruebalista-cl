@@ -225,6 +225,9 @@ const CrearPrueba = () => {
             <QuestionList
               questions={assessment.questions}
               onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+              meta={assessment.meta}
+              gradeLabel={renderCtx.gradeLabel}
+              subjectLabel={renderCtx.subjectLabel}
             />
           </TabsContent>
           <TabsContent value="preview" className="mt-4">
