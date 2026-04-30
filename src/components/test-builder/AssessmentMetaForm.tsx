@@ -4,17 +4,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEFAULT_LAYOUT, LAYOUT_LIMITS, type AssessmentLayout, type AssessmentMeta } from "@/lib/assessment-schema";
+import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
 import { loadOverridesFromCloud } from "@/lib/curriculum-overrides";
 import type { TeacherAssignment } from "@/lib/teacher-assignments";
-import { ChevronDown, Info, Lock, Sparkles } from "lucide-react";
+import { Info } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
 
 interface Props {
   meta: AssessmentMeta;
