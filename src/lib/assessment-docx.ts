@@ -651,7 +651,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         shading: { fill: "FAFAFA", type: ShadingType.CLEAR, color: "auto" },
         children: [
           new TextRun({
-            text: showPaesAxis ? "EJES TEMÁTICOS / HABILIDADES" : "OBJETIVOS DE APRENDIZAJE EVALUADOS",
+            text: showPaesAxis ? "EJE TEMÁTICO PAES" : "OBJETIVOS DE APRENDIZAJE EVALUADOS",
             bold: true,
             size: ptToHalfPt(9),
           }),
