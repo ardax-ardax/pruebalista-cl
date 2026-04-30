@@ -1,49 +1,40 @@
-# Logo no visible para otros usuarios — Causa y plan
+## Problema
 
-## Diagnóstico
+Al guardar una prueba aparece:
+> "No se pudo guardar: invalid input syntax for type uuid: 'molxxluk-msryjk'"
 
-El logo y el nombre del colegio se guardan en **`localStorage`** del navegador del admin (`loadLogo()` / `saveLogo()` en `src/lib/templates.ts` usan claves locales `LOGO_KEY` e `INSTITUTION_KEY`).
+**Causa raíz:** la columna `assessments.id` en la base de datos es de tipo `uuid`, pero el frontend usa `newId()` (en `src/lib/assessment-schema.ts`) que genera identificadores tipo `"molxxluk-msryjk"` (timestamp + random base36). Eso es válido para IDs internos de preguntas/opciones, pero **no** es un UUID válido para Postgres, así que el `upsert` revienta.
 
-Por eso `ardax.ardax@gmail.com`, al ingresar desde otro navegador/sesión, ve la previsualización **sin logo y con el nombre por defecto** ("New Little College La Florida"): nunca se cargó nada en *su* `localStorage`.
+Esto afecta a **todos los usuarios** (docentes y staff), no solo a docentes — pero salta más en docentes nuevos porque ellos parten siempre de borradores nuevos creados con ese ID inválido.
 
-La marca institucional debe ser **global del colegio**, no por usuario.
+### Respuesta a tu pregunta
+> "Si yo guardo, puedo seguir editando y guardando?"
+
+Sí — una vez arreglado esto, podrás guardar la prueba y luego seguir editándola y volviendo a guardar. El sistema usa `upsert` por `id`, así que la misma prueba se actualiza en lugar de duplicarse cada vez que pulsas "Guardar".
 
 ## Solución
 
-Mover logo + nombre institucional a la tabla `app_settings` (que ya existe y es global, leíble por todos los autenticados, escribible solo por admin).
+### 1. Generar UUIDs válidos para las pruebas
+En `src/lib/assessment-schema.ts`:
+- Crear una nueva función `newAssessmentId()` que use `crypto.randomUUID()` (disponible en todos los navegadores modernos), con fallback manual si no existe.
+- Usarla en `emptyAssessment()` para el `id` de la prueba.
+- Mantener `newId()` tal cual para los IDs internos (preguntas, opciones, secciones), porque esos viven dentro del JSON `data` y no necesitan ser UUID.
 
-### 1. Base de datos (migración)
+### 2. Sanear borradores antiguos al cargar
+En `src/lib/assessment-storage.ts`, dentro de `migrate()`:
+- Si el `id` del assessment cargado **no** es un UUID válido (regex), reemplazarlo por uno nuevo con `crypto.randomUUID()`.
+- Esto garantiza que cualquier borrador local antiguo (como el tuyo actual con `"molxxluk-msryjk"`) se "cure" automáticamente la próxima vez que se abra, sin que pierdas el contenido.
 
-Agregar a `public.app_settings`:
-- `institution_name text` (default `'New Little College La Florida'`)
-- `institution_logo text` (data-URL base64, nullable)
+### 3. Validación defensiva en `upsertAssessment`
+Antes del `upsert`, verificar que `next.id` cumple el formato UUID; si no, asignarle uno nuevo. Es una red de seguridad para no volver a romper Postgres por este motivo.
 
-Las RLS existentes ya cubren el caso (todos leen, solo admin escribe).
+## Archivos a modificar
 
-### 2. Capa de datos (`src/lib/app-settings.ts`)
-
-Extender `AppSettings`, `loadAppSettings()` y `saveAppSettings()` para incluir `institutionName` y `institutionLogo`.
-
-### 3. Configuración (`src/pages/Configuracion.tsx`)
-
-- Al guardar logo / nombre institucional, persistir en `app_settings` (además de `localStorage` como caché opcional).
-- Al cargar, leer primero del backend; si existe, sobrescribir caché local.
-
-### 4. Crear Prueba (`src/pages/CrearPrueba.tsx`)
-
-- Reemplazar `setLogo(loadLogo())` y `setInstitutionName(loadInstitutionName())` por una carga desde `loadAppSettings()`.
-- Mantener listeners `storage`/`focus` solo como refresco adicional.
-- La previsualización (`AssessmentPreview` → `renderAssessmentHtml`) ya recibe `logoDataUrl` e `institutionName` por contexto, así que no requiere cambios.
-
-### 5. Migración suave para el admin
-
-Si `app_settings.institution_logo` está vacío pero hay un logo en `localStorage` del admin actual, ofrecer subirlo automáticamente al backend al entrar a Configuración (one-shot upload).
+- `src/lib/assessment-schema.ts` — añadir `newAssessmentId()` y usarla en `emptyAssessment()`.
+- `src/lib/assessment-storage.ts` — sanear `id` no-UUID en `migrate()` y en `upsertAssessment()`.
 
 ## Resultado esperado
 
-Cualquier usuario (admin, UTP o docente), en cualquier navegador, verá el mismo logo y nombre del colegio en la previsualización de pruebas, porque ambos se sirven desde la base de datos compartida.
-
-## Notas técnicas
-
-- Tamaño del logo: data-URL puede pesar; recomendable validar < 500 KB antes de guardar.
-- No se rompen exports PDF/DOCX porque siguen recibiendo el `logoDataUrl` desde `RenderContext`.
+- El docente (ardax.ardax@gmail.com) podrá guardar la prueba sin error.
+- Podrá seguir editando y guardando la misma prueba (se actualiza, no se duplica).
+- Los borradores antiguos con IDs inválidos se migran solos al abrirlos.
