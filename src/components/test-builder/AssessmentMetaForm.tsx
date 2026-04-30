@@ -2,10 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import type { GradeOption, SubjectOption, TeacherOption } from "@/lib/catalog";
+import { getOAs } from "@/lib/curriculum-data";
 
 interface Props {
   meta: AssessmentMeta;
@@ -18,6 +20,18 @@ interface Props {
 
 export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades, teachers }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
+
+  // Cuando cambia curso o asignatura limpiamos los OAs vinculados (evita códigos huérfanos).
+  const setGrade = (v: string) => onChange({ ...meta, gradeValue: v, linkedOA: [] });
+  const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
+
+  const availableOAs = getOAs(meta.gradeValue, meta.subjectValue);
+  const linked = meta.linkedOA ?? [];
+
+  const toggleOA = (code: string, checked: boolean) => {
+    const next = checked ? [...linked, code] : linked.filter((c) => c !== code);
+    set("linkedOA", next);
+  };
 
   return (
     <Card className="shadow-card">
@@ -46,7 +60,7 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label className="text-xs">Asignatura</Label>
-            <Select value={meta.subjectValue} onValueChange={(v) => set("subjectValue", v)}>
+            <Select value={meta.subjectValue} onValueChange={setSubject}>
               <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
               <SelectContent>
                 {subjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
@@ -55,7 +69,7 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
           </div>
           <div>
             <Label className="text-xs">Curso</Label>
-            <Select value={meta.gradeValue} onValueChange={(v) => set("gradeValue", v)}>
+            <Select value={meta.gradeValue} onValueChange={setGrade}>
               <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
               <SelectContent>
                 {grades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
@@ -85,6 +99,43 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
             placeholder="Lee atentamente cada pregunta. Marca solo una alternativa…"
             rows={3}
           />
+        </div>
+
+        {/* === Objetivos de Aprendizaje (Bases Curriculares Mineduc) === */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Objetivos de Aprendizaje (OA)</Label>
+            <span className="text-xs text-muted-foreground">{linked.length} seleccionado{linked.length === 1 ? "" : "s"}</span>
+          </div>
+          {!meta.gradeValue || !meta.subjectValue ? (
+            <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-3">
+              Selecciona curso y asignatura para ver los OA disponibles.
+            </p>
+          ) : availableOAs.length === 0 ? (
+            <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-3">
+              Aún no hay OAs cargados para esta combinación de curso y asignatura.
+            </p>
+          ) : (
+            <div className="space-y-1.5 rounded-md border border-border p-3 max-h-64 overflow-y-auto">
+              {availableOAs.map((oa) => {
+                const checked = linked.includes(oa.code);
+                return (
+                  <label key={oa.code} className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 rounded p-1">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(v) => toggleOA(oa.code, !!v)}
+                      className="mt-0.5"
+                    />
+                    <div className="text-xs leading-snug">
+                      <span className="font-semibold">{oa.code}</span>
+                      {oa.eje ? <span className="ml-1 text-muted-foreground">· {oa.eje}</span> : null}
+                      <div className="text-muted-foreground">{oa.description}</div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

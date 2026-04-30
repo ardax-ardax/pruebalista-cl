@@ -144,6 +144,10 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
   const meta = assessment.meta;
   const showGradeBox = template.header?.style === "banner-evaluacion";
 
+  const oaLine = (meta.linkedOA && meta.linkedOA.length > 0)
+    ? `<div class="pa-row"><span><strong>OA evaluados:</strong> ${escape(meta.linkedOA.join(", "))}</span></div>`
+    : "";
+
   const banner = template.header?.enabled
     ? `<table class="pa-banner"><tr>
         <td class="pa-logo-cell">${logoDataUrl ? `<img src="${logoDataUrl}" alt="Logo" />` : ""}</td>
@@ -151,6 +155,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           <div class="pa-inst-name">${escape(institutionName)}</div>
           <div class="pa-row"><span><strong>Profesor/a:</strong> ${escape(teacherLabel || "")}</span></div>
           <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
+          ${oaLine}
           ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
         </td>
         ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><br/><br/></td>`}

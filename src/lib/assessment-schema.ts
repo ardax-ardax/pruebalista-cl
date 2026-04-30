@@ -71,6 +71,7 @@ export interface AssessmentMeta {
   totalPoints: number; // calculado pero editable como override
   date?: string;
   studentName?: string;
+  linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
 }
 
 export interface Assessment {
@@ -116,6 +117,7 @@ export const emptyAssessment = (templateId: string): Assessment => ({
     gradeValue: "",
     teacherValue: "",
     totalPoints: 0,
+    linkedOA: [],
   },
   questions: [],
 });

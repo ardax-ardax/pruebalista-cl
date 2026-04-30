@@ -165,6 +165,18 @@ function bannerTable(ctx: BuildContext): Table {
     }),
   ];
 
+  const linkedOA = ctx.assessment.meta.linkedOA ?? [];
+  if (linkedOA.length > 0) {
+    infoChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: "OA evaluados: ", bold: true, size: ptToHalfPt(9) }),
+          new TextRun({ text: linkedOA.join(", "), size: ptToHalfPt(9) }),
+        ],
+      }),
+    );
+  }
+
   const gradeChildren: Paragraph[] = showGradeBox
     ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Calificación", bold: true, size: ptToHalfPt(9) })] })]
     : [
