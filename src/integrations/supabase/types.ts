@@ -18,18 +18,24 @@ export type Database = {
         Row: {
           allow_self_assignment: boolean
           id: boolean
+          institution_logo: string | null
+          institution_name: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           allow_self_assignment?: boolean
           id?: boolean
+          institution_logo?: string | null
+          institution_name?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           allow_self_assignment?: boolean
           id?: boolean
+          institution_logo?: string | null
+          institution_name?: string
           updated_at?: string
           updated_by?: string | null
         }
