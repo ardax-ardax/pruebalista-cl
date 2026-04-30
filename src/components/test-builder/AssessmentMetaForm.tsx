@@ -11,7 +11,7 @@ import { getSubjectsForGrade, type GradeOption, type SubjectOption, type Teacher
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
 import { loadOverridesFromCloud } from "@/lib/curriculum-overrides";
 import type { TeacherAssignment } from "@/lib/teacher-assignments";
-import { Info } from "lucide-react";
+import { Info, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 
