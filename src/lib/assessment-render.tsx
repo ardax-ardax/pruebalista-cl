@@ -268,10 +268,16 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       let body = "";
       if (q.type === "multiple-choice") {
         const letters = ["a", "b", "c", "d", "e", "f"];
-        const optionsList = `<ol class="${optsClass}">${(q.options ?? [])
+        // Filtramos opciones vacías al final (típicamente la 5ª "E" si no se rellenó).
+        const opts = (q.options ?? []).filter((o, idx, arr) => {
+          // Mantenemos las primeras 4 siempre; las posteriores solo si tienen texto o imagen.
+          if (idx < 4) return true;
+          return (o.text && o.text.trim().length > 0) || !!o.image;
+        });
+        const optionsList = `<ol class="${optsClass}">${opts
           .map((o, i) => {
             const optImg = o.image ? renderImageHtml(o.image) : "";
-            return `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}${optImg}</li>`;
+            return `<li><span class="pa-option-letter">${(letters[i] ?? String(i + 1)).toUpperCase()})</span>${escape(o.text)}${optImg}</li>`;
           })
           .join("")}</ol>`;
         if (isSplit && q.image) {
