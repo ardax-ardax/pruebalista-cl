@@ -79,6 +79,7 @@ export interface AssessmentMeta {
   date?: string;
   studentName?: string;
   linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
+  showOaInHeader?: boolean; // si true, imprime los OAs bajo las instrucciones de la prueba
 }
 
 export interface Assessment {
@@ -125,6 +126,7 @@ export const emptyAssessment = (templateId: string): Assessment => ({
     teacherValue: "",
     totalPoints: 0,
     linkedOA: [],
+    showOaInHeader: false,
   },
   questions: [],
 });

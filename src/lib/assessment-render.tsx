@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Assessment, Question, QuestionImage } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
+import { findOA } from "./curriculum-data";
 
 export interface RenderContext {
   assessment: Assessment;
@@ -62,6 +63,11 @@ export const ASSESSMENT_CSS = `
   .pa-title { font-size: 12pt; font-weight: bold; text-align: center; margin: 6pt 0 4pt; text-transform: uppercase; }
   .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
   .pa-instructions strong { font-weight: bold; }
+  .pa-oa-header { font-size: 9.5pt; margin: 0 0 10pt; padding: 5pt 8pt; border: 0.5pt solid #000; background: #fafafa; }
+  .pa-oa-header .pa-oa-title { font-weight: bold; margin-bottom: 2pt; text-transform: uppercase; font-size: 9pt; letter-spacing: 0.5pt; }
+  .pa-oa-header ul { margin: 2pt 0 0 16pt; padding: 0; }
+  .pa-oa-header li { margin: 1pt 0; }
+  .pa-oa-header .pa-oa-code { font-weight: bold; }
   .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.5pt solid #d0d0d0; page-break-inside: avoid; break-inside: avoid; }
   .pa-question.pa-no-sep { border-bottom: none; padding-bottom: 0; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
@@ -172,6 +178,20 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-instructions"><strong>Instrucciones:</strong> ${escape(meta.instructions)}</div>`
     : "";
 
+  // Bloque opcional de OAs visibles bajo el título/instrucciones (formato institucional).
+  const oaHeader = (meta.showOaInHeader && meta.linkedOA && meta.linkedOA.length > 0)
+    ? (() => {
+        const items = meta.linkedOA
+          .map((code) => {
+            const oa = findOA(meta.gradeValue, meta.subjectValue, code);
+            const desc = oa?.description ? ` — ${escape(oa.description)}` : "";
+            return `<li><span class="pa-oa-code">${escape(code)}</span>${desc}</li>`;
+          })
+          .join("");
+        return `<div class="pa-oa-header"><div class="pa-oa-title">Objetivos de Aprendizaje evaluados</div><ul>${items}</ul></div>`;
+      })()
+    : "";
+
   let qNum = 0;
   const questionsHtml = assessment.questions
     .map((q, i) => {
@@ -240,7 +260,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
     : "";
 
-  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${questionsHtml}${footer}</div>`;
+  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${oaHeader}${questionsHtml}${footer}</div>`;
 }
 
 // Render imagen sin deformación: wrapper con aspect-ratio basado en dimensiones

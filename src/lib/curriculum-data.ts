@@ -7,7 +7,7 @@
 //   - Cursos: "1ºBásico", "2ºBásico", ... (carácter `º` U+00BA, sin espacio).
 //   - Asignaturas: "Lenguaje" (Lenguaje y Comunicación), "Matemática", "Ciencias" (Ciencias Naturales).
 
-import { listOverrides, type OverrideOA } from "./curriculum-overrides";
+import { listOverrides, naturalSortByCode, type OverrideOA } from "./curriculum-overrides";
 
 export interface Indicator {
   code: string;        // Código corto, p.ej. "1.1"
@@ -498,7 +498,7 @@ export const getOAs = (gradeValue: string, subjectValue: string): OA[] => {
   if (!gradeValue || !subjectValue) return [];
   const base = buildBaseOAs(gradeValue, subjectValue);
   const effective = applyOverrides(gradeValue, subjectValue, base);
-  if (effective.length > 0) return effective;
+  if (effective.length > 0) return naturalSortByCode(effective);
   return TRANSVERSAL_SKILLS;
 };
 

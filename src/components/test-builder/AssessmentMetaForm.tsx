@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
@@ -217,6 +218,17 @@ export const AssessmentMetaForm = ({
                   );
                 })}
               </div>
+              <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                <div className="text-xs">
+                  <div className="font-medium">¿Mostrar Objetivos (OA) en el encabezado de la prueba?</div>
+                  <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán bajo el título / instrucciones del documento.</div>
+                </div>
+                <Switch
+                  checked={!!meta.showOaInHeader}
+                  onCheckedChange={(v) => set("showOaInHeader", v)}
+                  disabled={linked.length === 0}
+                />
+              </label>
             </>
           )}
         </div>
