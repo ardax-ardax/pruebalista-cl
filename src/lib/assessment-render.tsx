@@ -25,6 +25,32 @@ export const ASSESSMENT_CSS = `
     color: #000;
     line-height: 1.35;
   }
+  /* === Modo "Ensayo SIMCE" === sans-serif + 2 columnas, sin línea divisoria. */
+  .pa-page[data-essay-mode="simce"] {
+    font-family: Arial, Helvetica, "Liberation Sans", sans-serif;
+  }
+  .pa-page[data-essay-mode="simce"] .pa-content {
+    column-count: 2;
+    column-gap: 18pt;
+    column-rule: none;
+  }
+  /* === Modo "Ensayo PAES" === serif + 2 columnas con línea divisoria. */
+  .pa-page[data-essay-mode="paes"] {
+    font-family: "Times New Roman", Times, "Liberation Serif", serif;
+  }
+  .pa-page[data-essay-mode="paes"] .pa-content {
+    column-count: 2;
+    column-gap: 22pt;
+    column-rule: 0.5pt solid #000;
+  }
+  .pa-page[data-essay-mode] .pa-content > .pa-question,
+  .pa-page[data-essay-mode] .pa-content > .pa-section-title,
+  .pa-page[data-essay-mode] .pa-content > .pa-info-block,
+  .pa-page[data-essay-mode] .pa-content > .pa-info-block-plain {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .pa-banner {
     width: 100%;
     border-collapse: collapse;
@@ -272,7 +298,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
     : "";
 
-  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${oaHeader}${questionsHtml}${footer}</div>`;
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}</div>`;
+
 }
 
 // Render imagen sin deformación: wrapper con aspect-ratio basado en dimensiones

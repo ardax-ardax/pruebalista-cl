@@ -687,8 +687,19 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
                 right: cmToTwip(template.spacing.marginRight),
               };
             })(),
+            ...(template.essayMode
+              ? {
+                  column: {
+                    count: 2,
+                    space: template.essayMode === "paes" ? 567 : 454,
+                    equalWidth: true,
+                    separate: template.essayMode === "paes",
+                  },
+                }
+              : {}),
           },
         },
+
         footers: {
           default: new Footer({
             children: [

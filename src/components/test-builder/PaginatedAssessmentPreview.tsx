@@ -1,6 +1,9 @@
 // Preview paginado tipo Word: mide el HTML generado por renderAssessmentHtml,
 // reparte sus bloques de primer nivel en hojas A4 (según template.pageSize),
 // respetando page-break-inside: avoid. No duplica lógica de render.
+//
+// En modo "ensayo" (SIMCE/PAES) el HTML usa CSS columns, así que la paginación
+// la hace el motor del navegador y aquí mostramos una sola "vista".
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ASSESSMENT_CSS, effectiveMarginsCm, renderAssessmentHtml, type RenderContext } from "@/lib/assessment-render";
@@ -22,7 +25,6 @@ function geomFromTemplate(ctx: RenderContext): PageGeom {
   const t = ctx.template;
   const widthPx = t.pageSize.widthCm * CM_TO_PX;
   const heightPx = t.pageSize.heightCm * CM_TO_PX;
-  // Márgenes: si la prueba tiene `meta.layout`, sobreescriben los del template.
   const m = effectiveMarginsCm(ctx);
   const padTopPx = m.top * CM_TO_PX;
   const padRightPx = m.right * CM_TO_PX;
@@ -45,13 +47,18 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
   const geom = useMemo(() => geomFromTemplate(ctx), [ctx]);
   const measureRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState<string[]>([html]);
+  const isEssay = !!ctx.template.essayMode;
 
   useLayoutEffect(() => {
     const root = measureRef.current;
     if (!root) return;
-    // El nodo raíz renderizado por renderAssessmentHtml es <div class="pa-page">.
     const paPage = root.querySelector(".pa-page") as HTMLElement | null;
     if (!paPage) return;
+    // En modo ensayo dejamos al navegador hacer columns y mostramos todo de corrido.
+    if (paPage.dataset.essayMode) {
+      setPages([html]);
+      return;
+    }
     const blocks = Array.from(paPage.children) as HTMLElement[];
     if (blocks.length === 0) {
       setPages([html]);
@@ -82,13 +89,8 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
     setPages(pagesHtml);
   }, [html, geom.usableHeightPx, geom.usableWidthPx]);
 
-  // Re-paginar si cambia tamaño del contenedor (cambios de zoom).
   useEffect(() => {
-    const handle = () => {
-      // dispara re-medición al disparar el efecto de layout via state-toggle implícito
-      // forzamos nuevo render replicando el mismo html (referencia distinta)
-      setPages((p) => [...p]);
-    };
+    const handle = () => setPages((p) => [...p]);
     window.addEventListener("resize", handle);
     return () => window.removeEventListener("resize", handle);
   }, []);
@@ -96,7 +98,6 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
   return (
     <div className="overflow-auto rounded-md border border-border bg-muted p-6">
       <style>{ASSESSMENT_CSS}</style>
-      {/* Render off-screen para medir bloques con el ancho real de página */}
       <div
         ref={measureRef}
         aria-hidden
@@ -122,7 +123,8 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
                 color: "black",
                 boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
                 width: geom.widthPx,
-                height: geom.heightPx,
+                minHeight: geom.heightPx,
+                height: isEssay ? "auto" : geom.heightPx,
                 paddingTop: geom.padTopPx,
                 paddingRight: geom.padRightPx,
                 paddingBottom: geom.padBottomPx,
@@ -131,14 +133,21 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
                 overflow: "hidden",
               }}
             >
-              <div
-                className="pa-page"
-                style={{ width: "100%", height: "100%" }}
-                dangerouslySetInnerHTML={{ __html: pageHtml }}
-              />
+              {isEssay ? (
+                <div
+                  style={{ width: "100%", height: "100%" }}
+                  dangerouslySetInnerHTML={{ __html: pageHtml }}
+                />
+              ) : (
+                <div
+                  className="pa-page"
+                  style={{ width: "100%", height: "100%" }}
+                  dangerouslySetInnerHTML={{ __html: pageHtml }}
+                />
+              )}
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              Página {idx + 1} de {pages.length}
+              {isEssay ? "Vista previa (modo ensayo · columnas automáticas)" : `Página ${idx + 1} de ${pages.length}`}
             </div>
           </div>
         ))}

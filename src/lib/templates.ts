@@ -7,6 +7,14 @@ export interface FormatTemplate {
   name: string;
   description: string;
   isBuiltIn?: boolean;
+  /**
+   * Modo "ensayo estandarizado". Si está presente, fuerza diseño de 2 columnas
+   * de página y fuente específica sin importar la configuración por prueba.
+   *  - "simce": 2 col, sans-serif (Arial), sin línea divisoria.
+   *  - "paes":  2 col con línea divisoria, serif (Times New Roman), 5 alternativas.
+   */
+  essayMode?: "simce" | "paes";
+
   typography: {
     bodyFont: string;
     headingFont: string;
@@ -191,6 +199,113 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
       enabled: true,
       prefix: "Guía_Portafolio",
       hint: "Ej: Guía_Portafolio_N°1_Historia_7Básico",
+    },
+  },
+  // ====== Plantillas de ensayo estandarizado ======
+  {
+    id: "ensayo-simce",
+    name: "Ensayo SIMCE",
+    description:
+      "Formato oficial SIMCE, 2 columnas, fuente Sans-Serif, optimizado para ahorro de papel.",
+    isBuiltIn: true,
+    essayMode: "simce",
+    typography: {
+      bodyFont: "Arial",
+      headingFont: "Arial",
+      bodySize: 10,
+      h1Size: 13,
+      h2Size: 11,
+      h3Size: 10,
+      bodyColor: "000000",
+      headingColor: "000000",
+    },
+    spacing: {
+      marginTop: 1.5,
+      marginBottom: 1.5,
+      marginLeft: 1.5,
+      marginRight: 1.5,
+      lineSpacing: 1.1,
+      paragraphSpacingBefore: 0,
+      paragraphSpacingAfter: 4,
+    },
+    pageSize: { ...A4_PAGE_SIZE },
+    body: { alignment: "justify" },
+    headings: {
+      bold: true,
+      h1Alignment: "center",
+      h2Alignment: "left",
+      h3Alignment: "left",
+    },
+    header: {
+      enabled: true,
+      institutionName: "New Little College La Florida",
+      showLogo: true,
+      alignment: "center",
+      style: "banner-evaluacion",
+    },
+    footer: {
+      enabled: true,
+      text: "",
+      showPageNumber: true,
+      showDate: false,
+    },
+    fileNaming: {
+      enabled: true,
+      prefix: "Ensayo_SIMCE",
+      hint: "Ej: Ensayo_SIMCE_Lenguaje_4Básico",
+    },
+  },
+  {
+    id: "ensayo-paes",
+    name: "Ensayo PAES",
+    description:
+      "Formato oficial PAES, 2 columnas con línea divisoria, fuente Serif (Times New Roman), soporte para 5 alternativas.",
+    isBuiltIn: true,
+    essayMode: "paes",
+    typography: {
+      bodyFont: "Times New Roman",
+      headingFont: "Times New Roman",
+      bodySize: 11,
+      h1Size: 14,
+      h2Size: 12,
+      h3Size: 11,
+      bodyColor: "000000",
+      headingColor: "000000",
+    },
+    spacing: {
+      marginTop: 1.5,
+      marginBottom: 1.5,
+      marginLeft: 1.5,
+      marginRight: 1.5,
+      lineSpacing: 1.15,
+      paragraphSpacingBefore: 0,
+      paragraphSpacingAfter: 4,
+    },
+    pageSize: { ...LETTER_PAGE_SIZE },
+    body: { alignment: "justify" },
+    headings: {
+      bold: true,
+      h1Alignment: "center",
+      h2Alignment: "left",
+      h3Alignment: "left",
+    },
+    header: {
+      enabled: true,
+      institutionName: "New Little College La Florida",
+      showLogo: true,
+      alignment: "center",
+      style: "banner-evaluacion",
+    },
+    footer: {
+      enabled: true,
+      text: "",
+      showPageNumber: true,
+      showDate: false,
+    },
+    fileNaming: {
+      enabled: true,
+      prefix: "Ensayo_PAES",
+      hint: "Ej: Ensayo_PAES_Matemática_3Medio",
     },
   },
 ];
