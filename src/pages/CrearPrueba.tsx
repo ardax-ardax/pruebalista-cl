@@ -245,6 +245,16 @@ const CrearPrueba = () => {
     if (!assessment.meta.gradeValue) return "Selecciona el curso";
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
     if (!assessment.meta.title.trim()) return "Escribe un título para la evaluación";
+    // Validación PAES: variante + (módulo si Ciencias) + eje obligatorios.
+    if (template?.essayMode === "paes") {
+      if (!assessment.meta.paesVariant) return "Selecciona la Variante PAES";
+      if (assessment.meta.paesVariant === "ciencias" && !assessment.meta.paesCienciasModule) {
+        return "Selecciona el módulo de Ciencias (Biología, Física o Química)";
+      }
+      if (!assessment.meta.paesAxis) {
+        return "Debes seleccionar un Eje Temático para guardar el ensayo PAES";
+      }
+    }
     const counted = assessment.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block");
     if (counted.length === 0) return "Agrega al menos una pregunta";
     return null;
