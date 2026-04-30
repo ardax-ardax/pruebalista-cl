@@ -78,8 +78,10 @@ const ensureCache = (): OverrideOA[] => {
 
 export const listOverrides = (gradeValue?: string, subjectValue?: string): OverrideOA[] => {
   const all = ensureCache();
-  if (!gradeValue || !subjectValue) return all;
-  return all.filter((o) => o.grade_value === gradeValue && o.subject_value === subjectValue);
+  const filtered = (!gradeValue || !subjectValue)
+    ? all
+    : all.filter((o) => o.grade_value === gradeValue && o.subject_value === subjectValue);
+  return naturalSortByCode(filtered);
 };
 
 export const findOverride = (
