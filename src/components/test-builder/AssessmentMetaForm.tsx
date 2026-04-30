@@ -6,9 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
-import type { GradeOption, SubjectOption, TeacherOption } from "@/lib/catalog";
+import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
 import { Info } from "lucide-react";
+import { useMemo } from "react";
 
 interface Props {
   meta: AssessmentMeta;
@@ -22,8 +23,22 @@ interface Props {
 export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades, teachers }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
 
-  // Cuando cambia curso o asignatura limpiamos los OAs vinculados (evita códigos huérfanos).
-  const setGrade = (v: string) => onChange({ ...meta, gradeValue: v, linkedOA: [] });
+  // Asignaturas filtradas según el nivel del curso elegido.
+  const availableSubjects = useMemo(
+    () => (meta.gradeValue ? getSubjectsForGrade(meta.gradeValue, subjects, grades) : []),
+    [meta.gradeValue, subjects, grades],
+  );
+
+  // Cambia curso: si la asignatura actual ya no es válida en el nuevo nivel, se limpia.
+  const setGrade = (v: string) => {
+    const stillValid = getSubjectsForGrade(v, subjects, grades).some((s) => s.value === meta.subjectValue);
+    onChange({
+      ...meta,
+      gradeValue: v,
+      subjectValue: stillValid ? meta.subjectValue : "",
+      linkedOA: [],
+    });
+  };
   const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
 
   const availableOAs = getOAs(meta.gradeValue, meta.subjectValue);
@@ -61,20 +76,35 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs">Asignatura</Label>
-            <Select value={meta.subjectValue} onValueChange={setSubject}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>
-                {subjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label className="text-xs">Curso</Label>
             <Select value={meta.gradeValue} onValueChange={setGrade}>
               <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
               <SelectContent>
                 {grades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Asignatura</Label>
+            <Select
+              value={meta.subjectValue}
+              onValueChange={setSubject}
+              disabled={!meta.gradeValue}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={meta.gradeValue ? "Selecciona" : "Primero selecciona el curso"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSubjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Docente</Label>
+            <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
+              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+              <SelectContent>
+                {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
