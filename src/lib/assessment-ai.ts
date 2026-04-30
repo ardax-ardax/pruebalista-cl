@@ -37,20 +37,31 @@ export async function generateQuestion(params: GenerateQuestionParams): Promise<
     body: params,
   });
   if (error) {
-    // El SDK envuelve el error: intenta extraer message del cuerpo.
     const ctx = (error as unknown as { context?: { error?: string } }).context;
     throw new Error(ctx?.error || error.message || "Error al generar la pregunta");
   }
   if (!data || (data as { error?: string }).error) {
     throw new Error((data as { error?: string })?.error || "Respuesta vacía de la IA");
   }
-  return coerceGeneratedQuestion(data as RawGenerated, params.questionType);
+  const q = coerceGeneratedQuestion(data as RawGenerated, params.questionType);
+  q.sourceOA = params.oaCode;
+  if (params.indicators && params.indicators.length > 0) {
+    q.sourceIndicators = params.indicators.map((i) => i.code);
+  }
+  return q;
 }
 
 export function coerceGeneratedQuestion(raw: RawGenerated, type: GenerateQuestionParams["questionType"]): Question {
   const base = newQuestion(type);
   base.prompt = (raw.prompt ?? "").toString().trim() || base.prompt;
   if (raw.title) base.title = String(raw.title).trim();
+  if (raw.difficulty && ["baja", "media", "alta"].includes(raw.difficulty)) {
+    base.difficulty = raw.difficulty;
+  }
+  if (raw.rubricExplanation) {
+    base.rubric = String(raw.rubricExplanation).trim();
+  }
+
 
   if (type === "multiple-choice") {
     const opts = Array.isArray(raw.options) ? raw.options : [];
