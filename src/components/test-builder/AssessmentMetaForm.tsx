@@ -172,9 +172,15 @@ export const AssessmentMetaForm = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs">Curso</Label>
-            <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+            <Label className="text-xs flex items-center gap-1">
+              Curso
+              {isPaes && <Lock className="h-3 w-3 text-muted-foreground" />}
+              {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
+            </Label>
+            <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments || isPaes}>
+              <SelectTrigger>
+                <SelectValue placeholder={isPaes ? "IV° Medio (forzado por PAES)" : "Selecciona"} />
+              </SelectTrigger>
               <SelectContent>
                 {availableGrades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
               </SelectContent>
