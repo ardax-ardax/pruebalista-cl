@@ -63,6 +63,11 @@ export const ASSESSMENT_CSS = `
   .pa-title { font-size: 12pt; font-weight: bold; text-align: center; margin: 6pt 0 4pt; text-transform: uppercase; }
   .pa-instructions { font-size: 10pt; text-align: justify; margin: 6pt 0 10pt; }
   .pa-instructions strong { font-weight: bold; }
+  .pa-oa-header { font-size: 9.5pt; margin: 0 0 10pt; padding: 5pt 8pt; border: 0.5pt solid #000; background: #fafafa; }
+  .pa-oa-header .pa-oa-title { font-weight: bold; margin-bottom: 2pt; text-transform: uppercase; font-size: 9pt; letter-spacing: 0.5pt; }
+  .pa-oa-header ul { margin: 2pt 0 0 16pt; padding: 0; }
+  .pa-oa-header li { margin: 1pt 0; }
+  .pa-oa-header .pa-oa-code { font-weight: bold; }
   .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.5pt solid #d0d0d0; page-break-inside: avoid; break-inside: avoid; }
   .pa-question.pa-no-sep { border-bottom: none; padding-bottom: 0; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
