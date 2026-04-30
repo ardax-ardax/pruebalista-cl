@@ -4,17 +4,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEFAULT_LAYOUT, LAYOUT_LIMITS, type AssessmentLayout, type AssessmentMeta } from "@/lib/assessment-schema";
+import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
 import { loadOverridesFromCloud } from "@/lib/curriculum-overrides";
 import type { TeacherAssignment } from "@/lib/teacher-assignments";
-import { ChevronDown, Info, Lock, Sparkles } from "lucide-react";
+import { Info, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
 
 interface Props {
   meta: AssessmentMeta;
@@ -35,19 +34,13 @@ interface Props {
   lockedTeacherLabel?: string;
   /** Si es true, ignora restrictedAssignments (modo auto-asignación). */
   allowSelfAssignment?: boolean;
-  /** True para admin/utp_head: pueden editar la sección de optimización de papel. */
-  canEditLayout?: boolean;
 }
 
 export const AssessmentMetaForm = ({
   meta, onChange, templates, subjects, grades, teachers, restrictedAssignments,
   canChooseTeacher = true, lockedTeacherLabel, allowSelfAssignment = false,
-  canEditLayout = false,
 }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
-  const layout: AssessmentLayout = meta.layout ?? DEFAULT_LAYOUT;
-  const setLayout = (patch: Partial<AssessmentLayout>) =>
-    onChange({ ...meta, layout: { ...layout, ...patch } });
 
   // Hidrata la cache de currículo desde Supabase para que getOAs devuelva
   // los OAs reales (base + overrides) almacenados en la BD.
@@ -261,145 +254,7 @@ export const AssessmentMetaForm = ({
             </>
           )}
         </div>
-
-        {/* === Optimización de Diseño y Papel === */}
-        <LayoutOptimizationSection
-          layout={layout}
-          canEdit={canEditLayout}
-          onChange={setLayout}
-          onReset={() => onChange({ ...meta, layout: { ...DEFAULT_LAYOUT } })}
-        />
       </CardContent>
     </Card>
   );
 };
-
-interface LayoutSectionProps {
-  layout: AssessmentLayout;
-  canEdit: boolean;
-  onChange: (patch: Partial<AssessmentLayout>) => void;
-  onReset: () => void;
-}
-
-const LayoutOptimizationSection = ({ layout, canEdit, onChange, onReset }: LayoutSectionProps) => {
-  const [open, setOpen] = useState(false);
-  const { marginMinMm, marginMaxMm, spacingMinPt, spacingMaxPt } = LAYOUT_LIMITS;
-
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border border-border">
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-muted/40">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">Optimización de Diseño y Papel</span>
-          {!canEdit && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Solo lectura" />}
-        </div>
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-4 border-t border-border px-3 py-4">
-        {!canEdit && (
-          <p className="text-xs text-muted-foreground">
-            Solo Administradores y Jefe UTP pueden modificar estos valores. Estás viendo la
-            configuración actual en modo solo lectura.
-          </p>
-        )}
-
-        <LayoutSlider
-          label="Margen superior"
-          value={layout.marginTop}
-          min={marginMinMm}
-          max={marginMaxMm}
-          step={1}
-          unit="mm"
-          disabled={!canEdit}
-          onChange={(v) => onChange({ marginTop: v })}
-        />
-        <LayoutSlider
-          label="Margen inferior"
-          value={layout.marginBottom}
-          min={marginMinMm}
-          max={marginMaxMm}
-          step={1}
-          unit="mm"
-          disabled={!canEdit}
-          onChange={(v) => onChange({ marginBottom: v })}
-        />
-        <LayoutSlider
-          label="Márgenes laterales (izq./der.)"
-          value={layout.marginSide}
-          min={marginMinMm}
-          max={marginMaxMm}
-          step={1}
-          unit="mm"
-          disabled={!canEdit}
-          onChange={(v) => onChange({ marginSide: v })}
-        />
-        <LayoutSlider
-          label="Espacio entre preguntas"
-          value={layout.questionSpacing}
-          min={spacingMinPt}
-          max={spacingMaxPt}
-          step={1}
-          unit="pt"
-          disabled={!canEdit}
-          onChange={(v) => onChange({ questionSpacing: v })}
-        />
-
-        <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-          <div className="text-xs">
-            <div className="font-medium">Alternativas en 2 columnas</div>
-            <div className="text-muted-foreground">
-              Distribuye A/B/C/D en dos columnas para reducir el alto de cada pregunta y ahorrar papel.
-            </div>
-          </div>
-          <Switch
-            checked={layout.optionsColumns === 2}
-            onCheckedChange={(v) => onChange({ optionsColumns: v ? 2 : 1 })}
-            disabled={!canEdit}
-          />
-        </label>
-
-        {canEdit && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onReset}
-              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-            >
-              Restablecer valores por defecto
-            </button>
-          </div>
-        )}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-};
-
-interface LayoutSliderProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  unit: string;
-  disabled?: boolean;
-  onChange: (v: number) => void;
-}
-
-const LayoutSlider = ({ label, value, min, max, step, unit, disabled, onChange }: LayoutSliderProps) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between">
-      <Label className="text-xs">{label}</Label>
-      <span className="text-xs font-mono text-muted-foreground">
-        {value} {unit}
-      </span>
-    </div>
-    <Slider
-      value={[value]}
-      min={min}
-      max={max}
-      step={step}
-      disabled={disabled}
-      onValueChange={(vals) => onChange(vals[0] ?? value)}
-    />
-  </div>
-);

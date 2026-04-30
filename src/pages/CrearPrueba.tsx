@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
 import { QuestionList } from "@/components/test-builder/QuestionList";
 import { AssessmentPreview } from "@/components/test-builder/AssessmentPreview";
+import { PreviewLayoutToolbar } from "@/components/test-builder/PreviewLayoutToolbar";
+
 
 import {
   computeTotalPoints,
@@ -328,7 +330,6 @@ const CrearPrueba = () => {
               canChooseTeacher={canChooseTeacher}
               lockedTeacherLabel={lockedTeacherLabel}
               allowSelfAssignment={appSettings.allow_self_assignment}
-              canEditLayout={isStaff}
             />
           </TabsContent>
           <TabsContent value="content" className="mt-4">
@@ -340,7 +341,13 @@ const CrearPrueba = () => {
               subjectLabel={renderCtx.subjectLabel}
             />
           </TabsContent>
-          <TabsContent value="preview" className="mt-4">
+          <TabsContent value="preview" className="mt-4 space-y-4">
+
+            <PreviewLayoutToolbar
+              meta={assessment.meta}
+              onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+              canEdit={isStaff}
+            />
             <Card className="shadow-card">
               <CardContent className="p-0">
                 <AssessmentPreview ctx={renderCtx} />
