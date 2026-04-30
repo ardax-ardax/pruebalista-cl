@@ -195,6 +195,14 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       })()
     : "";
 
+  // Layout overrides (Optimización de Espacio): per-prueba.
+  const layout = meta.layout;
+  const twoColOptions = layout?.optionsColumns === 2;
+  const qSpacingPt = layout?.questionSpacing;
+  const qStyleAttr = qSpacingPt != null
+    ? ` style="margin-bottom:${qSpacingPt}pt;padding-bottom:${Math.max(2, qSpacingPt - 6)}pt;"`
+    : "";
+
   let qNum = 0;
   const questionsHtml = assessment.questions
     .map((q, i) => {
@@ -214,14 +222,15 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       const noSep = !next || next.type === "section-title" || next.type === "info-block";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
       const header = `${titleHtml}<div class="pa-question-header"><span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
-      // Split solo si el usuario eligió 2 columnas (con retrocompatibilidad: si tenía imagen y no se eligió, asumir 2 columnas).
       const wantsTwo = (q.type === "multiple-choice" || q.type === "true-false") && (q.useTwoColumns ?? !!q.image);
       const isSplit = wantsTwo && !!q.image;
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
+      // Solo aplicamos 2 columnas globales si la pregunta NO está en split (split ya divide la celda).
+      const optsClass = `pa-options${twoColOptions && !isSplit ? " pa-options-2col" : ""}`;
       let body = "";
       if (q.type === "multiple-choice") {
         const letters = ["a", "b", "c", "d", "e", "f"];
-        const optionsList = `<ol class="pa-options">${(q.options ?? [])
+        const optionsList = `<ol class="${optsClass}">${(q.options ?? [])
           .map((o, i) => {
             const optImg = o.image ? renderImageHtml(o.image) : "";
             return `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}${optImg}</li>`;
@@ -254,7 +263,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           .map(() => `<div class="pa-answer-line"></div>`)
           .join("");
       }
-      return `<div class="pa-question${noSep ? " pa-no-sep" : ""}">${header}${headerImg}${body}</div>`;
+      return `<div class="pa-question${noSep ? " pa-no-sep" : ""}"${qStyleAttr}>${header}${headerImg}${body}</div>`;
     })
     .join("");
 
