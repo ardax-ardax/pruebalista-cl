@@ -109,7 +109,8 @@ export interface AssessmentMeta {
   layout?: AssessmentLayout; // optimización de espacio (papel)
   // === Modo Ensayo PAES ===
   paesVariant?: PaesVariant;
-  paesAxis?: string; // Eje temático / habilidad (texto libre)
+  paesAxis?: string; // Eje temático / habilidad (catálogo oficial DEMRE)
+  paesCienciasModule?: "biologia" | "fisica" | "quimica"; // sub-módulo cuando variant === "ciencias"
 }
 
 // Variantes oficiales del Ensayo PAES.
