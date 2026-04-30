@@ -178,6 +178,20 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-instructions"><strong>Instrucciones:</strong> ${escape(meta.instructions)}</div>`
     : "";
 
+  // Bloque opcional de OAs visibles bajo el título/instrucciones (formato institucional).
+  const oaHeader = (meta.showOaInHeader && meta.linkedOA && meta.linkedOA.length > 0)
+    ? (() => {
+        const items = meta.linkedOA
+          .map((code) => {
+            const oa = findOA(meta.gradeValue, meta.subjectValue, code);
+            const desc = oa?.description ? ` — ${escape(oa.description)}` : "";
+            return `<li><span class="pa-oa-code">${escape(code)}</span>${desc}</li>`;
+          })
+          .join("");
+        return `<div class="pa-oa-header"><div class="pa-oa-title">Objetivos de Aprendizaje evaluados</div><ul>${items}</ul></div>`;
+      })()
+    : "";
+
   let qNum = 0;
   const questionsHtml = assessment.questions
     .map((q, i) => {
