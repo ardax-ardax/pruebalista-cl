@@ -1,41 +1,49 @@
+# Logo no visible para otros usuarios — Causa y plan
+
 ## Diagnóstico
 
-El mensaje "permission denied for function is_staff" aparece porque la función `public.is_staff(uuid)` se creó sin conceder permisos de ejecución a los roles `authenticated` y `anon`.
+El logo y el nombre del colegio se guardan en **`localStorage`** del navegador del admin (`loadLogo()` / `saveLogo()` en `src/lib/templates.ts` usan claves locales `LOGO_KEY` e `INSTITUTION_KEY`).
 
-Verificación en la base de datos:
+Por eso `ardax.ardax@gmail.com`, al ingresar desde otro navegador/sesión, ve la previsualización **sin logo y con el nombre por defecto** ("New Little College La Florida"): nunca se cargó nada en *su* `localStorage`.
 
-```text
-has_role  → EXECUTE: postgres, service_role, sandbox_exec, authenticated, anon  ✅
-is_staff  → EXECUTE: postgres, service_role, sandbox_exec                       ❌
-```
+La marca institucional debe ser **global del colegio**, no por usuario.
 
-Como las policies RLS de `profiles`, `assessments`, `curriculum_base` y `teacher_assignments` evalúan `is_staff(auth.uid())`, cualquier `SELECT` sobre esas tablas desde el cliente (incluyendo el del Admin) falla con ese error antes incluso de evaluar el resultado de la función. Por eso `listProfiles()` devuelve vacío y aparece el banner rojo en `StaffManager`.
+## Solución
 
-No es un problema de rol del usuario ni de RLS lógicamente mal escrita: es un permiso a nivel de función.
+Mover logo + nombre institucional a la tabla `app_settings` (que ya existe y es global, leíble por todos los autenticados, escribible solo por admin).
 
-## Cambios propuestos
+### 1. Base de datos (migración)
 
-### 1. Migración SQL (única y mínima)
+Agregar a `public.app_settings`:
+- `institution_name text` (default `'New Little College La Florida'`)
+- `institution_logo text` (data-URL base64, nullable)
 
-Conceder `EXECUTE` sobre `is_staff` y, por seguridad, reafirmarlo también para `has_role` (idempotente).
+Las RLS existentes ya cubren el caso (todos leen, solo admin escribe).
 
-```sql
-GRANT EXECUTE ON FUNCTION public.is_staff(uuid) TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, anon;
-```
+### 2. Capa de datos (`src/lib/app-settings.ts`)
 
-Esto no toca esquemas reservados ni cambia la lógica de seguridad: las funciones siguen siendo `SECURITY DEFINER` y solo devuelven `true/false` según el contenido de `user_roles`.
+Extender `AppSettings`, `loadAppSettings()` y `saveAppSettings()` para incluir `institutionName` y `institutionLogo`.
 
-### 2. Validación posterior
+### 3. Configuración (`src/pages/Configuracion.tsx`)
 
-Después de aplicar la migración:
-- Recargar `Configuración` con la sesión de Admin.
-- Confirmar que el banner rojo desaparece.
-- Confirmar que la lista "Roles de usuarios" se llena (al menos con el propio admin) y que el botón "Sincronizar perfiles desde Auth" trae el resto.
-- Verificar de paso que `MisPruebas` (vista UTP/Admin) y la lectura de `curriculum_base` siguen funcionando con normalidad.
+- Al guardar logo / nombre institucional, persistir en `app_settings` (además de `localStorage` como caché opcional).
+- Al cargar, leer primero del backend; si existe, sobrescribir caché local.
 
-## Archivos que se modifican
+### 4. Crear Prueba (`src/pages/CrearPrueba.tsx`)
 
-- Nueva migración SQL en Supabase (gestionada por la herramienta de migraciones). No se modifica código de la app — el bug es 100% de permisos en la base.
+- Reemplazar `setLogo(loadLogo())` y `setInstitutionName(loadInstitutionName())` por una carga desde `loadAppSettings()`.
+- Mantener listeners `storage`/`focus` solo como refresco adicional.
+- La previsualización (`AssessmentPreview` → `renderAssessmentHtml`) ya recibe `logoDataUrl` e `institutionName` por contexto, así que no requiere cambios.
 
-¿Apruebas aplicar este `GRANT EXECUTE`?
+### 5. Migración suave para el admin
+
+Si `app_settings.institution_logo` está vacío pero hay un logo en `localStorage` del admin actual, ofrecer subirlo automáticamente al backend al entrar a Configuración (one-shot upload).
+
+## Resultado esperado
+
+Cualquier usuario (admin, UTP o docente), en cualquier navegador, verá el mismo logo y nombre del colegio en la previsualización de pruebas, porque ambos se sirven desde la base de datos compartida.
+
+## Notas técnicas
+
+- Tamaño del logo: data-URL puede pesar; recomendable validar < 500 KB antes de guardar.
+- No se rompen exports PDF/DOCX porque siguen recibiendo el `logoDataUrl` desde `RenderContext`.
