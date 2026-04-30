@@ -48,6 +48,8 @@ const CrearPrueba = () => {
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
 
   const { user, isStaff, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
