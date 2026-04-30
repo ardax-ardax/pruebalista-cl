@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckSquare, FileText, Hash, Info, ListChecks, Plus, Sparkles, Type } from "lucide-react";
 import {
   computeTotalPoints,
   newQuestion,
+  PAES_VARIANTS,
+  SIMCE_QUESTION_GOAL,
   type AssessmentMeta,
   type Question,
   type QuestionType,
 } from "@/lib/assessment-schema";
+import { loadTemplates } from "@/lib/templates";
+import { Progress } from "@/components/ui/progress";
 import { QuestionEditor } from "./QuestionEditor";
 import { AIGenerateDialog } from "./AIGenerateDialog";
 
@@ -69,12 +73,31 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
   const total = computeTotalPoints(questions);
   const counted = questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
 
+  // Detecta el essayMode del template actual (SIMCE / PAES) para restringir tipos.
+  const essayMode = useMemo(() => {
+    const t = loadTemplates().find((tt) => tt.id === meta.templateId);
+    return t?.essayMode ?? null;
+  }, [meta.templateId]);
+  const isEssay = !!essayMode;
+  const addable = isEssay
+    ? ADDABLE.filter((it) => it.type !== "short-answer" && it.type !== "true-false")
+    : ADDABLE;
+
+  // Meta de preguntas según variante PAES o SIMCE.
+  const questionGoal = useMemo(() => {
+    if (essayMode === "paes") {
+      return PAES_VARIANTS.find((v) => v.value === meta.paesVariant)?.questionGoal ?? 65;
+    }
+    if (essayMode === "simce") return SIMCE_QUESTION_GOAL;
+    return null;
+  }, [essayMode, meta.paesVariant]);
+
   return (
     <div className="space-y-4">
       <Card className="shadow-card">
         <CardContent className="p-4 flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium mr-2">Agregar:</span>
-          {ADDABLE.map((it) => {
+          {addable.map((it) => {
             const Icon = it.icon;
             return (
               <Button key={it.type} type="button" size="sm" variant="outline" onClick={() => add(it.type)}>
@@ -91,6 +114,29 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         </CardContent>
       </Card>
 
+      {questionGoal !== null && (
+        <Card className="shadow-card border-primary/30">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium">
+                Progreso oficial {essayMode === "paes" ? "PAES" : "SIMCE"}
+              </span>
+              <span className="font-mono text-muted-foreground">
+                {counted} / {questionGoal} preguntas
+              </span>
+            </div>
+            <Progress value={Math.min(100, (counted / questionGoal) * 100)} className="h-2" />
+            {counted < questionGoal && (
+              <p className="text-xs text-muted-foreground">
+                Faltan {questionGoal - counted} para completar el ensayo oficial.
+              </p>
+            )}
+            {counted >= questionGoal && (
+              <p className="text-xs text-emerald-600">Meta oficial alcanzada ✓</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       {questions.length === 0 ? (
         <Card className="shadow-card border-dashed">
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
