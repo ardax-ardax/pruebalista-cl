@@ -7,7 +7,7 @@
 //   - Cursos: "1ºBásico", "2ºBásico", ... (carácter `º` U+00BA, sin espacio).
 //   - Asignaturas: "Lenguaje" (Lenguaje y Comunicación), "Matemática", "Ciencias" (Ciencias Naturales).
 
-import { listOverrides, type OverrideOA } from "./curriculum-overrides";
+import { listOverrides, naturalSortByCode, type OverrideOA } from "./curriculum-overrides";
 
 export interface Indicator {
   code: string;        // Código corto, p.ej. "1.1"
