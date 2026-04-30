@@ -167,7 +167,7 @@ export const clampWidthPctDev = (n: number): number =>
   Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_DEV_PCT, Number.isFinite(n) ? n : DEFAULT_IMAGE_WIDTH_DEV_PCT));
 
 export const emptyAssessment = (templateId: string): Assessment => ({
-  id: newId(),
+  id: newAssessmentId(),
   createdAt: Date.now(),
   updatedAt: Date.now(),
   meta: {
