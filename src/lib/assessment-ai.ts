@@ -28,6 +28,8 @@ interface RawGenerated {
   options?: Array<{ text?: string; correct?: boolean }>;
   statements?: Array<{ text?: string; answer?: "V" | "F"; points?: number }>;
   answerLines?: number;
+  difficulty?: "baja" | "media" | "alta";
+  rubricExplanation?: string;
 }
 
 export async function generateQuestion(params: GenerateQuestionParams): Promise<Question> {
