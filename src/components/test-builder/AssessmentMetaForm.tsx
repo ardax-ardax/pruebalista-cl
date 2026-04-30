@@ -8,9 +8,10 @@ import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
+import { loadOverridesFromCloud } from "@/lib/curriculum-overrides";
 import type { TeacherAssignment } from "@/lib/teacher-assignments";
 import { Info, Lock } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface Props {
   meta: AssessmentMeta;
@@ -30,6 +31,15 @@ export const AssessmentMetaForm = ({
   meta, onChange, templates, subjects, grades, teachers, restrictedAssignments,
 }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
+
+  // Hidrata la cache de currículo desde Supabase para que getOAs devuelva
+  // los OAs reales (base + overrides) almacenados en la BD.
+  const [cloudReady, setCloudReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    loadOverridesFromCloud().finally(() => { if (active) setCloudReady(true); });
+    return () => { active = false; };
+  }, []);
 
   const isRestricted = !!restrictedAssignments;
 
@@ -69,7 +79,11 @@ export const AssessmentMetaForm = ({
   };
   const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
 
-  const availableOAs = getOAs(meta.gradeValue, meta.subjectValue);
+  // Recalcula cuando la nube termina de hidratar.
+  const availableOAs = useMemo(
+    () => getOAs(meta.gradeValue, meta.subjectValue),
+    [meta.gradeValue, meta.subjectValue, cloudReady],
+  );
   const isFallback = !!meta.gradeValue && !!meta.subjectValue && !hasCurriculum(meta.gradeValue, meta.subjectValue);
   const linked = meta.linkedOA ?? [];
 
