@@ -158,7 +158,9 @@ const CrearPrueba = () => {
     if (!assessment || !template) return null;
     const subjectLabel = subjects.find((s) => s.value === assessment.meta.subjectValue)?.label ?? "";
     const gradeLabel = grades.find((g) => g.value === assessment.meta.gradeValue)?.label ?? "";
-    const teacherLabel = teachers.find((t) => t.value === assessment.meta.teacherValue)?.label ?? "";
+    const teacherLabel = teachers.find((t) => t.value === assessment.meta.teacherValue)?.label
+      ?? assessment.meta.teacherValue
+      ?? "";
     const totalPoints = computeTotalPoints(assessment.questions);
     return {
       assessment: { ...assessment, meta: { ...assessment.meta, totalPoints } },
