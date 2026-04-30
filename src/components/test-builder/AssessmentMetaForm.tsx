@@ -35,13 +35,19 @@ interface Props {
   lockedTeacherLabel?: string;
   /** Si es true, ignora restrictedAssignments (modo auto-asignación). */
   allowSelfAssignment?: boolean;
+  /** True para admin/utp_head: pueden editar la sección de optimización de papel. */
+  canEditLayout?: boolean;
 }
 
 export const AssessmentMetaForm = ({
   meta, onChange, templates, subjects, grades, teachers, restrictedAssignments,
   canChooseTeacher = true, lockedTeacherLabel, allowSelfAssignment = false,
+  canEditLayout = false,
 }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
+  const layout: AssessmentLayout = meta.layout ?? DEFAULT_LAYOUT;
+  const setLayout = (patch: Partial<AssessmentLayout>) =>
+    onChange({ ...meta, layout: { ...layout, ...patch } });
 
   // Hidrata la cache de currículo desde Supabase para que getOAs devuelva
   // los OAs reales (base + overrides) almacenados en la BD.
