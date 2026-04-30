@@ -298,7 +298,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
     : "";
 
-  return `<div class="pa-page">${banner}${studentRow}${title}${instructions}${oaHeader}${questionsHtml}${footer}</div>`;
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}</div>`;
+
 }
 
 // Render imagen sin deformación: wrapper con aspect-ratio basado en dimensiones
