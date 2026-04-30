@@ -398,6 +398,91 @@ export const StaffManager = () => {
             )}
           </div>
         </section>
+
+        {/* Importación masiva por email */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Importación masiva por email</h3>
+            <Badge variant="secondary" className="text-[10px]">{invitations.length}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pega una lista de correos (separados por coma, espacio o salto de línea). Al iniciar sesión por primera vez, cada usuario recibirá automáticamente el rol indicado.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-2">
+            <Textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder="profesor1@cnlc.cl, profesor2@cnlc.cl&#10;profesor3@cnlc.cl"
+              rows={3}
+              className="text-xs"
+            />
+            <div className="flex flex-col gap-2">
+              <Select value={bulkRole} onValueChange={(v) => setBulkRole(v as InvitationRole)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Docente</SelectItem>
+                  <SelectItem value="utp_head">Jefe UTP</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleBulkImport}
+                disabled={importing || !bulkText.trim()}
+                size="sm"
+                className="gap-2"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {importing ? "Importando…" : "Importar"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-border max-h-[220px] overflow-y-auto">
+            {invitations.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Aún no hay invitaciones pendientes.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-3 py-2">Email</th>
+                    <th className="text-left font-medium px-3 py-2 w-[120px]">Rol</th>
+                    <th className="text-left font-medium px-3 py-2 w-[110px]">Estado</th>
+                    <th className="px-3 py-2 w-[40px]"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invitations.map((inv) => (
+                    <tr key={inv.id} className="border-t border-border">
+                      <td className="px-3 py-1.5 truncate max-w-[260px]">{inv.email}</td>
+                      <td className="px-3 py-1.5 text-xs">{ROLE_LABELS[inv.role]}</td>
+                      <td className="px-3 py-1.5">
+                        {inv.consumed_at ? (
+                          <Badge variant="secondary" className="text-[10px]">Consumida</Badge>
+                        ) : (
+                          <Badge className="text-[10px]">Pendiente</Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteInvitation(inv.id)}
+                          className="text-destructive hover:text-destructive/80"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
       </CardContent>
     </Card>
   );
