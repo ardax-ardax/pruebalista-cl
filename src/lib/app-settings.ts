@@ -1,5 +1,6 @@
 // Configuración global de la app (tabla single-row).
 import { supabase } from "@/integrations/supabase/client";
+import defaultInstitutionLogoUrl from "@/assets/logo-colegio.jpg";
 
 export interface AppSettings {
   allow_self_assignment: boolean;
@@ -13,6 +14,21 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   allow_self_assignment: false,
   institution_name: DEFAULT_INSTITUTION_NAME,
   institution_logo: null,
+};
+
+let defaultLogoDataUrlPromise: Promise<string | null> | null = null;
+
+export const loadDefaultInstitutionLogo = (): Promise<string | null> => {
+  defaultLogoDataUrlPromise ??= fetch(defaultInstitutionLogoUrl)
+    .then((response) => response.blob())
+    .then((blob) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    }))
+    .catch(() => null);
+  return defaultLogoDataUrlPromise;
 };
 
 export const loadAppSettings = async (): Promise<AppSettings> => {
