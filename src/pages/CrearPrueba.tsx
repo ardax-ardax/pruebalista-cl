@@ -45,6 +45,8 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
 
   const { user, isStaff, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -56,6 +58,20 @@ const CrearPrueba = () => {
     if (isStaff) { setRestrictedAssignments(null); return; }
     listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
   }, [user, isStaff, authLoading]);
+
+  // Si staff abre una prueba ajena, recuperamos el dueño para mostrarlo.
+  useEffect(() => {
+    if (!editingId || !isStaff) { setOwnerId(null); setOwnerProfile(null); return; }
+    getAssessmentOwner(editingId).then(async (oid) => {
+      setOwnerId(oid);
+      if (oid && oid !== user?.id) {
+        const profs = await listProfiles();
+        setOwnerProfile(profs.find((p) => p.id === oid) ?? null);
+      } else {
+        setOwnerProfile(null);
+      }
+    });
+  }, [editingId, isStaff, user?.id]);
 
   useEffect(() => {
     const t = loadTemplates();
