@@ -6,9 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
-import type { GradeOption, SubjectOption, TeacherOption } from "@/lib/catalog";
+import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
 import { Info } from "lucide-react";
+import { useMemo } from "react";
 
 interface Props {
   meta: AssessmentMeta;
