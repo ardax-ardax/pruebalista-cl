@@ -498,7 +498,7 @@ export const getOAs = (gradeValue: string, subjectValue: string): OA[] => {
   if (!gradeValue || !subjectValue) return [];
   const base = buildBaseOAs(gradeValue, subjectValue);
   const effective = applyOverrides(gradeValue, subjectValue, base);
-  if (effective.length > 0) return effective;
+  if (effective.length > 0) return naturalSortByCode(effective);
   return TRANSVERSAL_SKILLS;
 };
 
