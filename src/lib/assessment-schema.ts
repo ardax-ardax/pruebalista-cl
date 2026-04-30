@@ -126,6 +126,7 @@ export const emptyAssessment = (templateId: string): Assessment => ({
     teacherValue: "",
     totalPoints: 0,
     linkedOA: [],
+    showOaInHeader: false,
   },
   questions: [],
 });
