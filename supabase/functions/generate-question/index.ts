@@ -142,6 +142,8 @@ Reglas estrictas:
 - En selección múltiple: 4 alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
 - En V/F: afirmaciones bien formuladas, mezcla equilibrada de V y F.
 - No incluyas la respuesta dentro del enunciado.
+- Estima la dificultad ("baja", "media" o "alta") según el curso.
+- Entrega siempre 'rubricExplanation': respuesta correcta detallada y criterios de corrección para la pauta.
 - Devuelve la pregunta exclusivamente vía la tool 'emit_question'.`;
 
     const indicatorsBlock =

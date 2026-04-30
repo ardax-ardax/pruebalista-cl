@@ -24,7 +24,7 @@ const MisPruebas = () => {
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isStaff, isUtpHead, isAdmin } = useAuth();
 
   const refresh = async () => {
     const all = await listAssessmentsWithOwner();
