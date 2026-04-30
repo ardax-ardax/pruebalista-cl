@@ -120,6 +120,33 @@ export interface Assessment {
 export const newId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+// UUID v4 válido para columnas Postgres tipo `uuid` (p.ej. assessments.id).
+// Usa crypto.randomUUID() cuando esté disponible y cae a un fallback manual.
+export const newAssessmentId = (): string => {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // ignore
+  }
+  // Fallback RFC4122 v4
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (s: unknown): s is string =>
+  typeof s === "string" && UUID_RE.test(s);
+
 // Tope estándar (left/right): 20%. Tope para alineación centro: 50%.
 export const MAX_IMAGE_WIDTH_PCT = 20;
 export const MAX_IMAGE_WIDTH_CENTER_PCT = 50;
@@ -140,7 +167,7 @@ export const clampWidthPctDev = (n: number): number =>
   Math.max(MIN_IMAGE_WIDTH_PCT, Math.min(MAX_IMAGE_WIDTH_DEV_PCT, Number.isFinite(n) ? n : DEFAULT_IMAGE_WIDTH_DEV_PCT));
 
 export const emptyAssessment = (templateId: string): Assessment => ({
-  id: newId(),
+  id: newAssessmentId(),
   createdAt: Date.now(),
   updatedAt: Date.now(),
   meta: {

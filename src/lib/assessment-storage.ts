@@ -2,7 +2,7 @@
 // con RLS. El borrador (mientras se edita una prueba nueva) sigue en IndexedDB
 // porque es local al dispositivo.
 import { get, set, del } from "idb-keyval";
-import { migrateQuestion, type Assessment } from "./assessment-schema";
+import { migrateQuestion, newAssessmentId, isUuid, type Assessment } from "./assessment-schema";
 import { supabase } from "@/integrations/supabase/client";
 
 const KEY_DRAFT = "estandarizador.assessment.draft.v1";
@@ -10,6 +10,9 @@ const KEY_LOCAL_LIB = "estandarizador.assessment.library.v1";
 
 const migrate = (a: Assessment): Assessment => ({
   ...a,
+  // Si el borrador trae un id antiguo no-UUID (formato local previo),
+  // lo reemplazamos por un UUID válido para que pueda persistirse en Postgres.
+  id: isUuid(a.id) ? a.id : newAssessmentId(),
   meta: { ...a.meta, linkedOA: a.meta?.linkedOA ?? [] },
   questions: (a.questions ?? []).map(migrateQuestion),
 });
@@ -102,10 +105,8 @@ export const getAssessment = async (id: string): Promise<Assessment | null> => {
 export const upsertAssessment = async (a: Assessment): Promise<Assessment> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No hay sesión iniciada");
-  const next: Assessment = { ...a, updatedAt: Date.now() };
-
-  // Preservar el dueño original cuando un staff (UTP/Admin) edita una prueba ajena.
-  // Si la fila ya existe, conservamos su user_id; si es nueva, asignamos al usuario actual.
+  const safeId = isUuid(a.id) ? a.id : newAssessmentId();
+  const next: Assessment = { ...a, id: safeId, updatedAt: Date.now() };
   const { data: existing } = await supabase
     .from("assessments")
     .select("user_id")
