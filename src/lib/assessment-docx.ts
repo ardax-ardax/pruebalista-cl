@@ -22,11 +22,17 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 
-import type { Assessment, Question, QuestionImage } from "./assessment-schema";
+import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessment-schema";
+import { PAES_VARIANTS } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
 import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
 import { findOA } from "./curriculum-data";
+
+function paesVariantLabelDocx(v?: PaesVariant): string {
+  if (!v) return "PAES";
+  return PAES_VARIANTS.find((x) => x.value === v)?.label ?? "PAES";
+}
 
 interface BuildContext {
   assessment: Assessment;
@@ -166,8 +172,9 @@ function bannerTable(ctx: BuildContext): Table {
     }),
   ];
 
+  const isPaes = template.essayMode === "paes";
   const linkedOA = ctx.assessment.meta.linkedOA ?? [];
-  if (linkedOA.length > 0) {
+  if (!isPaes && linkedOA.length > 0) {
     infoChildren.push(
       new Paragraph({
         children: [
@@ -176,6 +183,26 @@ function bannerTable(ctx: BuildContext): Table {
         ],
       }),
     );
+  }
+  if (isPaes) {
+    infoChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Variante: ", bold: true, size: ptToHalfPt(9) }),
+          new TextRun({ text: paesVariantLabelDocx(ctx.assessment.meta.paesVariant), size: ptToHalfPt(9) }),
+        ],
+      }),
+    );
+    if (ctx.assessment.meta.paesAxis) {
+      infoChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Eje: ", bold: true, size: ptToHalfPt(9) }),
+            new TextRun({ text: ctx.assessment.meta.paesAxis, size: ptToHalfPt(9) }),
+          ],
+        }),
+      );
+    }
   }
 
   const gradeChildren: Paragraph[] = showGradeBox
