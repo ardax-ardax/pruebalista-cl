@@ -2,7 +2,8 @@
 // Mismo CSS para ambos para que coincidan visualmente.
 
 import type { CSSProperties, ReactNode } from "react";
-import type { Assessment, Question, QuestionImage } from "./assessment-schema";
+import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessment-schema";
+import { PAES_VARIANTS } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
 import { findOA } from "./curriculum-data";
@@ -171,6 +172,11 @@ const escape = (s: string) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+
+function paesVariantLabel(v?: PaesVariant): string {
+  if (!v) return "PAES";
+  return PAES_VARIANTS.find((x) => x.value === v)?.label ?? "PAES";
+}
 
 // ====================== HTML render (para PDF) ======================
 
