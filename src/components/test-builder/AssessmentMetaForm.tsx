@@ -164,13 +164,25 @@ export const AssessmentMetaForm = ({
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Docente</Label>
-            <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>
-                {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs flex items-center gap-1">
+              Docente
+              {!canChooseTeacher && <Lock className="h-3 w-3 text-muted-foreground" />}
+            </Label>
+            {canChooseTeacher ? (
+              <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
+                <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                <SelectContent>
+                  {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={lockedTeacherLabel ?? teachers.find((t) => t.value === meta.teacherValue)?.label ?? ""}
+                readOnly
+                disabled
+                title="Solo administradores y Jefe UTP pueden cambiar el docente."
+              />
+            )}
           </div>
         </div>
 
