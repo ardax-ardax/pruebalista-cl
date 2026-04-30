@@ -23,8 +23,22 @@ interface Props {
 export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades, teachers }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
 
-  // Cuando cambia curso o asignatura limpiamos los OAs vinculados (evita códigos huérfanos).
-  const setGrade = (v: string) => onChange({ ...meta, gradeValue: v, linkedOA: [] });
+  // Asignaturas filtradas según el nivel del curso elegido.
+  const availableSubjects = useMemo(
+    () => (meta.gradeValue ? getSubjectsForGrade(meta.gradeValue, subjects, grades) : []),
+    [meta.gradeValue, subjects, grades],
+  );
+
+  // Cambia curso: si la asignatura actual ya no es válida en el nuevo nivel, se limpia.
+  const setGrade = (v: string) => {
+    const stillValid = getSubjectsForGrade(v, subjects, grades).some((s) => s.value === meta.subjectValue);
+    onChange({
+      ...meta,
+      gradeValue: v,
+      subjectValue: stillValid ? meta.subjectValue : "",
+      linkedOA: [],
+    });
+  };
   const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
 
   const availableOAs = getOAs(meta.gradeValue, meta.subjectValue);
