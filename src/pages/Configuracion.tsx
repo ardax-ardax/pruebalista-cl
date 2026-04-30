@@ -319,6 +319,33 @@ const Configuracion = () => {
         </CardContent>
       </Card>
 
+      {/* Modo de auto-asignación (solo admin) */}
+      {isAdmin && (
+        <Card className="shadow-card mb-8 border-primary/40">
+          <CardHeader>
+            <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
+            <CardDescription>
+              Decide si los docentes deben usar solo los cursos que les asignó el equipo o si pueden elegir libremente del catálogo completo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+              <div className="text-sm">
+                <div className="font-medium">Permitir que los docentes elijan sus propios cursos y asignaturas</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Si está <strong>activo</strong>, cada docente verá todo el catálogo de cursos y asignaturas. Si está <strong>inactivo</strong>, solo podrá usar los pares (curso · asignatura) registrados en sus asignaciones.
+                </div>
+              </div>
+              <Switch
+                checked={appSettings.allow_self_assignment}
+                onCheckedChange={handleToggleSelfAssignment}
+                disabled={savingSetting}
+              />
+            </label>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}
 
