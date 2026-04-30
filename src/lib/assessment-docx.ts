@@ -611,12 +611,25 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
               height: cmToTwip(template.pageSize.heightCm),
               orientation: PageOrientation.PORTRAIT,
             },
-            margin: {
-              top: cmToTwip(template.spacing.marginTop),
-              bottom: cmToTwip(template.spacing.marginBottom),
-              left: cmToTwip(template.spacing.marginLeft),
-              right: cmToTwip(template.spacing.marginRight),
-            },
+            margin: (() => {
+              // Si la prueba tiene `meta.layout`, los márgenes (mm) sobreescriben al template (cm).
+              const layout = assessment.meta.layout;
+              if (layout) {
+                const mmToTwip = (mm: number) => Math.round((mm / 10) * 567);
+                return {
+                  top: mmToTwip(layout.marginTop),
+                  bottom: mmToTwip(layout.marginBottom),
+                  left: mmToTwip(layout.marginSide),
+                  right: mmToTwip(layout.marginSide),
+                };
+              }
+              return {
+                top: cmToTwip(template.spacing.marginTop),
+                bottom: cmToTwip(template.spacing.marginBottom),
+                left: cmToTwip(template.spacing.marginLeft),
+                right: cmToTwip(template.spacing.marginRight),
+              };
+            })(),
           },
         },
         footers: {
