@@ -1,100 +1,72 @@
-# Plan: Alineación curricular OA + generación de preguntas con IA
 
-Implementaremos la integración con las Bases Curriculares de Chile (Objetivos de Aprendizaje, OA) y un generador de preguntas asistido por IA, manteniendo la arquitectura actual del proyecto (Vite + React + TS, Lovable Cloud, esquema único `Assessment`).
+## Objetivo
 
-## 1. Base de datos curricular (mock inicial)
+Poblar `src/lib/curriculum-data.ts` con los Objetivos de Aprendizaje (OA) reales de las Bases Curriculares del Mineduc para que el selector de OA en `AssessmentMetaForm.tsx` muestre datos al elegir cualquier curso de Básica (1° a 6°) en Lenguaje, Matemática y Ciencias Naturales, y agregar un fallback amigable.
 
-Nuevo archivo **`src/lib/curriculum-data.ts`**:
+## Sincronización de keys (verificada en `src/lib/catalog.ts`)
 
-- Estructura indexada `Record<gradeValue, Record<subjectValue, OA[]>>` (claves alineadas con `DEFAULT_GRADES.value` y `DEFAULT_SUBJECTS.value` ya existentes en `catalog.ts`).
-- Tipo:
-  ```ts
-  export interface OA {
-    code: string;        // "OA 03"
-    description: string; // texto oficial Mineduc
-    eje?: string;        // eje temático (opcional)
-  }
-  ```
-- Helper `getOAs(gradeValue, subjectValue): OA[]` con fallback a `[]`.
-- Datos de muestra: 5 OAs reales por combinación para **Lenguaje** y **Matemática** en `5ºBásico` y `6ºBásico` (cobertura inicial; ampliable después). Ejemplos: OA 03 (Lenguaje 5º — comprensión de textos narrativos), OA 05 (Matemática 5º — multiplicación), etc.
+Los `value` reales que devuelven los `Select` deben usarse como keys del objeto `CURRICULUM`:
 
-## 2. Schema y formulario de metadatos
+- **Cursos** (`gradeValue`): `"1ºBásico"`, `"2ºBásico"`, `"3ºBásico"`, `"4ºBásico"`, `"5ºBásico"`, `"6ºBásico"`
+  - Nota: el carácter es `º` (ordinal masculino, U+00BA), **no** `°` (signo de grado U+00B0). El usuario escribió `'1° Básico'` en su mensaje pero el catálogo real usa `1ºBásico` sin espacio.
+- **Asignaturas** (`subjectValue`): `"Lenguaje"` (Lenguaje y Comunicación), `"Matemática"`, `"Ciencias"` (Ciencias Naturales)
 
-**`src/lib/assessment-schema.ts`**:
-- Añadir `linkedOA: string[]` (array de `code`) a `AssessmentMeta`.
-- Inicializar `linkedOA: []` en `emptyAssessment`.
+Las keys actuales de `5ºBásico`/`6ºBásico` con `Lenguaje`/`Matemática` ya están correctas. Hay que **agregar** los demás cursos y la asignatura `Ciencias`.
 
-**`src/components/test-builder/AssessmentMetaForm.tsx`**:
-- Nuevo bloque **"Objetivos de Aprendizaje (OA)"** debajo de Curso/Asignatura.
-- Lista filtrada dinámicamente con `getOAs(meta.gradeValue, meta.subjectValue)`.
-- UI: lista de checkboxes con `<Checkbox>` de shadcn, mostrando `code — description` (truncado).
-- Mensaje informativo si la combinación curso/asignatura aún no tiene OAs cargados.
-- Al cambiar curso o asignatura: limpiar `linkedOA` automáticamente para evitar códigos huérfanos.
+## Cambios
 
-## 3. Generación con IA en el editor
+### 1. `src/lib/curriculum-data.ts` — poblar datos reales
 
-**Nuevo edge function `supabase/functions/generate-question/index.ts`**:
-- Recibe `{ oaCode, oaDescription, gradeLabel, subjectLabel, questionType }`.
-- Llama a Lovable AI Gateway (`google/gemini-3-flash-preview` por defecto) usando **tool calling** para devolver JSON estricto que cumpla la interfaz `Question`:
-  ```ts
-  // tool schema (resumido)
-  {
-    name: "emit_question",
-    parameters: { prompt, points, options?:[{text,correct}], statements?:[{text,answer,points}], answerLines? }
-  }
-  ```
-- System prompt: rol de docente chileno, redacción acorde al curso, distractores plausibles, marcar 1 sola correcta en MC, 3-4 alternativas, español de Chile.
-- Manejo explícito de 429 (rate limit) y 402 (sin créditos), reenviando mensaje al cliente.
-- CORS estándar.
+Estructura final (18 combinaciones curso × asignatura):
 
-**Nuevo componente `src/components/test-builder/AIGenerateDialog.tsx`**:
-- Dialog (shadcn) abierto desde `QuestionList`.
-- Selector de OA (limitado a `meta.linkedOA`; aviso si está vacío y el usuario debe ir a "Datos").
-- Selector de tipo de pregunta (multiple-choice / true-false / short-answer).
-- Botón "Generar" → invoca la edge function con `supabase.functions.invoke('generate-question', ...)`.
-- Al recibir respuesta: parte de `newQuestion(type)` (factory) y mezcla los campos generados; valida con guard rails (puntaje numérico, opciones array, etc.) antes de inyectar.
-- Toasts de éxito/error.
+```text
+CURRICULUM = {
+  "1ºBásico":  { Lenguaje: [...5-7 OA], Matemática: [...5-7 OA], Ciencias: [...4-6 OA] },
+  "2ºBásico":  { Lenguaje: [...], Matemática: [...], Ciencias: [...] },
+  "3ºBásico":  { ... },
+  "4ºBásico":  { ... },
+  "5ºBásico":  { ... }, // ya existe — conservar
+  "6ºBásico":  { ... }, // ya existe — conservar
+}
+```
 
-**`src/components/test-builder/QuestionList.tsx`**:
-- Botón **"Generar con IA"** (icono `Sparkles`) en la barra "Agregar:".
-- Estado local que abre `AIGenerateDialog`; al confirmar, recibe el `Question` y hace `onChange([...questions, generated])`.
-- Recibe `meta` por props (extender la interfaz) para conocer `linkedOA`, `gradeValue`, `subjectValue`.
+Por cada combinación se incluirán entre 5 y 8 OA principales (los más evaluados), con `code` (`"OA 01"`, `"OA 02"`…), `eje` y `description` textual del Mineduc. Ejes:
 
-**`src/pages/CrearPrueba.tsx`**:
-- Pasar `meta` a `<QuestionList ... meta={assessment.meta} />`.
+- **Lenguaje**: Lectura, Escritura, Comunicación oral.
+- **Matemática**: Números y operaciones, Patrones y álgebra, Geometría, Medición, Datos y probabilidades.
+- **Ciencias Naturales**: Ciencias de la vida, Ciencias físicas y químicas, Ciencias de la Tierra y el Universo.
 
-## 4. Exportación: incluir OAs en encabezado
+Total estimado: ~110-130 OA cargados.
 
-**`src/lib/assessment-render.tsx`**:
-- En el banner (debajo de Asignatura/Curso) añadir fila **"OA evaluados:"** con `meta.linkedOA.join(", ")` cuando no esté vacío.
-- Solo se muestra el código (`OA 03, OA 05`) para no saturar el encabezado.
+### 2. Fallback amigable en `getOAs`
 
-**`src/lib/assessment-docx.ts`**:
-- Mismo agregado en la generación nativa: nuevo `Paragraph` o celda dentro de la tabla del banner con los códigos OA.
-- Mantener fuente y tamaño consistentes con el resto del header.
+Añadir una constante exportada `TRANSVERSAL_SKILLS: OA[]` con 4-6 "Habilidades Transversales" genéricas (pensamiento crítico, comunicación efectiva, trabajo colaborativo, resolución de problemas, uso de TIC, autorregulación), marcadas con `code: "HT 01"`, etc.
 
-## 5. Detalles técnicos
+Modificar `getOAs(grade, subject)`:
+- Si la combinación existe → devuelve sus OA.
+- Si **no** existe pero ambos parámetros están presentes → devuelve `TRANSVERSAL_SKILLS` (fallback).
+- Si falta alguno → devuelve `[]` (mantiene el mensaje "Selecciona curso y asignatura…").
 
-- **Sin migraciones SQL**: `linkedOA` viaja dentro del `jsonb` de `assessments.data`, no requiere cambio de tabla.
-- **Retrocompatibilidad**: al cargar un assessment antiguo sin `linkedOA`, normalizar a `[]` en el effect que setea el state.
-- **Validación IA**: pequeña función `coerceGeneratedQuestion(raw, type)` en `src/lib/assessment-ai.ts` que asegura forma válida y aplica `newId()` a todos los IDs.
-- **Lovable AI**: usar el `LOVABLE_API_KEY` ya configurado (visible en secrets). Modelo por defecto `google/gemini-3-flash-preview`.
-- **No tocar**: `client.ts`, `types.ts`, `supabase/config.toml` (la función desplegará con `verify_jwt = false` por default; la llamamos desde el cliente autenticado vía SDK).
+Exportar también un helper `hasCurriculum(grade, subject): boolean` para que el formulario pueda distinguir "datos oficiales" vs "fallback".
 
-## Archivos a crear / editar
+### 3. `src/components/test-builder/AssessmentMetaForm.tsx` — mensaje más amigable
 
-**Crear:**
-- `src/lib/curriculum-data.ts`
-- `src/lib/assessment-ai.ts`
-- `src/components/test-builder/AIGenerateDialog.tsx`
-- `supabase/functions/generate-question/index.ts`
+Reemplazar el bloque de "Aún no hay OAs cargados…" por:
+- Si `hasCurriculum` es `false` y `availableOAs` vino del fallback → mostrar un aviso suave (texto pequeño con icono `Info`) tipo: *"Aún no cargamos los OA oficiales para esta combinación. Mientras tanto, puedes vincular Habilidades Transversales."* y debajo renderizar la lista del fallback (mismo componente de checkboxes).
+- Si por alguna razón no hay nada → texto actual.
 
-**Editar:**
-- `src/lib/assessment-schema.ts` (campo `linkedOA`)
-- `src/components/test-builder/AssessmentMetaForm.tsx` (selector OA)
-- `src/components/test-builder/QuestionList.tsx` (botón IA + dialog)
-- `src/pages/CrearPrueba.tsx` (pasa `meta` a QuestionList)
-- `src/lib/assessment-render.tsx` (OA en header HTML/PDF)
-- `src/lib/assessment-docx.ts` (OA en header docx)
+No cambia la firma de `linkedOA`; los códigos `HT 0X` se guardan igual y aparecen en los exports DOCX/PDF.
 
-¿Apruebas el plan?
+## Verificación post-implementación
+
+Caso de prueba manual: ir a *Crear prueba → Datos*, seleccionar **Curso = "2º Básico"** y **Asignatura = "Matemática"**, y confirmar que el panel de OA se rellena automáticamente con los OA de 2° Básico Matemática (sin recargar la página). Repetir con Ciencias Naturales en 1°-6°.
+
+## Archivos a modificar
+
+- `src/lib/curriculum-data.ts` (reescribir con datos completos + fallback + `hasCurriculum`)
+- `src/components/test-builder/AssessmentMetaForm.tsx` (mensaje amigable + render del fallback)
+
+## Fuera de alcance
+
+- Ampliar a 7°-IV° Medio (se puede hacer después siguiendo el mismo patrón).
+- Ampliar a otras asignaturas (Historia, Inglés, Artes, etc.) — caerán en el fallback transversal hasta que se carguen.
