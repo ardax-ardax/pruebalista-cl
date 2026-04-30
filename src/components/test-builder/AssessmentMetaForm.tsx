@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import type { GradeOption, SubjectOption, TeacherOption } from "@/lib/catalog";
-import { getOAs } from "@/lib/curriculum-data";
+import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
+import { Info } from "lucide-react";
 
 interface Props {
   meta: AssessmentMeta;
@@ -26,6 +27,7 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
   const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
 
   const availableOAs = getOAs(meta.gradeValue, meta.subjectValue);
+  const isFallback = !!meta.gradeValue && !!meta.subjectValue && !hasCurriculum(meta.gradeValue, meta.subjectValue);
   const linked = meta.linkedOA ?? [];
 
   const toggleOA = (code: string, checked: boolean) => {
@@ -111,30 +113,36 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
             <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-3">
               Selecciona curso y asignatura para ver los OA disponibles.
             </p>
-          ) : availableOAs.length === 0 ? (
-            <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-3">
-              Aún no hay OAs cargados para esta combinación de curso y asignatura.
-            </p>
           ) : (
-            <div className="space-y-1.5 rounded-md border border-border p-3 max-h-64 overflow-y-auto">
-              {availableOAs.map((oa) => {
-                const checked = linked.includes(oa.code);
-                return (
-                  <label key={oa.code} className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 rounded p-1">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) => toggleOA(oa.code, !!v)}
-                      className="mt-0.5"
-                    />
-                    <div className="text-xs leading-snug">
-                      <span className="font-semibold">{oa.code}</span>
-                      {oa.eje ? <span className="ml-1 text-muted-foreground">· {oa.eje}</span> : null}
-                      <div className="text-muted-foreground">{oa.description}</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
+            <>
+              {isFallback && (
+                <div className="flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    Aún no cargamos los OA oficiales para esta combinación. Mientras tanto, puedes vincular Habilidades Transversales.
+                  </span>
+                </div>
+              )}
+              <div className="space-y-1.5 rounded-md border border-border p-3 max-h-64 overflow-y-auto">
+                {availableOAs.map((oa) => {
+                  const checked = linked.includes(oa.code);
+                  return (
+                    <label key={oa.code} className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 rounded p-1">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => toggleOA(oa.code, !!v)}
+                        className="mt-0.5"
+                      />
+                      <div className="text-xs leading-snug">
+                        <span className="font-semibold">{oa.code}</span>
+                        {oa.eje ? <span className="ml-1 text-muted-foreground">· {oa.eje}</span> : null}
+                        <div className="text-muted-foreground">{oa.description}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </CardContent>
