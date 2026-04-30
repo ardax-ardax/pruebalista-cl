@@ -341,7 +341,12 @@ const CrearPrueba = () => {
               subjectLabel={renderCtx.subjectLabel}
             />
           </TabsContent>
-          <TabsContent value="preview" className="mt-4">
+<TabsContent value="preview" className="mt-4 space-y-4">
+            <PreviewLayoutToolbar
+              meta={assessment.meta}
+              onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+              canEdit={isStaff}
+            />
             <Card className="shadow-card">
               <CardContent className="p-0">
                 <AssessmentPreview ctx={renderCtx} />
