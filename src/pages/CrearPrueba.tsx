@@ -132,6 +132,28 @@ const CrearPrueba = () => {
     [templates, assessment?.meta.templateId],
   );
 
+  // Etiqueta del docente actual (para no-staff). Se usa para auto-asignar y
+  // como texto del campo bloqueado.
+  const lockedTeacherLabel = useMemo(() => {
+    if (!user) return "";
+    return profileLabel(currentProfile ?? undefined, user.id);
+  }, [currentProfile, user]);
+
+  const canChooseTeacher = isStaff;
+
+  // Auto-asignar el docente al usuario logueado cuando no es staff y el campo
+  // está vacío (o cuando sea una prueba propia recién creada).
+  useEffect(() => {
+    if (!assessment || !user || isStaff) return;
+    const ownLabel = lockedTeacherLabel;
+    if (!ownLabel) return;
+    if (assessment.meta.teacherValue === ownLabel) return;
+    // Solo sobrescribimos si el usuario es el dueño de la prueba (o es nueva).
+    if (ownerId && ownerId !== user.id) return;
+    setAssessment((prev) => prev ? { ...prev, meta: { ...prev.meta, teacherValue: ownLabel } } : prev);
+  }, [assessment?.id, user?.id, isStaff, lockedTeacherLabel, ownerId]);
+
+
   const renderCtx: RenderContext | null = useMemo(() => {
     if (!assessment || !template) return null;
     const subjectLabel = subjects.find((s) => s.value === assessment.meta.subjectValue)?.label ?? "";
