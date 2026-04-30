@@ -76,10 +76,11 @@ export const StaffManager = () => {
   const [importing, setImporting] = useState(false);
 
   const refresh = async () => {
-    const [profsRes, rolesRes, asg] = await Promise.all([
+    const [profsRes, rolesRes, asg, invs] = await Promise.all([
       listProfiles(),
       supabase.from("user_roles").select("user_id, role"),
       listAllAssignments(),
+      listInvitations(),
     ]);
     setProfiles(profsRes.profiles);
     setLoadError(profsRes.error);
@@ -99,6 +100,40 @@ export const StaffManager = () => {
     });
     setRolesByUser(map);
     setAssignments(asg);
+    setInvitations(invs);
+  };
+
+  const handleBulkImport = async () => {
+    if (!bulkText.trim()) {
+      toast.error("Pega al menos un correo");
+      return;
+    }
+    setImporting(true);
+    const res = await bulkInviteEmails(bulkText, bulkRole, user?.id ?? null);
+    setImporting(false);
+    if (!res.ok) {
+      toast.error("No se pudo importar: " + (res.error ?? ""));
+      return;
+    }
+    const r = res.result!;
+    const parts: string[] = [];
+    parts.push(`${r.inserted} invitación${r.inserted === 1 ? "" : "es"} creada${r.inserted === 1 ? "" : "s"}`);
+    if (r.skipped > 0) parts.push(`${r.skipped} ya existía${r.skipped === 1 ? "" : "n"}`);
+    if (r.invalid.length > 0) parts.push(`${r.invalid.length} correo${r.invalid.length === 1 ? "" : "s"} inválido${r.invalid.length === 1 ? "" : "s"}`);
+    toast.success(parts.join(" · "));
+    setBulkText("");
+    await refresh();
+  };
+
+  const handleDeleteInvitation = async (id: string) => {
+    if (!confirm("¿Eliminar esta invitación?")) return;
+    const res = await deleteInvitation(id);
+    if (!res.ok) {
+      toast.error("No se pudo eliminar: " + (res.error ?? ""));
+      return;
+    }
+    toast.success("Invitación eliminada");
+    await refresh();
   };
 
   // Recarga cuando cambia la sesión (evita la condición de carrera con auth).
