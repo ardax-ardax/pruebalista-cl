@@ -192,7 +192,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-row"><span><strong>OA evaluados:</strong> ${escape(meta.linkedOA.join(", "))}</span></div>`
     : "";
   const paesLine = (isPaes)
-    ? `<div class="pa-row"><span><strong>Variante:</strong> ${escape(paesVariantLabel(meta.paesVariant))}</span>${meta.paesAxis ? `<span><strong>Eje:</strong> ${escape(meta.paesAxis)}</span>` : ""}</div>`
+    ? `<div class="pa-row"><span><strong>Variante:</strong> ${escape(paesVariantLabel(meta.paesVariant))}</span>${meta.paesAxis ? `<span><strong>Eje Temático:</strong> ${escape(meta.paesAxis)}</span>` : ""}</div>`
     : "";
 
   const banner = template.header?.enabled
@@ -224,7 +224,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
   // En SIMCE y resto: bloque opcional de OAs visibles bajo el título/instrucciones.
   const oaHeader = isPaes
     ? (meta.paesAxis
-        ? `<div class="pa-oa-header"><div class="pa-oa-title">Ejes temáticos / habilidades</div><ul><li>${escape(meta.paesAxis)}</li></ul></div>`
+        ? `<div class="pa-oa-header"><div class="pa-oa-title">Eje Temático PAES</div><ul><li>${escape(meta.paesAxis)}</li></ul></div>`
         : "")
     : (meta.showOaInHeader && meta.linkedOA && meta.linkedOA.length > 0)
       ? (() => {

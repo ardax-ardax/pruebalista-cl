@@ -7,6 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AssessmentMeta, PaesVariant } from "@/lib/assessment-schema";
 import { PAES_VARIANTS } from "@/lib/assessment-schema";
+import {
+  getAxesFor,
+  requiresCienciasModule,
+  PAES_CIENCIAS_MODULES,
+  type PaesCienciasModule,
+} from "@/lib/paes-axes";
 import type { FormatTemplate } from "@/lib/templates";
 import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
@@ -238,43 +244,106 @@ export const AssessmentMetaForm = ({
           />
         </div>
 
-        {/* === Modo Ensayo PAES: variante + eje temático === */}
-        {isPaes && (
-          <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-primary">
-              Configuración Ensayo PAES
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Variante PAES</Label>
-                <Select
-                  value={meta.paesVariant ?? ""}
-                  onValueChange={(v) => set("paesVariant", v as PaesVariant)}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecciona una variante" /></SelectTrigger>
-                  <SelectContent>
-                    {PAES_VARIANTS.map((v) => (
-                      <SelectItem key={v.value} value={v.value}>
-                        {v.label} · meta {v.questionGoal}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {/* === Modo Ensayo PAES: variante + (módulo Ciencias) + eje temático === */}
+        {isPaes && (() => {
+          const needsModule = requiresCienciasModule(meta.paesVariant);
+          const axes = getAxesFor(meta.paesVariant, meta.paesCienciasModule);
+          const hasLegacyAxis =
+            !!meta.paesAxis && axes.length > 0 && !axes.includes(meta.paesAxis);
+          const axisDisabled = !meta.paesVariant || (needsModule && !meta.paesCienciasModule);
+          return (
+            <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Configuración Ensayo PAES
               </div>
-              <div>
-                <Label className="text-xs">Eje temático / Habilidad</Label>
-                <Input
-                  value={meta.paesAxis ?? ""}
-                  onChange={(e) => set("paesAxis", e.target.value)}
-                  placeholder="Ej: Localizar información explícita"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Variante PAES <span className="text-destructive">*</span></Label>
+                  <Select
+                    value={meta.paesVariant ?? ""}
+                    onValueChange={(v) =>
+                      onChange({
+                        ...meta,
+                        paesVariant: v as PaesVariant,
+                        // Reinicia módulo y eje al cambiar variante.
+                        paesCienciasModule: undefined,
+                        paesAxis: "",
+                      })
+                    }
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecciona una variante" /></SelectTrigger>
+                    <SelectContent>
+                      {PAES_VARIANTS.map((v) => (
+                        <SelectItem key={v.value} value={v.value}>
+                          {v.label} · meta {v.questionGoal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {needsModule && (
+                  <div>
+                    <Label className="text-xs">Módulo de Ciencias <span className="text-destructive">*</span></Label>
+                    <Select
+                      value={meta.paesCienciasModule ?? ""}
+                      onValueChange={(v) =>
+                        onChange({
+                          ...meta,
+                          paesCienciasModule: v as PaesCienciasModule,
+                          paesAxis: "", // resetea el eje al cambiar módulo
+                        })
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Bio / Fis / Qui" /></SelectTrigger>
+                      <SelectContent>
+                        {PAES_CIENCIAS_MODULES.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className={needsModule ? "sm:col-span-2" : ""}>
+                  <Label className="text-xs">
+                    Eje Temático PAES <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={meta.paesAxis ?? ""}
+                    onValueChange={(v) => set("paesAxis", v)}
+                    disabled={axisDisabled}
+                  >
+                    <SelectTrigger aria-required="true">
+                      <SelectValue
+                        placeholder={
+                          axisDisabled
+                            ? (needsModule && !meta.paesCienciasModule
+                                ? "Selecciona primero el módulo"
+                                : "Selecciona primero la variante")
+                            : "Selecciona un eje temático"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {axes.map((axis) => (
+                        <SelectItem key={axis} value={axis}>{axis}</SelectItem>
+                      ))}
+                      {hasLegacyAxis && (
+                        <SelectItem key="__legacy" value={meta.paesAxis!}>
+                          <em>{meta.paesAxis} (valor anterior)</em>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                En modo PAES no se vinculan Objetivos de Aprendizaje; el Eje Temático oficial es obligatorio para guardar la prueba.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              En modo PAES no se vinculan Objetivos de Aprendizaje; se utiliza el eje temático oficial.
-            </p>
-          </div>
-        )}
+          );
+        })()}
 
         {/* === Objetivos de Aprendizaje (oculto en modo PAES) === */}
         {!isPaes && (

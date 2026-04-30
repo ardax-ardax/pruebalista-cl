@@ -197,7 +197,7 @@ function bannerTable(ctx: BuildContext): Table {
       infoChildren.push(
         new Paragraph({
           children: [
-            new TextRun({ text: "Eje: ", bold: true, size: ptToHalfPt(9) }),
+            new TextRun({ text: "Eje Temático: ", bold: true, size: ptToHalfPt(9) }),
             new TextRun({ text: ctx.assessment.meta.paesAxis, size: ptToHalfPt(9) }),
           ],
         }),
@@ -651,7 +651,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         shading: { fill: "FAFAFA", type: ShadingType.CLEAR, color: "auto" },
         children: [
           new TextRun({
-            text: showPaesAxis ? "EJES TEMÁTICOS / HABILIDADES" : "OBJETIVOS DE APRENDIZAJE EVALUADOS",
+            text: showPaesAxis ? "EJE TEMÁTICO PAES" : "OBJETIVOS DE APRENDIZAJE EVALUADOS",
             bold: true,
             size: ptToHalfPt(9),
           }),
