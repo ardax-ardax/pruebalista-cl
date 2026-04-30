@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Assessment, Question, QuestionImage } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
+import { findOA } from "./curriculum-data";
 
 export interface RenderContext {
   assessment: Assessment;
