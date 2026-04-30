@@ -192,7 +192,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-row"><span><strong>OA evaluados:</strong> ${escape(meta.linkedOA.join(", "))}</span></div>`
     : "";
   const paesLine = (isPaes)
-    ? `<div class="pa-row"><span><strong>Variante:</strong> ${escape(paesVariantLabel(meta.paesVariant))}</span>${meta.paesAxis ? `<span><strong>Eje:</strong> ${escape(meta.paesAxis)}</span>` : ""}</div>`
+    ? `<div class="pa-row"><span><strong>Variante:</strong> ${escape(paesVariantLabel(meta.paesVariant))}</span>${meta.paesAxis ? `<span><strong>Eje Temático:</strong> ${escape(meta.paesAxis)}</span>` : ""}</div>`
     : "";
 
   const banner = template.header?.enabled
