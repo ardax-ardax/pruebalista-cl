@@ -634,9 +634,11 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
     );
   }
 
-  // Bloque opcional: OAs evaluados visibles bajo el título / instrucciones.
-  const showOaHeader = !!assessment.meta.showOaInHeader && (assessment.meta.linkedOA?.length ?? 0) > 0;
-  if (showOaHeader) {
+  // Bloque opcional bajo el título: en PAES listamos "Ejes Temáticos"; en el resto, OAs evaluados.
+  const isPaesDoc = template.essayMode === "paes";
+  const showOaHeader = !isPaesDoc && !!assessment.meta.showOaInHeader && (assessment.meta.linkedOA?.length ?? 0) > 0;
+  const showPaesAxis = isPaesDoc && !!assessment.meta.paesAxis;
+  if (showOaHeader || showPaesAxis) {
     children.push(
       new Paragraph({
         spacing: { before: 0, after: 80 },
@@ -649,27 +651,40 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         shading: { fill: "FAFAFA", type: ShadingType.CLEAR, color: "auto" },
         children: [
           new TextRun({
-            text: "OBJETIVOS DE APRENDIZAJE EVALUADOS",
+            text: showPaesAxis ? "EJES TEMÁTICOS / HABILIDADES" : "OBJETIVOS DE APRENDIZAJE EVALUADOS",
             bold: true,
             size: ptToHalfPt(9),
           }),
         ],
       }),
     );
-    for (const code of assessment.meta.linkedOA) {
-      const oa = findOA(assessment.meta.gradeValue, assessment.meta.subjectValue, code);
-      const desc = oa?.description ? ` — ${oa.description}` : "";
+    if (showPaesAxis) {
       children.push(
         new Paragraph({
           spacing: { before: 0, after: 40 },
           indent: { left: 240 },
           alignment: AlignmentType.JUSTIFIED,
           children: [
-            new TextRun({ text: `• ${code}`, bold: true, size: ptToHalfPt(template.typography.bodySize) }),
-            new TextRun({ text: desc, size: ptToHalfPt(template.typography.bodySize) }),
+            new TextRun({ text: `• ${assessment.meta.paesAxis}`, size: ptToHalfPt(template.typography.bodySize) }),
           ],
         }),
       );
+    } else {
+      for (const code of assessment.meta.linkedOA ?? []) {
+        const oa = findOA(assessment.meta.gradeValue, assessment.meta.subjectValue, code);
+        const desc = oa?.description ? ` — ${oa.description}` : "";
+        children.push(
+          new Paragraph({
+            spacing: { before: 0, after: 40 },
+            indent: { left: 240 },
+            alignment: AlignmentType.JUSTIFIED,
+            children: [
+              new TextRun({ text: `• ${code}`, bold: true, size: ptToHalfPt(template.typography.bodySize) }),
+              new TextRun({ text: desc, size: ptToHalfPt(template.typography.bodySize) }),
+            ],
+          }),
+        );
+      }
     }
     // Espacio extra antes de las preguntas
     children.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [new TextRun("")] }));
