@@ -1,72 +1,122 @@
+# Plan: Indicadores de Evaluación + Gestión Curricular
 
-## Objetivo
+## 1. Estructura de datos: Indicadores por OA
 
-Poblar `src/lib/curriculum-data.ts` con los Objetivos de Aprendizaje (OA) reales de las Bases Curriculares del Mineduc para que el selector de OA en `AssessmentMetaForm.tsx` muestre datos al elegir cualquier curso de Básica (1° a 6°) en Lenguaje, Matemática y Ciencias Naturales, y agregar un fallback amigable.
+**`src/lib/curriculum-data.ts`**
+- Extender `OA` con `indicators: Indicator[]`:
+  ```ts
+  export interface Indicator { code: string; description: string; }
+  export interface OA { code: string; description: string; eje?: string; indicators: Indicator[]; }
+  ```
+- Poblar 3–5 indicadores de evaluación por cada OA existente en **Lenguaje, Matemática y Ciencias** de **1° a 6° Básico**, basados en los Programas de Estudio Mineduc (formato `1.1`, `1.2`, etc.).
+- Añadir indicadores genéricos a `TRANSVERSAL_SKILLS`.
+- Nuevos helpers:
+  - `findIndicators(grade, subject, oaCode): Indicator[]`
+  - `getEffectiveOAs(grade, subject): OA[]` que fusiona base con overrides admin.
 
-## Sincronización de keys (verificada en `src/lib/catalog.ts`)
+## 2. Capa de overrides + persistencia
 
-Los `value` reales que devuelven los `Select` deben usarse como keys del objeto `CURRICULUM`:
+**`src/lib/curriculum-overrides.ts` (nuevo)**
+- Fuente de verdad efectiva = base (código) + overrides (BD/localStorage).
+- API: `loadOverrides()`, `saveOverrideOA(grade, subject, oa)`, `resetOverride(grade, subject, oaCode)`.
+- Estrategia híbrida:
+  - Si el usuario es admin y la tabla está disponible → lee/escribe en Supabase `curriculum_base`.
+  - Fallback inmediato a `localStorage` (clave `curriculum_overrides_v1`) para que funcione antes/aunque falle la BD.
+- Cache en memoria con invalidación al guardar.
 
-- **Cursos** (`gradeValue`): `"1ºBásico"`, `"2ºBásico"`, `"3ºBásico"`, `"4ºBásico"`, `"5ºBásico"`, `"6ºBásico"`
-  - Nota: el carácter es `º` (ordinal masculino, U+00BA), **no** `°` (signo de grado U+00B0). El usuario escribió `'1° Básico'` en su mensaje pero el catálogo real usa `1ºBásico` sin espacio.
-- **Asignaturas** (`subjectValue`): `"Lenguaje"` (Lenguaje y Comunicación), `"Matemática"`, `"Ciencias"` (Ciencias Naturales)
+**Migración Supabase — tabla `curriculum_base`**
+```sql
+create table public.curriculum_base (
+  id uuid primary key default gen_random_uuid(),
+  grade_value text not null,
+  subject_value text not null,
+  oa_code text not null,
+  oa_description text not null,
+  eje text,
+  indicators jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now(),
+  updated_by uuid,
+  unique (grade_value, subject_value, oa_code)
+);
+alter table public.curriculum_base enable row level security;
 
-Las keys actuales de `5ºBásico`/`6ºBásico` con `Lenguaje`/`Matemática` ya están correctas. Hay que **agregar** los demás cursos y la asignatura `Ciencias`.
+-- Lectura pública para todos los autenticados
+create policy "read curriculum"
+  on public.curriculum_base for select
+  to authenticated using (true);
 
-## Cambios
+-- Solo admin puede insertar/editar/eliminar
+create policy "admin write curriculum"
+  on public.curriculum_base for all
+  to authenticated
+  using (has_role(auth.uid(), 'admin'))
+  with check (has_role(auth.uid(), 'admin'));
 
-### 1. `src/lib/curriculum-data.ts` — poblar datos reales
-
-Estructura final (18 combinaciones curso × asignatura):
-
-```text
-CURRICULUM = {
-  "1ºBásico":  { Lenguaje: [...5-7 OA], Matemática: [...5-7 OA], Ciencias: [...4-6 OA] },
-  "2ºBásico":  { Lenguaje: [...], Matemática: [...], Ciencias: [...] },
-  "3ºBásico":  { ... },
-  "4ºBásico":  { ... },
-  "5ºBásico":  { ... }, // ya existe — conservar
-  "6ºBásico":  { ... }, // ya existe — conservar
-}
+create trigger curriculum_base_updated_at
+  before update on public.curriculum_base
+  for each row execute function public.set_updated_at();
 ```
 
-Por cada combinación se incluirán entre 5 y 8 OA principales (los más evaluados), con `code` (`"OA 01"`, `"OA 02"`…), `eje` y `description` textual del Mineduc. Ejes:
+## 3. Editor de pruebas — paso 2 IA: selección de indicadores
 
-- **Lenguaje**: Lectura, Escritura, Comunicación oral.
-- **Matemática**: Números y operaciones, Patrones y álgebra, Geometría, Medición, Datos y probabilidades.
-- **Ciencias Naturales**: Ciencias de la vida, Ciencias físicas y químicas, Ciencias de la Tierra y el Universo.
+**`src/components/test-builder/AIGenerateDialog.tsx`**
+- Tras elegir el OA, mostrar una lista de checkboxes con los `Indicator[]` del OA (vacío → mensaje "Este OA aún no tiene indicadores cargados, se usará el OA completo").
+- Estado local `selectedIndicators: string[]` (códigos), opcional, multi-select.
+- Botón "Generar" envía también los indicadores escogidos.
 
-Total estimado: ~110-130 OA cargados.
+**`src/lib/assessment-ai.ts`**
+- Extender `GenerateQuestionParams` con `indicators?: { code: string; description: string }[]`.
 
-### 2. Fallback amigable en `getOAs`
+**`supabase/functions/generate-question/index.ts`**
+- Aceptar `indicators` opcional en el payload.
+- Inyectar en `userPrompt`:
+  ```
+  Indicadores específicos a evaluar:
+  - 1.2 ...
+  - 1.3 ...
+  La pregunta debe enfocarse explícitamente en estos indicadores.
+  ```
+- Reforzar regla en `systemPrompt`: si vienen indicadores, deben primar sobre el OA general.
 
-Añadir una constante exportada `TRANSVERSAL_SKILLS: OA[]` con 4-6 "Habilidades Transversales" genéricas (pensamiento crítico, comunicación efectiva, trabajo colaborativo, resolución de problemas, uso de TIC, autorregulación), marcadas con `code: "HT 01"`, etc.
+## 4. Panel "Gestión Curricular" (solo admin)
 
-Modificar `getOAs(grade, subject)`:
-- Si la combinación existe → devuelve sus OA.
-- Si **no** existe pero ambos parámetros están presentes → devuelve `TRANSVERSAL_SKILLS` (fallback).
-- Si falta alguno → devuelve `[]` (mantiene el mensaje "Selecciona curso y asignatura…").
+**`src/components/admin/CurriculumManager.tsx` (nuevo)**
+- Renderizado dentro de `Configuracion.tsx`, envuelto en chequeo `isAdmin` (ya existe `useAuth().isAdmin`).
+- UI:
+  - Selectores **Curso → Asignatura** (mismo patrón que `AssessmentMetaForm`).
+  - Lista de OAs (efectivos) con botón "Editar".
+  - Dialog de edición: campos `code`, `eje`, `description`, y editor de `indicators` (lista add/remove `code` + `description`).
+  - Acciones: **Guardar** (escribe override), **Restaurar base** (elimina override), **Nuevo OA** (solo se persiste como override).
+  - Badge "Modificado" si el OA tiene override activo.
+- Toda la escritura va por `curriculum-overrides.ts` (BD si admin + tabla disponible, localStorage en cualquier otro caso).
 
-Exportar también un helper `hasCurriculum(grade, subject): boolean` para que el formulario pueda distinguir "datos oficiales" vs "fallback".
+**`src/pages/Configuracion.tsx`**
+- Importar `useAuth`, y debajo de "Asignaturas, cursos y docentes" agregar:
+  ```tsx
+  {isAdmin && <CurriculumManager />}
+  ```
+- Sin cambios al resto del archivo.
 
-### 3. `src/components/test-builder/AssessmentMetaForm.tsx` — mensaje más amigable
+## 5. Integración en el resto del flujo
+- `AssessmentMetaForm` y `AIGenerateDialog` consumen vía `getEffectiveOAs` / `findIndicators` para reflejar overrides automáticamente sin tocar lógica de UI.
+- `assessment-render.tsx` y `assessment-docx.ts`: sin cambios (los códigos OA seleccionados ya se exportan).
 
-Reemplazar el bloque de "Aún no hay OAs cargados…" por:
-- Si `hasCurriculum` es `false` y `availableOAs` vino del fallback → mostrar un aviso suave (texto pequeño con icono `Info`) tipo: *"Aún no cargamos los OA oficiales para esta combinación. Mientras tanto, puedes vincular Habilidades Transversales."* y debajo renderizar la lista del fallback (mismo componente de checkboxes).
-- Si por alguna razón no hay nada → texto actual.
+## Archivos afectados
+**Nuevos**
+- `src/lib/curriculum-overrides.ts`
+- `src/components/admin/CurriculumManager.tsx`
+- Migración SQL `curriculum_base`
 
-No cambia la firma de `linkedOA`; los códigos `HT 0X` se guardan igual y aparecen en los exports DOCX/PDF.
+**Editados**
+- `src/lib/curriculum-data.ts` (interfaz + indicadores + helper efectivo)
+- `src/lib/assessment-ai.ts`
+- `src/components/test-builder/AIGenerateDialog.tsx`
+- `supabase/functions/generate-question/index.ts`
+- `src/pages/Configuracion.tsx`
 
-## Verificación post-implementación
+## Notas técnicas
+- La tabla `curriculum_base` **no** se sincroniza automáticamente con la base hard-coded; solo guarda overrides/altas. Esto evita migraciones masivas y permite que las actualizaciones de Mineduc en código sigan llegando vía deploys.
+- Los códigos `OA` referenciados en assessments existentes (`linkedOA: string[]`) siguen funcionando: solo cambia el contenido descriptivo/indicadores que se muestra/exporta.
+- Si la inserción a Supabase falla (offline / permisos), se cae a `localStorage` y se notifica con `toast`.
 
-Caso de prueba manual: ir a *Crear prueba → Datos*, seleccionar **Curso = "2º Básico"** y **Asignatura = "Matemática"**, y confirmar que el panel de OA se rellena automáticamente con los OA de 2° Básico Matemática (sin recargar la página). Repetir con Ciencias Naturales en 1°-6°.
-
-## Archivos a modificar
-
-- `src/lib/curriculum-data.ts` (reescribir con datos completos + fallback + `hasCurriculum`)
-- `src/components/test-builder/AssessmentMetaForm.tsx` (mensaje amigable + render del fallback)
-
-## Fuera de alcance
-
-- Ampliar a 7°-IV° Medio (se puede hacer después siguiendo el mismo patrón).
-- Ampliar a otras asignaturas (Historia, Inglés, Artes, etc.) — caerán en el fallback transversal hasta que se carguen.
+¿Apruebas este plan para implementarlo?
