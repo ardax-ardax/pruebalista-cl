@@ -218,4 +218,6 @@ export const removeOverride = async (
 // Útil para tests / forzar relectura.
 export const __resetCache = () => {
   cache = null;
+  cloudHydratedAt = 0;
+  cloudPromise = null;
 };
