@@ -545,6 +545,47 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
     );
   }
 
+  // Bloque opcional: OAs evaluados visibles bajo el título / instrucciones.
+  const showOaHeader = !!assessment.meta.showOaInHeader && (assessment.meta.linkedOA?.length ?? 0) > 0;
+  if (showOaHeader) {
+    children.push(
+      new Paragraph({
+        spacing: { before: 0, after: 80 },
+        border: {
+          top: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 2 },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 2 },
+          left: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 },
+          right: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 },
+        },
+        shading: { fill: "FAFAFA", type: ShadingType.CLEAR, color: "auto" },
+        children: [
+          new TextRun({
+            text: "OBJETIVOS DE APRENDIZAJE EVALUADOS",
+            bold: true,
+            size: ptToHalfPt(9),
+          }),
+        ],
+      }),
+    );
+    for (const code of assessment.meta.linkedOA) {
+      const oa = findOA(assessment.meta.gradeValue, assessment.meta.subjectValue, code);
+      const desc = oa?.description ? ` — ${oa.description}` : "";
+      children.push(
+        new Paragraph({
+          spacing: { before: 0, after: 40 },
+          indent: { left: 240 },
+          alignment: AlignmentType.JUSTIFIED,
+          children: [
+            new TextRun({ text: `• ${code}`, bold: true, size: ptToHalfPt(template.typography.bodySize) }),
+            new TextRun({ text: desc, size: ptToHalfPt(template.typography.bodySize) }),
+          ],
+        }),
+      );
+    }
+    // Espacio extra antes de las preguntas
+    children.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [new TextRun("")] }));
+  }
+
   let qN = 0;
   for (const q of assessment.questions) {
     if (q.type === "section-title") qN = 0;
