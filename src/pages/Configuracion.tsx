@@ -60,6 +60,8 @@ const Configuracion = () => {
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [grades, setGrades] = useState<GradeOption[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [savingSetting, setSavingSetting] = useState(false);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -68,7 +70,22 @@ const Configuracion = () => {
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
+    loadAppSettings().then(setAppSettings).catch(() => {/* ignore */});
   }, []);
+
+  const handleToggleSelfAssignment = async (value: boolean) => {
+    setSavingSetting(true);
+    const res = await setAllowSelfAssignment(value);
+    setSavingSetting(false);
+    if (!res.ok) {
+      toast.error("No se pudo guardar: " + (res.error ?? ""));
+      return;
+    }
+    setAppSettings((s) => ({ ...s, allow_self_assignment: value }));
+    toast.success(value
+      ? "Auto-asignación activada: docentes ven todo el catálogo."
+      : "Auto-asignación desactivada: docentes solo ven sus asignaciones.");
+  };
 
   const updateSubjects = (next: SubjectOption[]) => {
     setSubjects(next);
