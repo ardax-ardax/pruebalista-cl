@@ -130,6 +130,8 @@ const CrearPrueba = () => {
       window.removeEventListener("storage", refreshBranding);
       window.removeEventListener("focus", refreshBranding);
     };
+  }, []);
+
 
   // Autosave: si editamos una prueba guardada, actualizamos en la nube.
   // Si es una nueva, guardamos como borrador local.
