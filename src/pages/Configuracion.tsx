@@ -45,6 +45,8 @@ import {
   type SubjectOption,
   type TeacherOption,
 } from "@/lib/catalog";
+import { loadAppSettings, setAllowSelfAssignment, DEFAULT_APP_SETTINGS, type AppSettings } from "@/lib/app-settings";
+import { Switch } from "@/components/ui/switch";
 
 const Configuracion = () => {
   const { isAdmin } = useAuth();
