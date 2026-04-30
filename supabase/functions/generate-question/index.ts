@@ -8,12 +8,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface Indicator {
+  code: string;
+  description: string;
+}
+
 interface Payload {
   oaCode: string;
   oaDescription: string;
   gradeLabel: string;
   subjectLabel: string;
   questionType: "multiple-choice" | "true-false" | "short-answer";
+  indicators?: Indicator[];
 }
 
 const TOOL_MC = {
@@ -124,17 +130,25 @@ Reglas estrictas:
 - Redacta en español de Chile, claro y libre de ambigüedades.
 - Adapta la complejidad al curso indicado.
 - Las preguntas deben evaluar exactamente el OA entregado.
+- Si se entregan Indicadores de Evaluación específicos, la pregunta debe enfocarse en ellos prioritariamente, sin perder alineación con el OA.
 - En selección múltiple: 4 alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
 - En V/F: afirmaciones bien formuladas, mezcla equilibrada de V y F.
 - No incluyas la respuesta dentro del enunciado.
 - Devuelve la pregunta exclusivamente vía la tool 'emit_question'.`;
 
+    const indicatorsBlock =
+      body.indicators && body.indicators.length > 0
+        ? `\nIndicadores específicos a evaluar:\n${body.indicators
+            .map((i) => `- ${i.code}: ${i.description}`)
+            .join("\n")}\nLa pregunta debe centrarse explícitamente en estos indicadores.`
+        : "";
+
     const userPrompt = `Curso: ${body.gradeLabel}
 Asignatura: ${body.subjectLabel}
 Objetivo de Aprendizaje (${body.oaCode}): ${body.oaDescription}
-Tipo de pregunta: ${body.questionType}
+Tipo de pregunta: ${body.questionType}${indicatorsBlock}
 
-Genera una pregunta alineada al OA.`;
+Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicadores señalados" : ""}.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

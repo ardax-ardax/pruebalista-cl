@@ -1,0 +1,172 @@
+// Capa de overrides curriculares: permite que el administrador edite/agregue
+// OAs e indicadores. La fuente efectiva = base hard-coded + overrides.
+//
+// Persistencia híbrida:
+//   - Lectura: cache en memoria, hidratada al primer acceso desde localStorage.
+//   - Escritura: localStorage SIEMPRE; además sincroniza a Supabase
+//     (`curriculum_base`) si el usuario tiene permisos (RLS lo valida).
+//
+// Las funciones pesadas son async (loadOverridesFromCloud, save, remove).
+// `listOverrides` es síncrono (usa cache) para que `curriculum-data.ts`
+// pueda consumirlo desde getters.
+
+import { supabase } from "@/integrations/supabase/client";
+import type { Indicator } from "./curriculum-data";
+
+export interface OverrideOA {
+  grade_value: string;
+  subject_value: string;
+  oa_code: string;
+  oa_description: string;
+  eje?: string;
+  indicators: Indicator[];
+}
+
+const LS_KEY = "curriculum_overrides_v1";
+
+let cache: OverrideOA[] | null = null;
+
+const safeRead = (): OverrideOA[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as OverrideOA[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const safeWrite = (data: OverrideOA[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch {
+    /* ignore quota */
+  }
+};
+
+const ensureCache = (): OverrideOA[] => {
+  if (cache === null) cache = safeRead();
+  return cache;
+};
+
+export const listOverrides = (gradeValue?: string, subjectValue?: string): OverrideOA[] => {
+  const all = ensureCache();
+  if (!gradeValue || !subjectValue) return all;
+  return all.filter((o) => o.grade_value === gradeValue && o.subject_value === subjectValue);
+};
+
+export const findOverride = (
+  gradeValue: string,
+  subjectValue: string,
+  oaCode: string,
+): OverrideOA | undefined =>
+  ensureCache().find(
+    (o) => o.grade_value === gradeValue && o.subject_value === subjectValue && o.oa_code === oaCode,
+  );
+
+const upsertLocal = (entry: OverrideOA) => {
+  const all = ensureCache();
+  const idx = all.findIndex(
+    (o) =>
+      o.grade_value === entry.grade_value &&
+      o.subject_value === entry.subject_value &&
+      o.oa_code === entry.oa_code,
+  );
+  if (idx >= 0) all[idx] = entry;
+  else all.push(entry);
+  cache = [...all];
+  safeWrite(cache);
+};
+
+const removeLocal = (gradeValue: string, subjectValue: string, oaCode: string) => {
+  const all = ensureCache();
+  cache = all.filter(
+    (o) => !(o.grade_value === gradeValue && o.subject_value === subjectValue && o.oa_code === oaCode),
+  );
+  safeWrite(cache);
+};
+
+// Sincroniza la cache local con la BD (si está disponible y el usuario puede leer).
+export const loadOverridesFromCloud = async (): Promise<{ ok: boolean; count: number; error?: string }> => {
+  try {
+    const { data, error } = await supabase
+      .from("curriculum_base")
+      .select("grade_value, subject_value, oa_code, oa_description, eje, indicators");
+    if (error) return { ok: false, count: 0, error: error.message };
+    const rows = (data ?? []) as Array<{
+      grade_value: string;
+      subject_value: string;
+      oa_code: string;
+      oa_description: string;
+      eje: string | null;
+      indicators: unknown;
+    }>;
+    cache = rows.map((r) => ({
+      grade_value: r.grade_value,
+      subject_value: r.subject_value,
+      oa_code: r.oa_code,
+      oa_description: r.oa_description,
+      eje: r.eje ?? undefined,
+      indicators: Array.isArray(r.indicators) ? (r.indicators as Indicator[]) : [],
+    }));
+    safeWrite(cache);
+    return { ok: true, count: cache.length };
+  } catch (e) {
+    return { ok: false, count: 0, error: (e as Error).message };
+  }
+};
+
+// Guarda (insert/update) un override. Persiste local SIEMPRE; intenta cloud.
+export const saveOverride = async (entry: OverrideOA): Promise<{ cloud: boolean; error?: string }> => {
+  upsertLocal(entry);
+  try {
+    const { error } = await supabase
+      .from("curriculum_base")
+      .upsert(
+        [
+          {
+            grade_value: entry.grade_value,
+            subject_value: entry.subject_value,
+            oa_code: entry.oa_code,
+            oa_description: entry.oa_description,
+            eje: entry.eje ?? undefined,
+            indicators: entry.indicators as unknown as never,
+          },
+        ],
+        { onConflict: "grade_value,subject_value,oa_code" },
+      );
+    if (error) return { cloud: false, error: error.message };
+    return { cloud: true };
+  } catch (e) {
+    return { cloud: false, error: (e as Error).message };
+  }
+};
+
+// Elimina el override (restaurar a base). No toca la base hard-coded.
+export const removeOverride = async (
+  gradeValue: string,
+  subjectValue: string,
+  oaCode: string,
+): Promise<{ cloud: boolean; error?: string }> => {
+  removeLocal(gradeValue, subjectValue, oaCode);
+  try {
+    const { error } = await supabase
+      .from("curriculum_base")
+      .delete()
+      .eq("grade_value", gradeValue)
+      .eq("subject_value", subjectValue)
+      .eq("oa_code", oaCode);
+    if (error) return { cloud: false, error: error.message };
+    return { cloud: true };
+  } catch (e) {
+    return { cloud: false, error: (e as Error).message };
+  }
+};
+
+// Útil para tests / forzar relectura.
+export const __resetCache = () => {
+  cache = null;
+};

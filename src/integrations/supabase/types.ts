@@ -41,6 +41,45 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_base: {
+        Row: {
+          created_at: string
+          eje: string | null
+          grade_value: string
+          id: string
+          indicators: Json
+          oa_code: string
+          oa_description: string
+          subject_value: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          eje?: string | null
+          grade_value: string
+          id?: string
+          indicators?: Json
+          oa_code: string
+          oa_description: string
+          subject_value: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          eje?: string | null
+          grade_value?: string
+          id?: string
+          indicators?: Json
+          oa_code?: string
+          oa_description?: string
+          subject_value?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

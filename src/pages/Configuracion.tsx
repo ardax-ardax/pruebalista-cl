@@ -5,6 +5,8 @@ import { ArrowLeft, Copy, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { CatalogManager } from "@/components/CatalogManager";
+import { CurriculumManager } from "@/components/admin/CurriculumManager";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,6 +46,7 @@ import {
 } from "@/lib/catalog";
 
 const Configuracion = () => {
+  const { isAdmin } = useAuth();
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
@@ -295,6 +298,9 @@ const Configuracion = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Gestión Curricular (solo admin) */}
+      {isAdmin && <CurriculumManager />}
 
       {/* Plantillas */}
       <div className="flex items-center justify-between mb-4">
