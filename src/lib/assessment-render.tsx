@@ -302,13 +302,34 @@ function renderImageHtml(img: QuestionImage): string {
 
 // ====================== React render (para preview en pantalla) ======================
 
+// Resuelve márgenes efectivos en cm (template + override de meta.layout en mm).
+export function effectiveMarginsCm(ctx: RenderContext): { top: number; right: number; bottom: number; left: number } {
+  const t = ctx.template;
+  const layout = ctx.assessment.meta.layout;
+  if (layout) {
+    return {
+      top: layout.marginTop / 10,
+      bottom: layout.marginBottom / 10,
+      left: layout.marginSide / 10,
+      right: layout.marginSide / 10,
+    };
+  }
+  return {
+    top: t.spacing.marginTop ?? 2,
+    right: t.spacing.marginRight ?? 2,
+    bottom: t.spacing.marginBottom ?? 2,
+    left: t.spacing.marginLeft ?? 2.5,
+  };
+}
+
 export function AssessmentPreviewRender({ ctx }: { ctx: RenderContext }) {
   const html = renderAssessmentHtml(ctx);
+  const m = effectiveMarginsCm(ctx);
   const wrapperStyle: CSSProperties = {
     background: "white",
     color: "black",
     boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-    padding: "2cm 2cm 2cm 2.5cm",
+    padding: `${m.top}cm ${m.right}cm ${m.bottom}cm ${m.left}cm`,
     width: `${ctx.template.pageSize.widthCm}cm`,
     minHeight: `${ctx.template.pageSize.heightCm}cm`,
     margin: "0 auto",
