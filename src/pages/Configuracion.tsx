@@ -46,6 +46,7 @@ import {
 } from "@/lib/catalog";
 
 const Configuracion = () => {
+  const { isAdmin } = useAuth();
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
