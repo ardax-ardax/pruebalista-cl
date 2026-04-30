@@ -59,12 +59,38 @@ export const AssessmentMetaForm = ({
   // Si auto-asignación está ON, ignoramos la restricción del docente.
   const isRestricted = !!restrictedAssignments && !allowSelfAssignment;
 
-  // Cursos visibles: si restringido, solo aquellos con al menos una asignación.
+  // === Detección de modo Ensayo (SIMCE / PAES) según plantilla seleccionada ===
+  const currentTemplate = useMemo(
+    () => templates.find((t) => t.id === meta.templateId) ?? null,
+    [templates, meta.templateId],
+  );
+  const essayMode = currentTemplate?.essayMode ?? null;
+  const isPaes = essayMode === "paes";
+  const isSimce = essayMode === "simce";
+
+  // Auto-ajuste de grado al activar PAES (forzar IV° Medio).
+  useEffect(() => {
+    if (!isPaes) return;
+    if (!PAES_FORCED_GRADES.includes(meta.gradeValue)) {
+      // Selecciona la primera variante disponible que tenga el docente o IV° Medio A por defecto.
+      const allowed = isRestricted
+        ? PAES_FORCED_GRADES.find((g) => restrictedAssignments!.some((a) => a.grade_value === g))
+        : PAES_FORCED_GRADES[0];
+      if (allowed) {
+        onChange({ ...meta, gradeValue: allowed, linkedOA: [] });
+      }
+    }
+  }, [isPaes, meta.templateId]);
+
+  // Cursos visibles: restricciones por essayMode + asignaciones de docente.
   const availableGrades = useMemo(() => {
-    if (!isRestricted) return grades;
+    let base = grades;
+    if (isPaes) base = grades.filter((g) => PAES_FORCED_GRADES.includes(g.value));
+    else if (isSimce) base = grades.filter((g) => SIMCE_ALLOWED_GRADES.has(g.value));
+    if (!isRestricted) return base;
     const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
-    return grades.filter((g) => allowed.has(g.value));
-  }, [grades, isRestricted, restrictedAssignments]);
+    return base.filter((g) => allowed.has(g.value));
+  }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce]);
 
   // Asignaturas: filtradas por nivel del curso, y además, si restringido,
   // solo las parejas (curso, asignatura) que el docente tiene asignadas.
