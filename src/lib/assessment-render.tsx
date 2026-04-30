@@ -224,7 +224,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
   // En SIMCE y resto: bloque opcional de OAs visibles bajo el título/instrucciones.
   const oaHeader = isPaes
     ? (meta.paesAxis
-        ? `<div class="pa-oa-header"><div class="pa-oa-title">Ejes temáticos / habilidades</div><ul><li>${escape(meta.paesAxis)}</li></ul></div>`
+        ? `<div class="pa-oa-header"><div class="pa-oa-title">Eje Temático PAES</div><ul><li>${escape(meta.paesAxis)}</li></ul></div>`
         : "")
     : (meta.showOaInHeader && meta.linkedOA && meta.linkedOA.length > 0)
       ? (() => {
