@@ -416,7 +416,12 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   };
 
   if (q.type === "multiple-choice") {
-    const letters = ["a", "b", "c", "d", "e", "f"];
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    // Filtra opciones vacías a partir de la 5ª (la "E" solo se renderiza si tiene contenido).
+    const filteredOpts = (q.options ?? []).filter((o, idx) =>
+      idx < 4 ? true : (o.text && o.text.trim().length > 0) || !!o.image,
+    );
+    q = { ...q, options: filteredOpts } as Question;
     const buildOptionParagraphs = (colWidthCm: number, indent: number): Paragraph[] => {
       const ps: Paragraph[] = [];
       (q.options ?? []).forEach((o, i) => {
