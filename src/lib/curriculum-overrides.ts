@@ -126,14 +126,16 @@ export const saveOverride = async (entry: OverrideOA): Promise<{ cloud: boolean;
     const { error } = await supabase
       .from("curriculum_base")
       .upsert(
-        {
-          grade_value: entry.grade_value,
-          subject_value: entry.subject_value,
-          oa_code: entry.oa_code,
-          oa_description: entry.oa_description,
-          eje: entry.eje ?? null,
-          indicators: entry.indicators,
-        },
+        [
+          {
+            grade_value: entry.grade_value,
+            subject_value: entry.subject_value,
+            oa_code: entry.oa_code,
+            oa_description: entry.oa_description,
+            eje: entry.eje ?? undefined,
+            indicators: entry.indicators as unknown as never,
+          },
+        ],
         { onConflict: "grade_value,subject_value,oa_code" },
       );
     if (error) return { cloud: false, error: error.message };
