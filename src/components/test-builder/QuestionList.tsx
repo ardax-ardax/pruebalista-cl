@@ -1,17 +1,23 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckSquare, FileText, Hash, Info, ListChecks, Plus, Type } from "lucide-react";
+import { CheckSquare, FileText, Hash, Info, ListChecks, Plus, Sparkles, Type } from "lucide-react";
 import {
   computeTotalPoints,
   newQuestion,
+  type AssessmentMeta,
   type Question,
   type QuestionType,
 } from "@/lib/assessment-schema";
 import { QuestionEditor } from "./QuestionEditor";
+import { AIGenerateDialog } from "./AIGenerateDialog";
 
 interface Props {
   questions: Question[];
   onChange: (qs: Question[]) => void;
+  meta: AssessmentMeta;
+  gradeLabel: string;
+  subjectLabel: string;
 }
 
 const ADDABLE: { type: QuestionType; label: string; icon: typeof Plus }[] = [
@@ -38,7 +44,8 @@ const visibleNumber = (qs: Question[], i: number): number | null => {
   return n;
 };
 
-export const QuestionList = ({ questions, onChange }: Props) => {
+export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
+  const [aiOpen, setAiOpen] = useState(false);
   const add = (type: QuestionType) => onChange([...questions, newQuestion(type)]);
   const update = (i: number, q: Question) => {
     const next = questions.slice();
@@ -75,6 +82,9 @@ export const QuestionList = ({ questions, onChange }: Props) => {
               </Button>
             );
           })}
+          <Button type="button" size="sm" variant="default" onClick={() => setAiOpen(true)}>
+            <Sparkles className="h-4 w-4" /> Generar con IA
+          </Button>
           <span className="ml-auto text-xs text-muted-foreground">
             {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
           </span>
@@ -107,6 +117,17 @@ export const QuestionList = ({ questions, onChange }: Props) => {
           ))}
         </div>
       )}
+
+      <AIGenerateDialog
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        linkedOA={meta.linkedOA ?? []}
+        gradeValue={meta.gradeValue}
+        gradeLabel={gradeLabel}
+        subjectValue={meta.subjectValue}
+        subjectLabel={subjectLabel}
+        onGenerated={(q) => onChange([...questions, q])}
+      />
     </div>
   );
 };
