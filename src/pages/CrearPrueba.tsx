@@ -65,7 +65,7 @@ const CrearPrueba = () => {
     getAssessmentOwner(editingId).then(async (oid) => {
       setOwnerId(oid);
       if (oid && oid !== user?.id) {
-        const profs = await listProfiles();
+        const { profiles: profs } = await listProfiles();
         setOwnerProfile(profs.find((p) => p.id === oid) ?? null);
       } else {
         setOwnerProfile(null);

@@ -64,62 +64,64 @@ export const CatalogManager = ({
         </Button>
       </div>
 
-      <div className="rounded-md border border-border divide-y divide-border">
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-2 bg-muted/40 text-xs font-medium text-muted-foreground">
+      <div className="rounded-md border border-border">
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 bg-muted/40 text-[11px] font-medium text-muted-foreground sticky top-0 rounded-t-md">
           <div>Etiqueta</div>
           <div>Valor en archivo</div>
-          <div className="w-8" />
+          <div className="w-7" />
         </div>
-        {items.map((item, idx) => (
-          <div key={`${item.value}-${idx}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-2 items-center">
-            <Input
-              value={item.label}
-              onChange={(e) => handleEdit(idx, "label", e.target.value)}
-              className="h-8"
-            />
-            <Input
-              value={item.value}
-              onChange={(e) => handleEdit(idx, "value", e.target.value)}
-              className="h-8 font-mono text-xs"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleRemove(item.value)}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        ))}
-        {items.length === 0 && (
-          <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No hay elementos. Agrega uno abajo.
-          </div>
-        )}
+        <div className="max-h-[260px] overflow-y-auto divide-y divide-border">
+          {items.map((item, idx) => (
+            <div key={`${item.value}-${idx}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 items-center">
+              <Input
+                value={item.label}
+                onChange={(e) => handleEdit(idx, "label", e.target.value)}
+                className="h-7 text-sm"
+              />
+              <Input
+                value={item.value}
+                onChange={(e) => handleEdit(idx, "value", e.target.value)}
+                className="h-7 font-mono text-xs"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleRemove(item.value)}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+              No hay elementos. Agrega uno abajo.
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
         <div className="space-y-1">
-          <Label className="text-xs">Etiqueta</Label>
+          <Label className="text-[11px]">Etiqueta</Label>
           <Input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder={labelPlaceholder}
-            className="h-9"
+            className="h-8"
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Valor en archivo</Label>
+          <Label className="text-[11px]">Valor en archivo</Label>
           <Input
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
             placeholder={valuePlaceholder}
-            className="h-9 font-mono text-xs"
+            className="h-8 font-mono text-xs"
           />
         </div>
-        <Button onClick={handleAdd} className="gap-1.5 h-9">
-          <Plus className="h-4 w-4" />
+        <Button onClick={handleAdd} size="sm" className="gap-1.5 h-8">
+          <Plus className="h-3.5 w-3.5" />
           Agregar
         </Button>
       </div>

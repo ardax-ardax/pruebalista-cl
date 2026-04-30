@@ -36,7 +36,7 @@ const MisPruebas = () => {
 
   useEffect(() => {
     if (!isStaff) { setProfiles([]); return; }
-    listProfiles().then(setProfiles);
+    listProfiles().then((r) => setProfiles(r.profiles));
   }, [isStaff]);
 
   const profileById = useMemo(() => {

@@ -269,7 +269,7 @@ const Configuracion = () => {
             es lo que aparece en el nombre final (sin espacios ni símbolos).
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-8">
+        <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <CatalogManager
             title="Asignaturas"
             description="Ej: Historia → Historia"
@@ -290,7 +290,7 @@ const Configuracion = () => {
           />
           <CatalogManager
             title="Docentes"
-            description="Quien crea el documento. Se agrega al final del nombre del archivo."
+            description="Quien crea el documento. Se agrega al final del nombre."
             items={teachers}
             onChange={updateTeachers}
             onReset={handleResetTeachers}
