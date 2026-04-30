@@ -27,6 +27,7 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
   const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
 
   const availableOAs = getOAs(meta.gradeValue, meta.subjectValue);
+  const isFallback = !!meta.gradeValue && !!meta.subjectValue && !hasCurriculum(meta.gradeValue, meta.subjectValue);
   const linked = meta.linkedOA ?? [];
 
   const toggleOA = (code: string, checked: boolean) => {
