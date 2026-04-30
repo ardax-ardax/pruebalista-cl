@@ -1,122 +1,137 @@
-# Plan: Indicadores de Evaluación + Gestión Curricular
 
-## 1. Estructura de datos: Indicadores por OA
+# Plan: Jerarquía institucional + inteligencia curricular completa
 
-**`src/lib/curriculum-data.ts`**
-- Extender `OA` con `indicators: Indicator[]`:
-  ```ts
-  export interface Indicator { code: string; description: string; }
-  export interface OA { code: string; description: string; eje?: string; indicators: Indicator[]; }
-  ```
-- Poblar 3–5 indicadores de evaluación por cada OA existente en **Lenguaje, Matemática y Ciencias** de **1° a 6° Básico**, basados en los Programas de Estudio Mineduc (formato `1.1`, `1.2`, etc.).
-- Añadir indicadores genéricos a `TRANSVERSAL_SKILLS`.
-- Nuevos helpers:
-  - `findIndicators(grade, subject, oaCode): Indicator[]`
-  - `getEffectiveOAs(grade, subject): OA[]` que fusiona base con overrides admin.
+## 1. Roles y seguridad (Supabase + frontend)
 
-## 2. Capa de overrides + persistencia
+**Migración SQL** (un solo archivo):
+- Agregar `'utp_head'` al enum `app_role` (`ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'utp_head';`).
+- Crear función helper `public.is_staff(_user_id uuid)` SECURITY DEFINER que retorne `true` si es admin o utp_head (evita repetir `OR` en cada policy).
+- Reemplazar las 4 policies de `assessments`:
+  - `SELECT/UPDATE/DELETE`: `using = (user_id = auth.uid()) OR public.is_staff(auth.uid())`.
+  - `INSERT`: sigue siendo `user_id = auth.uid()` (UTP/admin crean para sí mismos; supervisan al resto).
+- Reusar policies existentes para `profiles` y `curriculum_base` (ya admiten admin; ampliar a `is_staff` donde aplique para UTP).
 
-**`src/lib/curriculum-overrides.ts` (nuevo)**
-- Fuente de verdad efectiva = base (código) + overrides (BD/localStorage).
-- API: `loadOverrides()`, `saveOverrideOA(grade, subject, oa)`, `resetOverride(grade, subject, oaCode)`.
-- Estrategia híbrida:
-  - Si el usuario es admin y la tabla está disponible → lee/escribe en Supabase `curriculum_base`.
-  - Fallback inmediato a `localStorage` (clave `curriculum_overrides_v1`) para que funcione antes/aunque falle la BD.
-- Cache en memoria con invalidación al guardar.
+**Frontend** (`src/hooks/useAuth.tsx`):
+- Cambiar `isAdmin: boolean` por `role: 'admin' | 'utp_head' | 'user' | null` y mantener `isAdmin`/agregar `isUtpHead`/`isStaff` derivados para no romper consumers existentes.
+- Cargar el rol con `select role` (sin `.eq('role','admin')`) y tomar el de mayor privilegio.
 
-**Migración Supabase — tabla `curriculum_base`**
-```sql
-create table public.curriculum_base (
-  id uuid primary key default gen_random_uuid(),
-  grade_value text not null,
-  subject_value text not null,
-  oa_code text not null,
-  oa_description text not null,
-  eje text,
-  indicators jsonb not null default '[]'::jsonb,
-  updated_at timestamptz not null default now(),
-  updated_by uuid,
-  unique (grade_value, subject_value, oa_code)
-);
-alter table public.curriculum_base enable row level security;
+**`src/components/AdminGuard.tsx`**:
+- Renombrar lógica interna a "staff guard": permitir si `isAdmin || isUtpHead`. Mensaje de error genérico ("Solo personal autorizado").
 
--- Lectura pública para todos los autenticados
-create policy "read curriculum"
-  on public.curriculum_base for select
-  to authenticated using (true);
+## 2. Asignaciones docente ↔ curso ↔ asignatura
 
--- Solo admin puede insertar/editar/eliminar
-create policy "admin write curriculum"
-  on public.curriculum_base for all
-  to authenticated
-  using (has_role(auth.uid(), 'admin'))
-  with check (has_role(auth.uid(), 'admin'));
+**Tabla nueva** `public.teacher_assignments`:
+```
+id uuid pk default gen_random_uuid(),
+teacher_user_id uuid not null,        -- referencia lógica a auth.users (perfil)
+grade_value text not null,             -- value del catálogo (ej "3ºBásico")
+subject_value text not null,           -- value del catálogo (ej "Matemática")
+created_at timestamptz default now(),
+unique(teacher_user_id, grade_value, subject_value)
+```
+RLS:
+- SELECT: el propio docente ve las suyas; staff ve todas.
+- INSERT/UPDATE/DELETE: solo `is_staff`.
 
-create trigger curriculum_base_updated_at
-  before update on public.curriculum_base
-  for each row execute function public.set_updated_at();
+**Helpers** en `src/lib/teacher-assignments.ts` (nuevo): `listAll()`, `listForTeacher(uid)`, `upsert(...)`, `remove(id)`.
+
+**`src/pages/Configuracion.tsx`**:
+- Nueva sección "Asignaciones de docentes" (visible solo para staff vía `AdminGuard`/condicional). Para cada docente (de `profiles`), permitir agregar combinaciones `Curso + Asignatura` (selectores poblados desde `catalog.ts`, filtrando asignaturas válidas por nivel del curso). Tabla con sus asignaciones actuales y botón "Eliminar".
+
+**`src/components/test-builder/AssessmentMetaForm.tsx`**:
+- Aceptar nuevo prop `restrictedAssignments?: TeacherAssignment[]` (o null para staff).
+- Si `restrictedAssignments` viene seteado:
+  - Filtrar `grades` a los que aparecen en sus asignaciones.
+  - Filtrar `availableSubjects` adicionalmente por las parejas exactas curso+asignatura asignadas (no basta el nivel).
+- Bonus: corregir bug actual — el JSX duplica el selector "Docente" (líneas 102–119); dejar uno solo.
+- En `CrearPrueba.tsx`, cargar `listForTeacher(user.id)` cuando el rol sea `'user'` y pasarlo al form. Para staff pasar `null` (catálogo completo).
+
+## 3. Cerebro curricular (1° Básico → 4° Medio)
+
+**`src/lib/curriculum-data.ts`** ya cubre 1°–6° Básico para Lenguaje/Matemática/Ciencias. Extender con OAs e indicadores oficiales Mineduc para:
+- 7° y 8° Básico: Lengua, Matemática, Ciencias Naturales, Historia, Inglés.
+- I°–II° Medio: Lengua y Literatura, Matemática, Biología/Física/Química, Historia, Inglés.
+- III°–IV° Medio (plan común): Lengua y Literatura, Matemática, Ciencias para la Ciudadanía, Educación Ciudadana, Filosofía, Inglés.
+- Mantener fallback a `TRANSVERSAL_SKILLS` si no hay datos.
+
+Estimado: ~120 OAs adicionales con 2–3 indicadores cada uno. Volumen factible en un solo archivo (~1.200 líneas finales).
+
+**Flujo del editor** ya es Curso → Asignatura → OA → Indicador (implementado). Solo se valida que `AIGenerateDialog` siga consumiendo el OA seleccionado y los indicadores opcionales.
+
+**Edge function `generate-question`** (mejora):
+- Ampliar el tool schema de los 3 tipos para que la IA devuelva además:
+  - `difficulty: "baja" | "media" | "alta"`.
+  - `rubricExplanation: string` (explicación pedagógica + respuesta correcta detallada para la pauta de corrección).
+- Inyectar estos campos en el prompt como obligatorios.
+- En `assessment-ai.ts` y `assessment-schema.ts`: agregar campos opcionales a `Question`:
+  - `difficulty?: "baja" | "media" | "alta"`.
+  - `rubric?: string` (explicación corrección).
+  - `sourceOA?: string`, `sourceIndicators?: string[]` (trazabilidad para pauta).
+- `coerceGeneratedQuestion` setea estos campos a partir del payload de la IA y los argumentos originales.
+
+## 4. Supervisión UTP en `MisPruebas.tsx`
+
+- Reemplazar `isAdmin` por `isStaff` en las condiciones (filtros, "Ver todas", "Filtrar por docente").
+- Texto de cabecera: detectar rol y mostrar "Administrador" / "Jefe UTP" / "Mis pruebas".
+- Edición ya funciona: la policy UPDATE de `assessments` permite a staff editar cualquier fila, así que abrir `?id=...` funciona sin cambios extra en `CrearPrueba.tsx`.
+- Agregar un filtro adicional "Por curso" y "Por asignatura" usando el catálogo, útil para UTP.
+
+## 5. Exportación: encabezado + pauta de corrección
+
+**Encabezado** (PDF/HTML en `assessment-render.tsx` y DOCX en `assessment-docx.ts`):
+- Hoy ya imprime "OA evaluados: …" (códigos). Ampliar a una línea adicional con la **descripción corta** del primer OA (truncada) o, si caben, listado `código — descripción`.
+- Agregar línea "Indicadores: …" con los indicadores derivados de las preguntas generadas (campo `sourceIndicators` de cada `Question`), deduplicados.
+
+**Pauta de Corrección automática**:
+- Nuevo módulo `src/lib/assessment-rubric.ts` que recibe `Assessment` y produce una estructura `RubricSection[]`:
+  - Para cada pregunta numerada: número, título, OA + indicadores asociados, respuesta correcta (alternativa correcta para MC, V/F por afirmación, criterio para desarrollo basado en `rubric` de la IA o texto manual), puntaje y dificultad.
+- En `assessment-render.tsx`:
+  - Nueva sección final `<div class="pa-rubric">` con CSS `page-break-before: always`. Renderizada bajo el footer.
+  - Toggle visual en el preview (checkbox "Incluir pauta") y al exportar siempre se incluye en una segunda hoja.
+- En `assessment-docx.ts`:
+  - Nueva sección con `pageBreakBefore: true` que genera tabla de pauta (Nº | OA | Indicador | Respuesta correcta | Puntaje).
+- En `assessment-pdf.ts`: nada extra (sigue imprimiendo el HTML completo).
+
+## 6. Persistencia y borradores
+
+**`src/lib/assessment-schema.ts`**: ampliar `Question` con los campos opcionales (`difficulty`, `rubric`, `sourceOA`, `sourceIndicators`). Como son opcionales, los borradores antiguos en IndexedDB siguen siendo válidos. Actualizar `migrateQuestion` para no romper nada (ya no requiere migraciones específicas).
+
+**`src/lib/assessment-storage.ts`**: el `data` se guarda como JSONB en Supabase, por lo que los nuevos campos quedan automáticamente persistidos.
+
+## Detalles técnicos clave
+
+```text
+Roles
+  admin    → todo (incluida gestión curricular y catálogos)
+  utp_head → ver/editar todas las pruebas, asignar docentes, ver curriculum manager
+  user     → solo sus pruebas, solo cursos/asignaturas asignados
+
+Filtrado en AssessmentMetaForm (rol = user)
+  grades   = grades.filter(g => assignments.some(a => a.grade_value === g.value))
+  subjects = getSubjectsForGrade(...) ∩ assignments where grade matches
 ```
 
-## 3. Editor de pruebas — paso 2 IA: selección de indicadores
+## Archivos a crear
 
-**`src/components/test-builder/AIGenerateDialog.tsx`**
-- Tras elegir el OA, mostrar una lista de checkboxes con los `Indicator[]` del OA (vacío → mensaje "Este OA aún no tiene indicadores cargados, se usará el OA completo").
-- Estado local `selectedIndicators: string[]` (códigos), opcional, multi-select.
-- Botón "Generar" envía también los indicadores escogidos.
+- `supabase/migrations/<timestamp>_roles_assignments.sql`
+- `src/lib/teacher-assignments.ts`
+- `src/lib/assessment-rubric.ts`
+- `src/components/admin/TeacherAssignmentsManager.tsx`
 
-**`src/lib/assessment-ai.ts`**
-- Extender `GenerateQuestionParams` con `indicators?: { code: string; description: string }[]`.
+## Archivos a editar
 
-**`supabase/functions/generate-question/index.ts`**
-- Aceptar `indicators` opcional en el payload.
-- Inyectar en `userPrompt`:
-  ```
-  Indicadores específicos a evaluar:
-  - 1.2 ...
-  - 1.3 ...
-  La pregunta debe enfocarse explícitamente en estos indicadores.
-  ```
-- Reforzar regla en `systemPrompt`: si vienen indicadores, deben primar sobre el OA general.
-
-## 4. Panel "Gestión Curricular" (solo admin)
-
-**`src/components/admin/CurriculumManager.tsx` (nuevo)**
-- Renderizado dentro de `Configuracion.tsx`, envuelto en chequeo `isAdmin` (ya existe `useAuth().isAdmin`).
-- UI:
-  - Selectores **Curso → Asignatura** (mismo patrón que `AssessmentMetaForm`).
-  - Lista de OAs (efectivos) con botón "Editar".
-  - Dialog de edición: campos `code`, `eje`, `description`, y editor de `indicators` (lista add/remove `code` + `description`).
-  - Acciones: **Guardar** (escribe override), **Restaurar base** (elimina override), **Nuevo OA** (solo se persiste como override).
-  - Badge "Modificado" si el OA tiene override activo.
-- Toda la escritura va por `curriculum-overrides.ts` (BD si admin + tabla disponible, localStorage en cualquier otro caso).
-
-**`src/pages/Configuracion.tsx`**
-- Importar `useAuth`, y debajo de "Asignaturas, cursos y docentes" agregar:
-  ```tsx
-  {isAdmin && <CurriculumManager />}
-  ```
-- Sin cambios al resto del archivo.
-
-## 5. Integración en el resto del flujo
-- `AssessmentMetaForm` y `AIGenerateDialog` consumen vía `getEffectiveOAs` / `findIndicators` para reflejar overrides automáticamente sin tocar lógica de UI.
-- `assessment-render.tsx` y `assessment-docx.ts`: sin cambios (los códigos OA seleccionados ya se exportan).
-
-## Archivos afectados
-**Nuevos**
-- `src/lib/curriculum-overrides.ts`
-- `src/components/admin/CurriculumManager.tsx`
-- Migración SQL `curriculum_base`
-
-**Editados**
-- `src/lib/curriculum-data.ts` (interfaz + indicadores + helper efectivo)
+- `src/hooks/useAuth.tsx`
+- `src/components/AdminGuard.tsx`
+- `src/lib/assessment-schema.ts`
 - `src/lib/assessment-ai.ts`
-- `src/components/test-builder/AIGenerateDialog.tsx`
-- `supabase/functions/generate-question/index.ts`
-- `src/pages/Configuracion.tsx`
-
-## Notas técnicas
-- La tabla `curriculum_base` **no** se sincroniza automáticamente con la base hard-coded; solo guarda overrides/altas. Esto evita migraciones masivas y permite que las actualizaciones de Mineduc en código sigan llegando vía deploys.
-- Los códigos `OA` referenciados en assessments existentes (`linkedOA: string[]`) siguen funcionando: solo cambia el contenido descriptivo/indicadores que se muestra/exporta.
-- Si la inserción a Supabase falla (offline / permisos), se cae a `localStorage` y se notifica con `toast`.
+- `src/lib/assessment-render.tsx`
+- `src/lib/assessment-docx.ts`
+- `src/lib/curriculum-data.ts` (extensión 7° Básico → 4° Medio)
+- `src/components/test-builder/AssessmentMetaForm.tsx` (filtro + bug docente duplicado)
+- `src/components/test-builder/AIGenerateDialog.tsx` (recibir difficulty/rubric desde IA)
+- `src/pages/CrearPrueba.tsx` (cargar asignaciones según rol)
+- `src/pages/Configuracion.tsx` (nueva sección asignaciones)
+- `src/pages/MisPruebas.tsx` (isStaff + filtros adicionales)
+- `supabase/functions/generate-question/index.ts` (difficulty + rubricExplanation)
 
 ¿Apruebas este plan para implementarlo?

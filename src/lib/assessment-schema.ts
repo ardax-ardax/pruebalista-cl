@@ -44,6 +44,8 @@ export interface TfStatement {
 
 export type ImageLayout = "block" | "side-right" | "side-left";
 
+export type Difficulty = "baja" | "media" | "alta";
+
 export interface Question {
   id: string;
   type: QuestionType;
@@ -58,6 +60,11 @@ export interface Question {
   answerLines?: number; // para short-answer
   useTwoColumns?: boolean; // solo aplica a multiple-choice y true-false
   infoStyle?: "highlighted" | "plain"; // solo aplica a info-block; default "highlighted"
+  // === Trazabilidad curricular y pauta de corrección (opcionales) ===
+  difficulty?: Difficulty;          // estimado por la IA
+  rubric?: string;                  // explicación / criterio para corregir
+  sourceOA?: string;                // OA con el que se generó esta pregunta
+  sourceIndicators?: string[];      // códigos de indicadores usados
 }
 
 export interface AssessmentMeta {

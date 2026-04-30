@@ -22,6 +22,11 @@ interface Payload {
   indicators?: Indicator[];
 }
 
+const COMMON_FIELDS = {
+  difficulty: { type: "string", enum: ["baja", "media", "alta"], description: "Dificultad estimada." },
+  rubricExplanation: { type: "string", description: "Explicación pedagógica con la respuesta correcta y criterios para corregir (pauta)." },
+};
+
 const TOOL_MC = {
   type: "function" as const,
   function: {
@@ -46,8 +51,9 @@ const TOOL_MC = {
             additionalProperties: false,
           },
         },
+        ...COMMON_FIELDS,
       },
-      required: ["prompt", "points", "options"],
+      required: ["prompt", "points", "options", "difficulty", "rubricExplanation"],
       additionalProperties: false,
     },
   },
@@ -77,8 +83,9 @@ const TOOL_TF = {
             additionalProperties: false,
           },
         },
+        ...COMMON_FIELDS,
       },
-      required: ["prompt", "statements"],
+      required: ["prompt", "statements", "difficulty", "rubricExplanation"],
       additionalProperties: false,
     },
   },
@@ -95,8 +102,9 @@ const TOOL_SA = {
         prompt: { type: "string" },
         points: { type: "number" },
         answerLines: { type: "number", description: "Líneas de respuesta sugeridas (1-10)." },
+        ...COMMON_FIELDS,
       },
-      required: ["prompt", "points", "answerLines"],
+      required: ["prompt", "points", "answerLines", "difficulty", "rubricExplanation"],
       additionalProperties: false,
     },
   },
@@ -134,6 +142,8 @@ Reglas estrictas:
 - En selección múltiple: 4 alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
 - En V/F: afirmaciones bien formuladas, mezcla equilibrada de V y F.
 - No incluyas la respuesta dentro del enunciado.
+- Estima la dificultad ("baja", "media" o "alta") según el curso.
+- Entrega siempre 'rubricExplanation': respuesta correcta detallada y criterios de corrección para la pauta.
 - Devuelve la pregunta exclusivamente vía la tool 'emit_question'.`;
 
     const indicatorsBlock =

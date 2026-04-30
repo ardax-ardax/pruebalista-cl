@@ -107,6 +107,30 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_assignments: {
+        Row: {
+          created_at: string
+          grade_value: string
+          id: string
+          subject_value: string
+          teacher_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          grade_value: string
+          id?: string
+          subject_value: string
+          teacher_user_id: string
+        }
+        Update: {
+          created_at?: string
+          grade_value?: string
+          id?: string
+          subject_value?: string
+          teacher_user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -140,9 +164,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "utp_head"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -270,7 +295,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "utp_head"],
     },
   },
 } as const

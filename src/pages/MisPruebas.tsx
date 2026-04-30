@@ -24,7 +24,7 @@ const MisPruebas = () => {
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isStaff, isUtpHead } = useAuth();
 
   const refresh = async () => {
     const all = await listAssessmentsWithOwner();
@@ -34,9 +34,9 @@ const MisPruebas = () => {
   useEffect(() => { refresh(); }, []);
 
   useEffect(() => {
-    if (!isAdmin) { setProfiles([]); return; }
+    if (!isStaff) { setProfiles([]); return; }
     listProfiles().then(setProfiles);
-  }, [isAdmin]);
+  }, [isStaff]);
 
   const profileById = useMemo(() => {
     const m = new Map<string, Profile>();
@@ -45,12 +45,12 @@ const MisPruebas = () => {
   }, [profiles]);
 
   const teacherOptions = useMemo(() => {
-    if (!isAdmin) return [];
+    if (!isStaff) return [];
     const ids = Array.from(new Set(items.map((i) => i.userId)));
     return ids
       .map((id) => ({ id, label: profileLabel(profileById.get(id), id) }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [items, profileById, isAdmin]);
+  }, [items, profileById, isStaff]);
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`¿Eliminar la prueba "${title || "Sin título"}"?`)) return;
@@ -67,7 +67,7 @@ const MisPruebas = () => {
     arr.find((x) => x.value === v)?.label ?? "—";
 
   const visible = (() => {
-    if (!isAdmin || !showAll) return items.filter((i) => i.userId === user?.id);
+    if (!isStaff || !showAll) return items.filter((i) => i.userId === user?.id);
     if (teacherFilter === ALL) return items;
     return items.filter((i) => i.userId === teacherFilter);
   })();
@@ -79,18 +79,18 @@ const MisPruebas = () => {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Mis pruebas</h1>
             <p className="text-sm text-muted-foreground">
-              {isAdmin
-                ? "Administrador: puedes ver todas las pruebas o filtrar por docente."
+              {isStaff
+                ? (isUtpHead ? "Jefe UTP: puedes ver todas las pruebas o filtrar por docente." : "Administrador: puedes ver todas las pruebas o filtrar por docente.")
                 : "Tus pruebas guardadas en la nube. Solo tú puedes verlas."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isAdmin && (
+            {isStaff && (
               <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); }}>
                 {showAll ? "Ver solo mías" : "Ver todas"}
               </Button>
             )}
-            {isAdmin && showAll && (
+            {isStaff && showAll && (
               <Select value={teacherFilter} onValueChange={setTeacherFilter}>
                 <SelectTrigger className="h-9 w-[220px]">
                   <SelectValue placeholder="Docente" />
@@ -121,7 +121,7 @@ const MisPruebas = () => {
             {visible.map(({ assessment: a, userId }) => {
               const counted = a.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
               const isOwn = userId === user?.id;
-              const authorLabel = isAdmin && !isOwn
+              const authorLabel = isStaff && !isOwn
                 ? profileLabel(profileById.get(userId), userId)
                 : null;
               return (
