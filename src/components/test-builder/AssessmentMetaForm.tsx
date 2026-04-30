@@ -50,7 +50,8 @@ export const AssessmentMetaForm = ({
     return () => { active = false; };
   }, []);
 
-  const isRestricted = !!restrictedAssignments;
+  // Si auto-asignación está ON, ignoramos la restricción del docente.
+  const isRestricted = !!restrictedAssignments && !allowSelfAssignment;
 
   // Cursos visibles: si restringido, solo aquellos con al menos una asignación.
   const availableGrades = useMemo(() => {
