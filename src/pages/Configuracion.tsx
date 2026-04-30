@@ -5,6 +5,8 @@ import { ArrowLeft, Copy, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { CatalogManager } from "@/components/CatalogManager";
+import { CurriculumManager } from "@/components/admin/CurriculumManager";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
