@@ -1,17 +1,18 @@
 // Panel de Gestión de Personal — exclusivo para Admin.
-// Permite (a) cambiar el rol de cada usuario y (b) administrar las
-// asignaciones docente ↔ curso ↔ asignatura usadas para filtrar el catálogo
-// de OAs en AssessmentMetaForm.
+// UI compacta con scroll interno. Permite (a) cambiar el rol de cada usuario,
+// (b) administrar las asignaciones docente ↔ curso ↔ asignatura, y (c)
+// sincronizar perfiles desde Auth si la tabla profiles está incompleta.
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, RefreshCw, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { useAuth } from "@/hooks/useAuth";
+import { listProfiles, profileLabel, syncProfilesFromAuth, type Profile } from "@/lib/profiles";
 import {
   addAssignment,
   listAllAssignments,
@@ -45,25 +46,32 @@ const topRole = (roles: AppRole[]): AppRole | null => {
 };
 
 export const StaffManager = () => {
+  const { user } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [rolesByUser, setRolesByUser] = useState<Map<string, AppRole>>(new Map());
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
   const [grades] = useState<GradeOption[]>(() => loadGrades());
   const [subjects] = useState<SubjectOption[]>(() => loadSubjects());
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form de nueva asignación
   const [newTeacher, setNewTeacher] = useState<string>("");
   const [newGrade, setNewGrade] = useState<string>("");
   const [newSubject, setNewSubject] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const refresh = async () => {
-    const [profs, rolesRes, asg] = await Promise.all([
+    const [profsRes, rolesRes, asg] = await Promise.all([
       listProfiles(),
       supabase.from("user_roles").select("user_id, role"),
       listAllAssignments(),
     ]);
-    setProfiles(profs);
+    setProfiles(profsRes.profiles);
+    setLoadError(profsRes.error);
+    if (profsRes.error) {
+      toast.error("No se pudo cargar perfiles: " + profsRes.error);
+    }
     const map = new Map<string, AppRole>();
     const grouped = new Map<string, AppRole[]>();
     for (const r of (rolesRes.data ?? []) as { user_id: string; role: AppRole }[]) {
@@ -79,7 +87,24 @@ export const StaffManager = () => {
     setAssignments(asg);
   };
 
-  useEffect(() => { refresh(); }, []);
+  // Recarga cuando cambia la sesión (evita la condición de carrera con auth).
+  useEffect(() => {
+    if (!user) return;
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    const res = await syncProfilesFromAuth();
+    setSyncing(false);
+    if (!res.ok) {
+      toast.error("No se pudo sincronizar: " + (res.error ?? ""));
+      return;
+    }
+    toast.success(`Sincronizados ${res.synced ?? 0} perfiles (${res.total ?? 0} usuarios en Auth).`);
+    await refresh();
+  };
 
   const subjectsForNewGrade = useMemo(() => {
     if (!newGrade) return [];
@@ -89,15 +114,9 @@ export const StaffManager = () => {
   const handleRoleChange = async (userId: string, role: AppRole) => {
     setBusy(true);
     try {
-      // Reemplazar todos los roles del usuario por el seleccionado.
-      const { error: delErr } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
+      const { error: delErr } = await supabase.from("user_roles").delete().eq("user_id", userId);
       if (delErr) throw delErr;
-      const { error: insErr } = await supabase
-        .from("user_roles")
-        .insert({ user_id: userId, role });
+      const { error: insErr } = await supabase.from("user_roles").insert({ user_id: userId, role });
       if (insErr) throw insErr;
       toast.success(`Rol actualizado a ${ROLE_LABELS[role]}`);
       await refresh();
@@ -136,7 +155,6 @@ export const StaffManager = () => {
     await refresh();
   };
 
-  // Agrupa asignaciones por docente para mostrarlas ordenadas.
   const assignmentsByTeacher = useMemo(() => {
     const m = new Map<string, TeacherAssignment[]>();
     for (const a of assignments) {
@@ -159,75 +177,110 @@ export const StaffManager = () => {
   return (
     <Card className="shadow-card mb-8 border-primary/40">
       <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-primary" />
-          Gestión de Personal
-        </CardTitle>
-        <CardDescription>
-          Solo administradores. Asigna roles del sistema y vincula a cada docente con
-          los cursos y asignaturas que dicta. Esto controla qué OAs puede ver al crear pruebas.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-10">
-        {/* Roles */}
-        <section className="space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h3 className="text-sm font-semibold">Roles de usuarios</h3>
-            <p className="text-xs text-muted-foreground">
-              Docente: solo ve sus pruebas y los OAs de sus cursos asignados. Jefe UTP: supervisa
-              todas las pruebas. Administrador: acceso total.
-            </p>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Gestión de Personal
+            </CardTitle>
+            <CardDescription>
+              Asigna roles del sistema y vincula a cada docente con sus cursos y asignaturas.
+            </CardDescription>
           </div>
-          {profiles.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No hay usuarios registrados aún.</p>
-          ) : (
-            <div className="rounded-md border border-border divide-y">
-              {profiles.map((p) => {
-                const current = rolesByUser.get(p.id) ?? "user";
-                return (
-                  <div key={p.id} className="flex flex-wrap items-center gap-3 p-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {profileLabel(p, p.id)}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">{p.email}</div>
-                    </div>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {ROLE_LABELS[current as AppRole]}
-                    </Badge>
-                    <Select
-                      value={current}
-                      onValueChange={(v) => handleRoleChange(p.id, v as AppRole)}
-                      disabled={busy}
-                    >
-                      <SelectTrigger className="h-8 w-[180px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Docente</SelectItem>
-                        <SelectItem value="utp_head">Jefe UTP</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+            Sincronizar perfiles desde Auth
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {loadError && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            Error al cargar perfiles: {loadError}
+          </div>
+        )}
+
+        {/* Roles */}
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Roles de usuarios</h3>
+            <Badge variant="secondary" className="text-[10px]">{profiles.length}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Docente: solo sus pruebas. Jefe UTP: supervisa todas. Admin: acceso total.
+          </p>
+
+          <div className="rounded-md border border-border max-h-[280px] overflow-y-auto">
+            {profiles.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                No hay perfiles cargados. Usa “Sincronizar perfiles desde Auth”.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted/60 backdrop-blur text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-3 py-2">Usuario</th>
+                    <th className="text-left font-medium px-3 py-2 hidden sm:table-cell">Email</th>
+                    <th className="text-left font-medium px-3 py-2 w-[170px]">Rol</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {profiles.map((p) => {
+                    const current = (rolesByUser.get(p.id) ?? "user") as AppRole;
+                    return (
+                      <tr key={p.id} className="border-t border-border">
+                        <td className="px-3 py-1.5">
+                          <div className="font-medium truncate max-w-[200px]">
+                            {profileLabel(p, p.id)}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground sm:hidden truncate max-w-[200px]">
+                            {p.email}
+                          </div>
+                        </td>
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground hidden sm:table-cell truncate max-w-[220px]">
+                          {p.email}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Select
+                            value={current}
+                            onValueChange={(v) => handleRoleChange(p.id, v as AppRole)}
+                            disabled={busy}
+                          >
+                            <SelectTrigger className="h-8 w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">Docente</SelectItem>
+                              <SelectItem value="utp_head">Jefe UTP</SelectItem>
+                              <SelectItem value="admin">Administrador</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </section>
 
         {/* Asignaciones */}
-        <section className="space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold">Asignaciones docente ↔ curso ↔ asignatura</h3>
-            <p className="text-xs text-muted-foreground">
-              Cada combinación permitirá al docente seleccionar ese curso y asignatura
-              al crear pruebas.
-            </p>
-          </div>
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold">Asignaciones docente · curso · asignatura</h3>
+          <p className="text-xs text-muted-foreground">
+            Define qué cursos y asignaturas puede usar cada docente al crear pruebas.
+          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-md border border-dashed border-border p-3">
-            <Select value={newTeacher} onValueChange={(v) => { setNewTeacher(v); }}>
+          <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr_auto] gap-2 rounded-md border border-dashed border-border p-2.5">
+            <Select value={newTeacher} onValueChange={setNewTeacher}>
               <SelectTrigger className="h-9"><SelectValue placeholder="Docente" /></SelectTrigger>
               <SelectContent>
                 {profiles.map((p) => (
@@ -235,22 +288,13 @@ export const StaffManager = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={newGrade}
-              onValueChange={(v) => { setNewGrade(v); setNewSubject(""); }}
-            >
+            <Select value={newGrade} onValueChange={(v) => { setNewGrade(v); setNewSubject(""); }}>
               <SelectTrigger className="h-9"><SelectValue placeholder="Curso" /></SelectTrigger>
               <SelectContent>
-                {grades.map((g) => (
-                  <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-                ))}
+                {grades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
               </SelectContent>
             </Select>
-            <Select
-              value={newSubject}
-              onValueChange={setNewSubject}
-              disabled={!newGrade}
-            >
+            <Select value={newSubject} onValueChange={setNewSubject} disabled={!newGrade}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder={newGrade ? "Asignatura" : "Primero el curso"} />
               </SelectTrigger>
@@ -260,28 +304,30 @@ export const StaffManager = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={handleAddAssignment} disabled={busy} className="gap-2">
+            <Button onClick={handleAddAssignment} disabled={busy} className="gap-2 h-9">
               <Plus className="h-4 w-4" /> Agregar
             </Button>
           </div>
 
-          {assignmentsByTeacher.size === 0 ? (
-            <p className="text-xs text-muted-foreground">Aún no hay asignaciones registradas.</p>
-          ) : (
-            <div className="rounded-md border border-border divide-y">
-              {Array.from(assignmentsByTeacher.entries()).map(([teacherId, items]) => {
+          <div className="rounded-md border border-border max-h-[260px] overflow-y-auto divide-y">
+            {assignmentsByTeacher.size === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Aún no hay asignaciones registradas.
+              </p>
+            ) : (
+              Array.from(assignmentsByTeacher.entries()).map(([teacherId, items]) => {
                 const p = profileById.get(teacherId);
                 return (
-                  <div key={teacherId} className="p-3 space-y-2">
-                    <div className="text-sm font-medium">
+                  <div key={teacherId} className="px-3 py-2 space-y-1.5">
+                    <div className="text-xs font-medium truncate">
                       {profileLabel(p, teacherId)}
-                      {p?.email ? <span className="text-xs text-muted-foreground ml-2">{p.email}</span> : null}
+                      {p?.email ? <span className="text-muted-foreground ml-2">{p.email}</span> : null}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {items.map((a) => (
                         <span
                           key={a.id}
-                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px]"
                         >
                           <span className="font-medium">{gradeLabel(a.grade_value)}</span>
                           <span className="text-muted-foreground">·</span>
@@ -299,9 +345,9 @@ export const StaffManager = () => {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </section>
       </CardContent>
     </Card>
