@@ -1,40 +1,55 @@
-## Problema
+# Mover Optimización de Espacio sobre la Vista Previa
 
-Al guardar una prueba aparece:
-> "No se pudo guardar: invalid input syntax for type uuid: 'molxxluk-msryjk'"
+## Diagnóstico
 
-**Causa raíz:** la columna `assessments.id` en la base de datos es de tipo `uuid`, pero el frontend usa `newId()` (en `src/lib/assessment-schema.ts`) que genera identificadores tipo `"molxxluk-msryjk"` (timestamp + random base36). Eso es válido para IDs internos de preguntas/opciones, pero **no** es un UUID válido para Postgres, así que el `upsert` revienta.
+Hoy el panel está dentro de la pestaña **"Datos"**, lo que obliga a saltar entre pestañas para ajustar márgenes y volver a "Vista previa" para ver el efecto. La pestaña **"Vista previa"** (`/CrearPrueba` → tab `preview`) sólo tiene un `Card` con `<AssessmentPreview ctx={renderCtx} />`.
 
-Esto afecta a **todos los usuarios** (docentes y staff), no solo a docentes — pero salta más en docentes nuevos porque ellos parten siempre de borradores nuevos creados con ese ID inválido.
+## Cambios
 
-### Respuesta a tu pregunta
-> "Si yo guardo, puedo seguir editando y guardando?"
+### 1. `src/components/test-builder/AssessmentMetaForm.tsx`
 
-Sí — una vez arreglado esto, podrás guardar la prueba y luego seguir editándola y volviendo a guardar. El sistema usa `upsert` por `id`, así que la misma prueba se actualiza en lugar de duplicarse cada vez que pulsas "Guardar".
+- **Eliminar** la sección `LayoutOptimizationSection` del formulario de metadatos (queda solo con curso/asignatura/OAs/etc.).
+- Quitar la prop `canEditLayout` (ya no se usa aquí).
+- Mantener `LayoutOptimizationSection` y exportarlo para reusarlo desde la vista previa, o moverlo a un archivo nuevo.
 
-## Solución
+### 2. Crear `src/components/test-builder/PreviewLayoutToolbar.tsx`
 
-### 1. Generar UUIDs válidos para las pruebas
-En `src/lib/assessment-schema.ts`:
-- Crear una nueva función `newAssessmentId()` que use `crypto.randomUUID()` (disponible en todos los navegadores modernos), con fallback manual si no existe.
-- Usarla en `emptyAssessment()` para el `id` de la prueba.
-- Mantener `newId()` tal cual para los IDs internos (preguntas, opciones, secciones), porque esos viven dentro del JSON `data` y no necesitan ser UUID.
+Componente nuevo, compacto y horizontal, pensado para vivir sobre la previsualización:
 
-### 2. Sanear borradores antiguos al cargar
-En `src/lib/assessment-storage.ts`, dentro de `migrate()`:
-- Si el `id` del assessment cargado **no** es un UUID válido (regex), reemplazarlo por uno nuevo con `crypto.randomUUID()`.
-- Esto garantiza que cualquier borrador local antiguo (como el tuyo actual con `"molxxluk-msryjk"`) se "cure" automáticamente la próxima vez que se abra, sin que pierdas el contenido.
+- Recibe `meta`, `onMetaChange`, `canEdit`.
+- Render colapsado por defecto: una **barra fina** con título "Optimización de papel" + chip mostrando configuración actual (ej. `M:20·20·25mm · Esp:6pt · 1col`) + botón "Ajustar" / chevron.
+- Al expandir, muestra los 4 sliders + el switch de 2 columnas en una **grid horizontal** (4 columnas en desktop, 2 en tablet, 1 en mobile) para no empujar mucho la previsualización hacia abajo.
+- Botón "Restablecer" a `DEFAULT_LAYOUT`.
+- Si `!canEdit`: candado, todo `disabled`, mensaje "Solo Admin/UTP puede modificar".
+- Como cualquier cambio actualiza `meta.layout`, la `PaginatedAssessmentPreview` ya re-mide automáticamente (no hace falta tocarla).
 
-### 3. Validación defensiva en `upsertAssessment`
-Antes del `upsert`, verificar que `next.id` cumple el formato UUID; si no, asignarle uno nuevo. Es una red de seguridad para no volver a romper Postgres por este motivo.
+### 3. `src/pages/CrearPrueba.tsx`
 
-## Archivos a modificar
+- Quitar `canEditLayout={isStaff}` del `<AssessmentMetaForm>`.
+- En `<TabsContent value="preview">`, antes del `Card` de la previsualización, insertar:
 
-- `src/lib/assessment-schema.ts` — añadir `newAssessmentId()` y usarla en `emptyAssessment()`.
-- `src/lib/assessment-storage.ts` — sanear `id` no-UUID en `migrate()` y en `upsertAssessment()`.
+```tsx
+<PreviewLayoutToolbar
+  meta={assessment.meta}
+  onMetaChange={(meta) => setAssessment({ ...assessment, meta })}
+  canEdit={isStaff}
+/>
+```
 
 ## Resultado esperado
 
-- El docente (ardax.ardax@gmail.com) podrá guardar la prueba sin error.
-- Podrá seguir editando y guardando la misma prueba (se actualiza, no se duplica).
-- Los borradores antiguos con IDs inválidos se migran solos al abrirlos.
+```text
+Pestaña "Vista previa"
+┌──────────────────────────────────────────────┐
+│ ✦ Optimización de papel · M:20·20·25 · 1col  │
+│   [Ajustar ▾]                  [Restablecer] │
+├──────────────────────────────────────────────┤  ← al expandir
+│ Sup [●==] Inf [●==] Lat [●==] Esp [●==] [⚪] │
+└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│             [vista previa pag. 1]            │
+│             [vista previa pag. 2]            │
+└──────────────────────────────────────────────┘
+```
+
+Mover los sliders re-pagina la prueba en vivo, sin cambiar de pestaña. Para docentes (`user`) la barra sigue visible pero en solo lectura.
