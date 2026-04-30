@@ -47,6 +47,7 @@ import {
 } from "@/lib/catalog";
 import {
   loadAppSettings,
+  loadDefaultInstitutionLogo,
   setAllowSelfAssignment,
   setInstitutionName as setInstitutionNameRemote,
   setInstitutionLogo as setInstitutionLogoRemote,
@@ -79,29 +80,29 @@ const Configuracion = () => {
     // Inicialmente mostramos lo local mientras llega el backend (evita parpadeo en blanco).
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName() || DEFAULT_INSTITUTION_NAME);
+    const localLogo = loadLogo();
+    const localName = loadInstitutionName();
     loadAppSettings()
       .then(async (s) => {
         setAppSettings(s);
+        // Migración suave: si el backend está vacío, subir primero el logo disponible.
+        const fallbackLogo = localLogo || await loadDefaultInstitutionLogo();
+        let sharedLogo = s.institution_logo;
+        if (isAdmin && !sharedLogo && fallbackLogo) {
+          const r = await setInstitutionLogoRemote(fallbackLogo);
+          if (r.ok) sharedLogo = fallbackLogo;
+        }
+        if (isAdmin && (!s.institution_name || s.institution_name === DEFAULT_INSTITUTION_NAME) && localName && localName !== DEFAULT_INSTITUTION_NAME) {
+          const r = await setInstitutionNameRemote(localName);
+          if (r.ok) s.institution_name = localName;
+        }
+
         // Sincronizar branding desde backend → UI + caché local.
         const backendName = s.institution_name || DEFAULT_INSTITUTION_NAME;
         setInstitutionName(backendName);
         saveInstitutionName(backendName);
-        setLogo(s.institution_logo);
-        saveLogo(s.institution_logo);
-
-        // Migración suave: si el backend está vacío y el admin tiene branding local, súbelo.
-        if (isAdmin) {
-          const localLogo = loadLogo();
-          const localName = loadInstitutionName();
-          if (!s.institution_logo && localLogo) {
-            const r = await setInstitutionLogoRemote(localLogo);
-            if (r.ok) setLogo(localLogo);
-          }
-          if ((!s.institution_name || s.institution_name === DEFAULT_INSTITUTION_NAME) && localName && localName !== DEFAULT_INSTITUTION_NAME) {
-            const r = await setInstitutionNameRemote(localName);
-            if (r.ok) setInstitutionName(localName);
-          }
-        }
+        setLogo(sharedLogo);
+        saveLogo(sharedLogo);
       })
       .catch(() => {/* ignore */});
   }, [isAdmin]);
