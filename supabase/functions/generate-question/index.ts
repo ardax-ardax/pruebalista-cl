@@ -22,6 +22,11 @@ interface Payload {
   indicators?: Indicator[];
 }
 
+const COMMON_FIELDS = {
+  difficulty: { type: "string", enum: ["baja", "media", "alta"], description: "Dificultad estimada." },
+  rubricExplanation: { type: "string", description: "Explicación pedagógica con la respuesta correcta y criterios para corregir (pauta)." },
+};
+
 const TOOL_MC = {
   type: "function" as const,
   function: {
@@ -46,8 +51,9 @@ const TOOL_MC = {
             additionalProperties: false,
           },
         },
+        ...COMMON_FIELDS,
       },
-      required: ["prompt", "points", "options"],
+      required: ["prompt", "points", "options", "difficulty", "rubricExplanation"],
       additionalProperties: false,
     },
   },
@@ -77,8 +83,9 @@ const TOOL_TF = {
             additionalProperties: false,
           },
         },
+        ...COMMON_FIELDS,
       },
-      required: ["prompt", "statements"],
+      required: ["prompt", "statements", "difficulty", "rubricExplanation"],
       additionalProperties: false,
     },
   },
