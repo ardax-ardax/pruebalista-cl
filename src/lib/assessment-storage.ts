@@ -10,6 +10,7 @@ const KEY_LOCAL_LIB = "estandarizador.assessment.library.v1";
 
 const migrate = (a: Assessment): Assessment => ({
   ...a,
+  meta: { ...a.meta, linkedOA: a.meta?.linkedOA ?? [] },
   questions: (a.questions ?? []).map(migrateQuestion),
 });
 
