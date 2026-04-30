@@ -33,6 +33,7 @@ import { exportAssessmentToDocx } from "@/lib/assessment-docx";
 import { buildAssessmentFileName } from "@/lib/assessment-file-name";
 import { useAuth } from "@/hooks/useAuth";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
+import { loadAppSettings, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
 
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
