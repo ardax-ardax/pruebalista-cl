@@ -45,7 +45,15 @@ import {
   type SubjectOption,
   type TeacherOption,
 } from "@/lib/catalog";
-import { loadAppSettings, setAllowSelfAssignment, DEFAULT_APP_SETTINGS, type AppSettings } from "@/lib/app-settings";
+import {
+  loadAppSettings,
+  setAllowSelfAssignment,
+  setInstitutionName as setInstitutionNameRemote,
+  setInstitutionLogo as setInstitutionLogoRemote,
+  DEFAULT_APP_SETTINGS,
+  DEFAULT_INSTITUTION_NAME,
+  type AppSettings,
+} from "@/lib/app-settings";
 import { Switch } from "@/components/ui/switch";
 
 const Configuracion = () => {
@@ -65,13 +73,38 @@ const Configuracion = () => {
 
   useEffect(() => {
     setTemplates(loadTemplates());
-    setLogo(loadLogo());
-    setInstitutionName(loadInstitutionName());
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
-    loadAppSettings().then(setAppSettings).catch(() => {/* ignore */});
-  }, []);
+    // Inicialmente mostramos lo local mientras llega el backend (evita parpadeo en blanco).
+    setLogo(loadLogo());
+    setInstitutionName(loadInstitutionName() || DEFAULT_INSTITUTION_NAME);
+    loadAppSettings()
+      .then(async (s) => {
+        setAppSettings(s);
+        // Sincronizar branding desde backend → UI + caché local.
+        const backendName = s.institution_name || DEFAULT_INSTITUTION_NAME;
+        setInstitutionName(backendName);
+        saveInstitutionName(backendName);
+        setLogo(s.institution_logo);
+        saveLogo(s.institution_logo);
+
+        // Migración suave: si el backend está vacío y el admin tiene branding local, súbelo.
+        if (isAdmin) {
+          const localLogo = loadLogo();
+          const localName = loadInstitutionName();
+          if (!s.institution_logo && localLogo) {
+            const r = await setInstitutionLogoRemote(localLogo);
+            if (r.ok) setLogo(localLogo);
+          }
+          if ((!s.institution_name || s.institution_name === DEFAULT_INSTITUTION_NAME) && localName && localName !== DEFAULT_INSTITUTION_NAME) {
+            const r = await setInstitutionNameRemote(localName);
+            if (r.ok) setInstitutionName(localName);
+          }
+        }
+      })
+      .catch(() => {/* ignore */});
+  }, [isAdmin]);
 
   const handleToggleSelfAssignment = async (value: boolean) => {
     setSavingSetting(true);
@@ -127,24 +160,43 @@ const Configuracion = () => {
       toast.error("Sube una imagen (PNG, JPG)");
       return;
     }
+    if (file.size > 500 * 1024) {
+      toast.error("La imagen supera 500 KB. Usa una versión más liviana.");
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = reader.result as string;
       setLogo(dataUrl);
       saveLogo(dataUrl);
-      toast.success("Logo guardado");
+      const r = await setInstitutionLogoRemote(dataUrl);
+      if (!r.ok) {
+        toast.error("Logo guardado localmente, pero no se pudo subir al servidor: " + (r.error ?? ""));
+        return;
+      }
+      toast.success("Logo guardado y compartido con todo el colegio");
     };
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveLogo = () => {
+  const handleRemoveLogo = async () => {
     setLogo(null);
     saveLogo(null);
+    const r = await setInstitutionLogoRemote(null);
+    if (!r.ok) {
+      toast.error("No se pudo eliminar del servidor: " + (r.error ?? ""));
+      return;
+    }
     toast.success("Logo eliminado");
   };
 
-  const handleSaveInstitution = () => {
+  const handleSaveInstitution = async () => {
     saveInstitutionName(institutionName);
+    const r = await setInstitutionNameRemote(institutionName);
+    if (!r.ok) {
+      toast.error("Guardado localmente, pero no se pudo subir al servidor: " + (r.error ?? ""));
+      return;
+    }
     toast.success("Nombre del colegio guardado");
   };
 

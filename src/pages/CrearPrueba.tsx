@@ -95,8 +95,15 @@ const CrearPrueba = () => {
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
+    // Branding: caché local primero (rápido), luego backend (autoritativo y compartido).
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName() || "New Little College La Florida");
+    loadAppSettings()
+      .then((s) => {
+        setLogo(s.institution_logo);
+        setInstitutionName(s.institution_name || "New Little College La Florida");
+      })
+      .catch(() => {/* keep local */});
 
     // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
     (async () => {
