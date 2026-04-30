@@ -29,6 +29,8 @@ import type { RenderContext } from "@/lib/assessment-render";
 import { exportAssessmentToPdf } from "@/lib/assessment-pdf";
 import { exportAssessmentToDocx } from "@/lib/assessment-docx";
 import { buildAssessmentFileName } from "@/lib/assessment-file-name";
+import { useAuth } from "@/hooks/useAuth";
+import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
 
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
@@ -40,9 +42,18 @@ const CrearPrueba = () => {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
+  const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
 
+  const { user, isStaff, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
+
+  // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (isStaff) { setRestrictedAssignments(null); return; }
+    listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
+  }, [user, isStaff, authLoading]);
 
   useEffect(() => {
     const t = loadTemplates();
@@ -219,6 +230,7 @@ const CrearPrueba = () => {
               subjects={subjects}
               grades={grades}
               teachers={teachers}
+              restrictedAssignments={restrictedAssignments}
             />
           </TabsContent>
           <TabsContent value="content" className="mt-4">

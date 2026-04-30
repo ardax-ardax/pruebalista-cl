@@ -24,7 +24,7 @@ const MisPruebas = () => {
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const navigate = useNavigate();
-  const { user, isStaff, isUtpHead, isStaff } = useAuth();
+  const { user, isStaff, isUtpHead } = useAuth();
 
   const refresh = async () => {
     const all = await listAssessmentsWithOwner();
@@ -79,8 +79,8 @@ const MisPruebas = () => {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Mis pruebas</h1>
             <p className="text-sm text-muted-foreground">
-              {isAdmin
-                ? "Administrador: puedes ver todas las pruebas o filtrar por docente."
+              {isStaff
+                ? (isUtpHead ? "Jefe UTP: puedes ver todas las pruebas o filtrar por docente." : "Administrador: puedes ver todas las pruebas o filtrar por docente.")
                 : "Tus pruebas guardadas en la nube. Solo tú puedes verlas."}
             </p>
           </div>
