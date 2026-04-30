@@ -328,7 +328,6 @@ const CrearPrueba = () => {
               canChooseTeacher={canChooseTeacher}
               lockedTeacherLabel={lockedTeacherLabel}
               allowSelfAssignment={appSettings.allow_self_assignment}
-              canEditLayout={isStaff}
             />
           </TabsContent>
           <TabsContent value="content" className="mt-4">
