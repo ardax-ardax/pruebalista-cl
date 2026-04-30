@@ -76,20 +76,35 @@ export const AssessmentMetaForm = ({ meta, onChange, templates, subjects, grades
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs">Asignatura</Label>
-            <Select value={meta.subjectValue} onValueChange={setSubject}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>
-                {subjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label className="text-xs">Curso</Label>
             <Select value={meta.gradeValue} onValueChange={setGrade}>
               <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
               <SelectContent>
                 {grades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Asignatura</Label>
+            <Select
+              value={meta.subjectValue}
+              onValueChange={setSubject}
+              disabled={!meta.gradeValue}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={meta.gradeValue ? "Selecciona" : "Primero selecciona el curso"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSubjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Docente</Label>
+            <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
+              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+              <SelectContent>
+                {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
