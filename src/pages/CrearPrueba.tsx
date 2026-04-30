@@ -33,6 +33,7 @@ import { exportAssessmentToDocx } from "@/lib/assessment-docx";
 import { buildAssessmentFileName } from "@/lib/assessment-file-name";
 import { useAuth } from "@/hooks/useAuth";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
+import { loadAppSettings, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
 
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
@@ -47,10 +48,17 @@ const CrearPrueba = () => {
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
 
   const { user, isStaff, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
+
+  // Carga app_settings (modo auto-asignación) al montar.
+  useEffect(() => {
+    loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
+  }, []);
 
   // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
   useEffect(() => {
@@ -58,6 +66,14 @@ const CrearPrueba = () => {
     if (isStaff) { setRestrictedAssignments(null); return; }
     listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
   }, [user, isStaff, authLoading]);
+
+  // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado).
+  useEffect(() => {
+    if (!user) { setCurrentProfile(null); return; }
+    listProfiles().then(({ profiles: profs }) => {
+      setCurrentProfile(profs.find((p) => p.id === user.id) ?? null);
+    });
+  }, [user?.id]);
 
   // Si staff abre una prueba ajena, recuperamos el dueño para mostrarlo.
   useEffect(() => {
@@ -100,6 +116,23 @@ const CrearPrueba = () => {
     })();
   }, [editingId]);
 
+  // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
+  // o al volver a esta pestaña (asegura que la vista previa siempre vea el
+  // último logo guardado en Configuración).
+  useEffect(() => {
+    const refreshBranding = () => {
+      setLogo(loadLogo());
+      setInstitutionName(loadInstitutionName() || "New Little College La Florida");
+    };
+    window.addEventListener("storage", refreshBranding);
+    window.addEventListener("focus", refreshBranding);
+    return () => {
+      window.removeEventListener("storage", refreshBranding);
+      window.removeEventListener("focus", refreshBranding);
+    };
+  }, []);
+
+
   // Autosave: si editamos una prueba guardada, actualizamos en la nube.
   // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
@@ -116,11 +149,35 @@ const CrearPrueba = () => {
     [templates, assessment?.meta.templateId],
   );
 
+  // Etiqueta del docente actual (para no-staff). Se usa para auto-asignar y
+  // como texto del campo bloqueado.
+  const lockedTeacherLabel = useMemo(() => {
+    if (!user) return "";
+    return profileLabel(currentProfile ?? undefined, user.id);
+  }, [currentProfile, user]);
+
+  const canChooseTeacher = isStaff;
+
+  // Auto-asignar el docente al usuario logueado cuando no es staff y el campo
+  // está vacío (o cuando sea una prueba propia recién creada).
+  useEffect(() => {
+    if (!assessment || !user || isStaff) return;
+    const ownLabel = lockedTeacherLabel;
+    if (!ownLabel) return;
+    if (assessment.meta.teacherValue === ownLabel) return;
+    // Solo sobrescribimos si el usuario es el dueño de la prueba (o es nueva).
+    if (ownerId && ownerId !== user.id) return;
+    setAssessment((prev) => prev ? { ...prev, meta: { ...prev.meta, teacherValue: ownLabel } } : prev);
+  }, [assessment?.id, user?.id, isStaff, lockedTeacherLabel, ownerId]);
+
+
   const renderCtx: RenderContext | null = useMemo(() => {
     if (!assessment || !template) return null;
     const subjectLabel = subjects.find((s) => s.value === assessment.meta.subjectValue)?.label ?? "";
     const gradeLabel = grades.find((g) => g.value === assessment.meta.gradeValue)?.label ?? "";
-    const teacherLabel = teachers.find((t) => t.value === assessment.meta.teacherValue)?.label ?? "";
+    const teacherLabel = teachers.find((t) => t.value === assessment.meta.teacherValue)?.label
+      ?? assessment.meta.teacherValue
+      ?? "";
     const totalPoints = computeTotalPoints(assessment.questions);
     return {
       assessment: { ...assessment, meta: { ...assessment.meta, totalPoints } },
@@ -255,6 +312,9 @@ const CrearPrueba = () => {
               grades={grades}
               teachers={teachers}
               restrictedAssignments={restrictedAssignments}
+              canChooseTeacher={canChooseTeacher}
+              lockedTeacherLabel={lockedTeacherLabel}
+              allowSelfAssignment={appSettings.allow_self_assignment}
             />
           </TabsContent>
           <TabsContent value="content" className="mt-4">

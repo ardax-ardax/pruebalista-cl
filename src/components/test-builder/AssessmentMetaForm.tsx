@@ -22,14 +22,22 @@ interface Props {
   grades: GradeOption[];
   teachers: TeacherOption[];
   /**
-   * Si viene definido (rol "user"), restringe Curso y Asignatura a las parejas
-   * asignadas a ese docente. Si es null/undefined (admin/UTP), catálogo completo.
+   * Si viene definido (rol "user") y el modo auto-asignación está OFF,
+   * restringe Curso y Asignatura a las parejas asignadas a ese docente.
+   * Si es null/undefined (admin/UTP) o auto-asignación está ON, catálogo completo.
    */
   restrictedAssignments?: TeacherAssignment[] | null;
+  /** True para admin/utp_head: pueden cambiar libremente el docente. */
+  canChooseTeacher?: boolean;
+  /** Etiqueta para mostrar como docente bloqueado cuando no es staff. */
+  lockedTeacherLabel?: string;
+  /** Si es true, ignora restrictedAssignments (modo auto-asignación). */
+  allowSelfAssignment?: boolean;
 }
 
 export const AssessmentMetaForm = ({
   meta, onChange, templates, subjects, grades, teachers, restrictedAssignments,
+  canChooseTeacher = true, lockedTeacherLabel, allowSelfAssignment = false,
 }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
 
@@ -42,7 +50,8 @@ export const AssessmentMetaForm = ({
     return () => { active = false; };
   }, []);
 
-  const isRestricted = !!restrictedAssignments;
+  // Si auto-asignación está ON, ignoramos la restricción del docente.
+  const isRestricted = !!restrictedAssignments && !allowSelfAssignment;
 
   // Cursos visibles: si restringido, solo aquellos con al menos una asignación.
   const availableGrades = useMemo(() => {
@@ -123,8 +132,8 @@ export const AssessmentMetaForm = ({
           <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
             <Lock className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
-              Aún no tienes cursos ni asignaturas asignadas. Pide al equipo de UTP o Administración
-              que registre tus asignaciones en <strong>Configuración → Asignaciones de docentes</strong>.
+              Contacta al administrador para que se te asignen cursos. Mientras tanto no podrás
+              crear pruebas porque no tienes cursos ni asignaturas asociadas.
             </span>
           </div>
         )}
@@ -155,13 +164,25 @@ export const AssessmentMetaForm = ({
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Docente</Label>
-            <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>
-                {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs flex items-center gap-1">
+              Docente
+              {!canChooseTeacher && <Lock className="h-3 w-3 text-muted-foreground" />}
+            </Label>
+            {canChooseTeacher ? (
+              <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
+                <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                <SelectContent>
+                  {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={lockedTeacherLabel ?? teachers.find((t) => t.value === meta.teacherValue)?.label ?? ""}
+                readOnly
+                disabled
+                title="Solo administradores y Jefe UTP pueden cambiar el docente."
+              />
+            )}
           </div>
         </div>
 

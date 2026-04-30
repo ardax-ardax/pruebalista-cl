@@ -45,6 +45,8 @@ import {
   type SubjectOption,
   type TeacherOption,
 } from "@/lib/catalog";
+import { loadAppSettings, setAllowSelfAssignment, DEFAULT_APP_SETTINGS, type AppSettings } from "@/lib/app-settings";
+import { Switch } from "@/components/ui/switch";
 
 const Configuracion = () => {
   const { isAdmin } = useAuth();
@@ -58,6 +60,8 @@ const Configuracion = () => {
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [grades, setGrades] = useState<GradeOption[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [savingSetting, setSavingSetting] = useState(false);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -66,7 +70,22 @@ const Configuracion = () => {
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
+    loadAppSettings().then(setAppSettings).catch(() => {/* ignore */});
   }, []);
+
+  const handleToggleSelfAssignment = async (value: boolean) => {
+    setSavingSetting(true);
+    const res = await setAllowSelfAssignment(value);
+    setSavingSetting(false);
+    if (!res.ok) {
+      toast.error("No se pudo guardar: " + (res.error ?? ""));
+      return;
+    }
+    setAppSettings((s) => ({ ...s, allow_self_assignment: value }));
+    toast.success(value
+      ? "Auto-asignación activada: docentes ven todo el catálogo."
+      : "Auto-asignación desactivada: docentes solo ven sus asignaciones.");
+  };
 
   const updateSubjects = (next: SubjectOption[]) => {
     setSubjects(next);
@@ -299,6 +318,33 @@ const Configuracion = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Modo de auto-asignación (solo admin) */}
+      {isAdmin && (
+        <Card className="shadow-card mb-8 border-primary/40">
+          <CardHeader>
+            <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
+            <CardDescription>
+              Decide si los docentes deben usar solo los cursos que les asignó el equipo o si pueden elegir libremente del catálogo completo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+              <div className="text-sm">
+                <div className="font-medium">Permitir que los docentes elijan sus propios cursos y asignaturas</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Si está <strong>activo</strong>, cada docente verá todo el catálogo de cursos y asignaturas. Si está <strong>inactivo</strong>, solo podrá usar los pares (curso · asignatura) registrados en sus asignaciones.
+                </div>
+              </div>
+              <Switch
+                checked={appSettings.allow_self_assignment}
+                onCheckedChange={handleToggleSelfAssignment}
+                disabled={savingSetting}
+              />
+            </label>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}
