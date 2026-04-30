@@ -107,7 +107,29 @@ export interface AssessmentMeta {
   linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
   showOaInHeader?: boolean; // si true, imprime los OAs bajo las instrucciones de la prueba
   layout?: AssessmentLayout; // optimización de espacio (papel)
+  // === Modo Ensayo PAES ===
+  paesVariant?: PaesVariant;
+  paesAxis?: string; // Eje temático / habilidad (texto libre)
 }
+
+// Variantes oficiales del Ensayo PAES.
+export type PaesVariant =
+  | "competencia-lectora"
+  | "m1"
+  | "m2"
+  | "ciencias"
+  | "historia";
+
+export const PAES_VARIANTS: { value: PaesVariant; label: string; questionGoal: number }[] = [
+  { value: "competencia-lectora", label: "Competencia Lectora", questionGoal: 65 },
+  { value: "m1", label: "Matemática M1", questionGoal: 65 },
+  { value: "m2", label: "Matemática M2", questionGoal: 55 },
+  { value: "ciencias", label: "Ciencias", questionGoal: 80 },
+  { value: "historia", label: "Historia y Cs. Sociales", questionGoal: 65 },
+];
+
+// Metas oficiales SIMCE (varían por nivel y asignatura, usamos 65 como referencia general).
+export const SIMCE_QUESTION_GOAL = 65;
 
 export interface Assessment {
   id: string;

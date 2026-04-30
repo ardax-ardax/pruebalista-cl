@@ -2,7 +2,8 @@
 // Mismo CSS para ambos para que coincidan visualmente.
 
 import type { CSSProperties, ReactNode } from "react";
-import type { Assessment, Question, QuestionImage } from "./assessment-schema";
+import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessment-schema";
+import { PAES_VARIANTS } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
 import { findOA } from "./curriculum-data";
@@ -172,15 +173,26 @@ const escape = (s: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+function paesVariantLabel(v?: PaesVariant): string {
+  if (!v) return "PAES";
+  return PAES_VARIANTS.find((x) => x.value === v)?.label ?? "PAES";
+}
+
 // ====================== HTML render (para PDF) ======================
 
 export function renderAssessmentHtml(ctx: RenderContext): string {
   const { assessment, template, logoDataUrl, institutionName, subjectLabel, gradeLabel, teacherLabel } = ctx;
   const meta = assessment.meta;
   const showGradeBox = template.header?.style === "banner-evaluacion";
+  const isPaes = template.essayMode === "paes";
+  const isEssay = !!template.essayMode;
 
-  const oaLine = (meta.linkedOA && meta.linkedOA.length > 0)
+  // En PAES no listamos OA en el banner; usamos eje temático.
+  const oaLine = (!isPaes && meta.linkedOA && meta.linkedOA.length > 0)
     ? `<div class="pa-row"><span><strong>OA evaluados:</strong> ${escape(meta.linkedOA.join(", "))}</span></div>`
+    : "";
+  const paesLine = (isPaes)
+    ? `<div class="pa-row"><span><strong>Variante:</strong> ${escape(paesVariantLabel(meta.paesVariant))}</span>${meta.paesAxis ? `<span><strong>Eje:</strong> ${escape(meta.paesAxis)}</span>` : ""}</div>`
     : "";
 
   const banner = template.header?.enabled
@@ -191,6 +203,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           <div class="pa-row"><span><strong>Profesor/a:</strong> ${escape(teacherLabel || "")}</span></div>
           <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
           ${oaLine}
+          ${paesLine}
           ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
         </td>
         ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><br/><br/></td>`}
@@ -207,19 +220,24 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-instructions"><strong>Instrucciones:</strong> ${escape(meta.instructions)}</div>`
     : "";
 
-  // Bloque opcional de OAs visibles bajo el título/instrucciones (formato institucional).
-  const oaHeader = (meta.showOaInHeader && meta.linkedOA && meta.linkedOA.length > 0)
-    ? (() => {
-        const items = meta.linkedOA
-          .map((code) => {
-            const oa = findOA(meta.gradeValue, meta.subjectValue, code);
-            const desc = oa?.description ? ` — ${escape(oa.description)}` : "";
-            return `<li><span class="pa-oa-code">${escape(code)}</span>${desc}</li>`;
-          })
-          .join("");
-        return `<div class="pa-oa-header"><div class="pa-oa-title">Objetivos de Aprendizaje evaluados</div><ul>${items}</ul></div>`;
-      })()
-    : "";
+  // En PAES NO renderizamos la tabla de OA; en su lugar mostramos el eje temático.
+  // En SIMCE y resto: bloque opcional de OAs visibles bajo el título/instrucciones.
+  const oaHeader = isPaes
+    ? (meta.paesAxis
+        ? `<div class="pa-oa-header"><div class="pa-oa-title">Ejes temáticos / habilidades</div><ul><li>${escape(meta.paesAxis)}</li></ul></div>`
+        : "")
+    : (meta.showOaInHeader && meta.linkedOA && meta.linkedOA.length > 0)
+      ? (() => {
+          const items = meta.linkedOA
+            .map((code) => {
+              const oa = findOA(meta.gradeValue, meta.subjectValue, code);
+              const desc = oa?.description ? ` — ${escape(oa.description)}` : "";
+              return `<li><span class="pa-oa-code">${escape(code)}</span>${desc}</li>`;
+            })
+            .join("");
+          return `<div class="pa-oa-header"><div class="pa-oa-title">Objetivos de Aprendizaje evaluados</div><ul>${items}</ul></div>`;
+        })()
+      : "";
 
   // Layout overrides (Optimización de Espacio): per-prueba.
   const layout = meta.layout;
@@ -256,10 +274,16 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       let body = "";
       if (q.type === "multiple-choice") {
         const letters = ["a", "b", "c", "d", "e", "f"];
-        const optionsList = `<ol class="${optsClass}">${(q.options ?? [])
+        // Filtramos opciones vacías al final (típicamente la 5ª "E" si no se rellenó).
+        const opts = (q.options ?? []).filter((o, idx, arr) => {
+          // Mantenemos las primeras 4 siempre; las posteriores solo si tienen texto o imagen.
+          if (idx < 4) return true;
+          return (o.text && o.text.trim().length > 0) || !!o.image;
+        });
+        const optionsList = `<ol class="${optsClass}">${opts
           .map((o, i) => {
             const optImg = o.image ? renderImageHtml(o.image) : "";
-            return `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}${optImg}</li>`;
+            return `<li><span class="pa-option-letter">${(letters[i] ?? String(i + 1)).toUpperCase()})</span>${escape(o.text)}${optImg}</li>`;
           })
           .join("")}</ol>`;
         if (isSplit && q.image) {

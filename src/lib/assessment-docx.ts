@@ -22,11 +22,17 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 
-import type { Assessment, Question, QuestionImage } from "./assessment-schema";
+import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessment-schema";
+import { PAES_VARIANTS } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
 import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
 import { findOA } from "./curriculum-data";
+
+function paesVariantLabelDocx(v?: PaesVariant): string {
+  if (!v) return "PAES";
+  return PAES_VARIANTS.find((x) => x.value === v)?.label ?? "PAES";
+}
 
 interface BuildContext {
   assessment: Assessment;
@@ -166,8 +172,9 @@ function bannerTable(ctx: BuildContext): Table {
     }),
   ];
 
+  const isPaes = template.essayMode === "paes";
   const linkedOA = ctx.assessment.meta.linkedOA ?? [];
-  if (linkedOA.length > 0) {
+  if (!isPaes && linkedOA.length > 0) {
     infoChildren.push(
       new Paragraph({
         children: [
@@ -176,6 +183,26 @@ function bannerTable(ctx: BuildContext): Table {
         ],
       }),
     );
+  }
+  if (isPaes) {
+    infoChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Variante: ", bold: true, size: ptToHalfPt(9) }),
+          new TextRun({ text: paesVariantLabelDocx(ctx.assessment.meta.paesVariant), size: ptToHalfPt(9) }),
+        ],
+      }),
+    );
+    if (ctx.assessment.meta.paesAxis) {
+      infoChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Eje: ", bold: true, size: ptToHalfPt(9) }),
+            new TextRun({ text: ctx.assessment.meta.paesAxis, size: ptToHalfPt(9) }),
+          ],
+        }),
+      );
+    }
   }
 
   const gradeChildren: Paragraph[] = showGradeBox
@@ -389,7 +416,12 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
   };
 
   if (q.type === "multiple-choice") {
-    const letters = ["a", "b", "c", "d", "e", "f"];
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    // Filtra opciones vacías a partir de la 5ª (la "E" solo se renderiza si tiene contenido).
+    const filteredOpts = (q.options ?? []).filter((o, idx) =>
+      idx < 4 ? true : (o.text && o.text.trim().length > 0) || !!o.image,
+    );
+    q = { ...q, options: filteredOpts } as Question;
     const buildOptionParagraphs = (colWidthCm: number, indent: number): Paragraph[] => {
       const ps: Paragraph[] = [];
       (q.options ?? []).forEach((o, i) => {
@@ -602,9 +634,11 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
     );
   }
 
-  // Bloque opcional: OAs evaluados visibles bajo el título / instrucciones.
-  const showOaHeader = !!assessment.meta.showOaInHeader && (assessment.meta.linkedOA?.length ?? 0) > 0;
-  if (showOaHeader) {
+  // Bloque opcional bajo el título: en PAES listamos "Ejes Temáticos"; en el resto, OAs evaluados.
+  const isPaesDoc = template.essayMode === "paes";
+  const showOaHeader = !isPaesDoc && !!assessment.meta.showOaInHeader && (assessment.meta.linkedOA?.length ?? 0) > 0;
+  const showPaesAxis = isPaesDoc && !!assessment.meta.paesAxis;
+  if (showOaHeader || showPaesAxis) {
     children.push(
       new Paragraph({
         spacing: { before: 0, after: 80 },
@@ -617,27 +651,40 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         shading: { fill: "FAFAFA", type: ShadingType.CLEAR, color: "auto" },
         children: [
           new TextRun({
-            text: "OBJETIVOS DE APRENDIZAJE EVALUADOS",
+            text: showPaesAxis ? "EJES TEMÁTICOS / HABILIDADES" : "OBJETIVOS DE APRENDIZAJE EVALUADOS",
             bold: true,
             size: ptToHalfPt(9),
           }),
         ],
       }),
     );
-    for (const code of assessment.meta.linkedOA) {
-      const oa = findOA(assessment.meta.gradeValue, assessment.meta.subjectValue, code);
-      const desc = oa?.description ? ` — ${oa.description}` : "";
+    if (showPaesAxis) {
       children.push(
         new Paragraph({
           spacing: { before: 0, after: 40 },
           indent: { left: 240 },
           alignment: AlignmentType.JUSTIFIED,
           children: [
-            new TextRun({ text: `• ${code}`, bold: true, size: ptToHalfPt(template.typography.bodySize) }),
-            new TextRun({ text: desc, size: ptToHalfPt(template.typography.bodySize) }),
+            new TextRun({ text: `• ${assessment.meta.paesAxis}`, size: ptToHalfPt(template.typography.bodySize) }),
           ],
         }),
       );
+    } else {
+      for (const code of assessment.meta.linkedOA ?? []) {
+        const oa = findOA(assessment.meta.gradeValue, assessment.meta.subjectValue, code);
+        const desc = oa?.description ? ` — ${oa.description}` : "";
+        children.push(
+          new Paragraph({
+            spacing: { before: 0, after: 40 },
+            indent: { left: 240 },
+            alignment: AlignmentType.JUSTIFIED,
+            children: [
+              new TextRun({ text: `• ${code}`, bold: true, size: ptToHalfPt(template.typography.bodySize) }),
+              new TextRun({ text: desc, size: ptToHalfPt(template.typography.bodySize) }),
+            ],
+          }),
+        );
+      }
     }
     // Espacio extra antes de las preguntas
     children.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [new TextRun("")] }));
