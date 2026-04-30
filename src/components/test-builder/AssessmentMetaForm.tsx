@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AssessmentMeta } from "@/lib/assessment-schema";
+import type { AssessmentMeta, PaesVariant } from "@/lib/assessment-schema";
+import { PAES_VARIANTS } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
@@ -13,6 +14,10 @@ import { loadOverridesFromCloud } from "@/lib/curriculum-overrides";
 import type { TeacherAssignment } from "@/lib/teacher-assignments";
 import { Info, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
+// Restricciones de grado por modo ensayo.
+const SIMCE_ALLOWED_GRADES = new Set(["4ºBásico", "6ºBásico", "IIMedioA", "IIMedioB"]);
+const PAES_FORCED_GRADES = ["IVMedioA", "IVMedioB"];
 
 
 interface Props {
