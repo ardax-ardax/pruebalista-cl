@@ -68,6 +68,11 @@ export const DEFAULT_SUBJECTS: SubjectOption[] = [
   { label: "Diseño y Arquitectura", value: "DiseñoArquitectura", levels: ["ElectivoMedia"] },
   { label: "Lectura y Escritura Especializada", value: "LecturaEscritura", levels: ["ElectivoMedia"] },
   { label: "Límites, Derivadas e Integrales", value: "LímitesDerivadas", levels: ["ElectivoMedia"] },
+  { label: "Geografía, Territorio y Desafíos Socioambientales", value: "GeografíaTerritorio", levels: ["ElectivoMedia"] },
+  { label: "Estética", value: "Estética", levels: ["ElectivoMedia"] },
+  { label: "Filosofía Política", value: "FilosofíaPolítica", levels: ["ElectivoMedia"] },
+  { label: "Seminario de Filosofía", value: "SeminarioFilosofía", levels: ["ElectivoMedia"] },
+  { label: "Artes Visuales, Audiovisuales y Multimediales", value: "ArtesVisualesAudiovisuales", levels: ["ElectivoMedia"] },
 ];
 
 // === Cursos (con nivel) ===
