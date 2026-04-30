@@ -69,6 +69,9 @@ export const ASSESSMENT_CSS = `
   .pa-oa-header li { margin: 1pt 0; }
   .pa-oa-header .pa-oa-code { font-weight: bold; }
   .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.5pt solid #d0d0d0; page-break-inside: avoid; break-inside: avoid; }
+  /* Modo 2 columnas para alternativas (ahorro de espacio). */
+  .pa-options.pa-options-2col { column-count: 2; column-gap: 18pt; margin-left: 14pt; }
+  .pa-options.pa-options-2col li { break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
   .pa-question.pa-no-sep { border-bottom: none; padding-bottom: 0; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-header { font-weight: normal; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
