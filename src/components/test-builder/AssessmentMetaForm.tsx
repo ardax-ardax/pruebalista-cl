@@ -7,6 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AssessmentMeta, PaesVariant } from "@/lib/assessment-schema";
 import { PAES_VARIANTS } from "@/lib/assessment-schema";
+import {
+  getAxesFor,
+  requiresCienciasModule,
+  PAES_CIENCIAS_MODULES,
+  type PaesCienciasModule,
+} from "@/lib/paes-axes";
 import type { FormatTemplate } from "@/lib/templates";
 import { getSubjectsForGrade, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
