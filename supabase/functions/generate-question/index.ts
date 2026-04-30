@@ -8,12 +8,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface Indicator {
+  code: string;
+  description: string;
+}
+
 interface Payload {
   oaCode: string;
   oaDescription: string;
   gradeLabel: string;
   subjectLabel: string;
   questionType: "multiple-choice" | "true-false" | "short-answer";
+  indicators?: Indicator[];
 }
 
 const TOOL_MC = {
