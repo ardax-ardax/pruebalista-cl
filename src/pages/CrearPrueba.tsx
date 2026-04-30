@@ -130,6 +130,12 @@ const CrearPrueba = () => {
     const refreshBranding = () => {
       setLogo(loadLogo());
       setInstitutionName(loadInstitutionName() || "New Little College La Florida");
+      loadAppSettings()
+        .then((s) => {
+          setLogo(s.institution_logo);
+          setInstitutionName(s.institution_name || "New Little College La Florida");
+        })
+        .catch(() => {/* keep local */});
     };
     window.addEventListener("storage", refreshBranding);
     window.addEventListener("focus", refreshBranding);
