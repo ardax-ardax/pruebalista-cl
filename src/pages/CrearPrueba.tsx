@@ -55,12 +55,25 @@ const CrearPrueba = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
 
+  // Carga app_settings (modo auto-asignación) al montar.
+  useEffect(() => {
+    loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
+  }, []);
+
   // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
   useEffect(() => {
     if (authLoading || !user) return;
     if (isStaff) { setRestrictedAssignments(null); return; }
     listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
   }, [user, isStaff, authLoading]);
+
+  // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado).
+  useEffect(() => {
+    if (!user) { setCurrentProfile(null); return; }
+    listProfiles().then(({ profiles: profs }) => {
+      setCurrentProfile(profs.find((p) => p.id === user.id) ?? null);
+    });
+  }, [user?.id]);
 
   // Si staff abre una prueba ajena, recuperamos el dueño para mostrarlo.
   useEffect(() => {
