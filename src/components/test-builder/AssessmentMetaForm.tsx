@@ -232,59 +232,99 @@ export const AssessmentMetaForm = ({
           />
         </div>
 
-        {/* === Objetivos de Aprendizaje (Bases Curriculares Mineduc) === */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Objetivos de Aprendizaje (OA)</Label>
-            <span className="text-xs text-muted-foreground">{linked.length} seleccionado{linked.length === 1 ? "" : "s"}</span>
-          </div>
-          {!meta.gradeValue || !meta.subjectValue ? (
-            <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-3">
-              Selecciona curso y asignatura para ver los OA disponibles.
-            </p>
-          ) : (
-            <>
-              {isFallback && (
-                <div className="flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>
-                    Aún no cargamos los OA oficiales para esta combinación. Mientras tanto, puedes vincular Habilidades Transversales.
-                  </span>
-                </div>
-              )}
-              <div className="space-y-1.5 rounded-md border border-border p-3 max-h-64 overflow-y-auto">
-                {availableOAs.map((oa) => {
-                  const checked = linked.includes(oa.code);
-                  return (
-                    <label key={oa.code} className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 rounded p-1">
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(v) => toggleOA(oa.code, !!v)}
-                        className="mt-0.5"
-                      />
-                      <div className="text-xs leading-snug">
-                        <span className="font-semibold">{oa.code}</span>
-                        {oa.eje ? <span className="ml-1 text-muted-foreground">· {oa.eje}</span> : null}
-                        <div className="text-muted-foreground">{oa.description}</div>
-                      </div>
-                    </label>
-                  );
-                })}
+        {/* === Modo Ensayo PAES: variante + eje temático === */}
+        {isPaes && (
+          <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-primary">
+              Configuración Ensayo PAES
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Variante PAES</Label>
+                <Select
+                  value={meta.paesVariant ?? ""}
+                  onValueChange={(v) => set("paesVariant", v as PaesVariant)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecciona una variante" /></SelectTrigger>
+                  <SelectContent>
+                    {PAES_VARIANTS.map((v) => (
+                      <SelectItem key={v.value} value={v.value}>
+                        {v.label} · meta {v.questionGoal}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-                <div className="text-xs">
-                  <div className="font-medium">¿Mostrar Objetivos (OA) en el encabezado de la prueba?</div>
-                  <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán bajo el título / instrucciones del documento.</div>
-                </div>
-                <Switch
-                  checked={!!meta.showOaInHeader}
-                  onCheckedChange={(v) => set("showOaInHeader", v)}
-                  disabled={linked.length === 0}
+              <div>
+                <Label className="text-xs">Eje temático / Habilidad</Label>
+                <Input
+                  value={meta.paesAxis ?? ""}
+                  onChange={(e) => set("paesAxis", e.target.value)}
+                  placeholder="Ej: Localizar información explícita"
                 />
-              </label>
-            </>
-          )}
-        </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              En modo PAES no se vinculan Objetivos de Aprendizaje; se utiliza el eje temático oficial.
+            </p>
+          </div>
+        )}
+
+        {/* === Objetivos de Aprendizaje (oculto en modo PAES) === */}
+        {!isPaes && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Objetivos de Aprendizaje (OA)</Label>
+              <span className="text-xs text-muted-foreground">{linked.length} seleccionado{linked.length === 1 ? "" : "s"}</span>
+            </div>
+            {!meta.gradeValue || !meta.subjectValue ? (
+              <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-3">
+                Selecciona curso y asignatura para ver los OA disponibles. <span className="italic">Los OA son opcionales.</span>
+              </p>
+            ) : (
+              <>
+                {isFallback && (
+                  <div className="flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                    <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Aún no cargamos los OA oficiales para esta combinación. Mientras tanto, puedes vincular Habilidades Transversales.
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-1.5 rounded-md border border-border p-3 max-h-64 overflow-y-auto">
+                  {availableOAs.map((oa) => {
+                    const checked = linked.includes(oa.code);
+                    return (
+                      <label key={oa.code} className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 rounded p-1">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => toggleOA(oa.code, !!v)}
+                          className="mt-0.5"
+                        />
+                        <div className="text-xs leading-snug">
+                          <span className="font-semibold">{oa.code}</span>
+                          {oa.eje ? <span className="ml-1 text-muted-foreground">· {oa.eje}</span> : null}
+                          <div className="text-muted-foreground">{oa.description}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                  <div className="text-xs">
+                    <div className="font-medium">¿Mostrar Objetivos (OA) en el encabezado de la prueba?</div>
+                    <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán bajo el título / instrucciones del documento.</div>
+                  </div>
+                  <Switch
+                    checked={!!meta.showOaInHeader}
+                    onCheckedChange={(v) => set("showOaInHeader", v)}
+                    disabled={linked.length === 0}
+                  />
+                </label>
+              </>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
