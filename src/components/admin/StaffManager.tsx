@@ -69,6 +69,12 @@ export const StaffManager = () => {
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
+  // Invitaciones masivas
+  const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkRole, setBulkRole] = useState<InvitationRole>("user");
+  const [importing, setImporting] = useState(false);
+
   const refresh = async () => {
     const [profsRes, rolesRes, asg] = await Promise.all([
       listProfiles(),
