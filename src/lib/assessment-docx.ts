@@ -420,6 +420,63 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
         return sum + Math.max(1, Math.ceil(text.length / charsPerLine));
       }, 0);
       pushT(buildSplitTable(buildOptionParagraphs(textColCm, 0), totalLines));
+    } else if (ctx.assessment.meta.layout?.optionsColumns === 2) {
+      // Optimización de espacio: distribuir alternativas en 2 columnas usando tabla sin bordes.
+      const opts = q.options ?? [];
+      const half = Math.ceil(opts.length / 2);
+      const leftOpts = opts.slice(0, half);
+      const rightOpts = opts.slice(half);
+      const colWidthCm = contentWidthCm / 2;
+      const contentWidthTwip = cmToTwip(contentWidthCm);
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+      const borders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+      const buildHalfParagraphs = (slice: typeof opts, startIdx: number): Paragraph[] => {
+        const ps: Paragraph[] = [];
+        slice.forEach((o, j) => {
+          const i = startIdx + j;
+          ps.push(
+            new Paragraph({
+              spacing: { before: 0, after: 40 },
+              keepLines: true,
+              keepNext: true,
+              children: [
+                new TextRun({ text: `${letters[i] ?? i + 1}) `, bold: true, size: baseSize }),
+                new TextRun({ text: o.text, size: baseSize }),
+              ],
+            }),
+          );
+          if (o.image) ps.push(imageParagraph(o.image, colWidthCm, imageCache, 0));
+        });
+        return ps;
+      };
+      const halfTwip = Math.round(contentWidthTwip / 2);
+      pushT(
+        new Table({
+          width: { size: contentWidthTwip, type: WidthType.DXA },
+          columnWidths: [halfTwip, halfTwip],
+          rows: [
+            new TableRow({
+              cantSplit: true,
+              children: [
+                new TableCell({
+                  borders,
+                  width: { size: halfTwip, type: WidthType.DXA },
+                  margins: { top: 0, bottom: 0, left: 120, right: 120 },
+                  children: buildHalfParagraphs(leftOpts, 0),
+                }),
+                new TableCell({
+                  borders,
+                  width: { size: halfTwip, type: WidthType.DXA },
+                  margins: { top: 0, bottom: 0, left: 120, right: 120 },
+                  children: rightOpts.length
+                    ? buildHalfParagraphs(rightOpts, half)
+                    : [new Paragraph({ children: [new TextRun("")] })],
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
     } else {
       for (const p of buildOptionParagraphs(contentWidthCm, 360)) {
         pushPre(p);
