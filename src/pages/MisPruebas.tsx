@@ -23,6 +23,7 @@ const MisPruebas = () => {
   const [grades] = useState(() => loadGrades());
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
+  const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
 
@@ -66,10 +67,20 @@ const MisPruebas = () => {
   const labelOf = (arr: { value: string; label: string }[], v: string) =>
     arr.find((x) => x.value === v)?.label ?? "—";
 
+  const subjectOptions = useMemo(() => {
+    if (!isStaff) return [];
+    const values = Array.from(new Set(items.map((i) => i.assessment.meta.subjectValue).filter(Boolean)));
+    return values
+      .map((v) => ({ value: v, label: subjects.find((s) => s.value === v)?.label ?? v }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [items, subjects, isStaff]);
+
   const visible = (() => {
     if (!isStaff || !showAll) return items.filter((i) => i.userId === user?.id);
-    if (teacherFilter === ALL) return items;
-    return items.filter((i) => i.userId === teacherFilter);
+    let list = items;
+    if (teacherFilter !== ALL) list = list.filter((i) => i.userId === teacherFilter);
+    if (subjectFilter !== ALL) list = list.filter((i) => i.assessment.meta.subjectValue === subjectFilter);
+    return list;
   })();
 
   return (
@@ -86,9 +97,22 @@ const MisPruebas = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isStaff && (
-              <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); }}>
+              <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); setSubjectFilter(ALL); }}>
                 {showAll ? "Ver solo mías" : "Ver todas"}
               </Button>
+            )}
+            {isStaff && showAll && (
+              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                <SelectTrigger className="h-9 w-[200px]">
+                  <SelectValue placeholder="Asignatura" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todas las asignaturas</SelectItem>
+                  {subjectOptions.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
             {isStaff && showAll && (
               <Select value={teacherFilter} onValueChange={setTeacherFilter}>

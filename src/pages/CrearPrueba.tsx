@@ -22,7 +22,9 @@ import {
   loadDraft,
   saveDraft,
   upsertAssessment,
+  getAssessmentOwner,
 } from "@/lib/assessment-storage";
+import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 import { loadInstitutionName, loadLogo, loadTemplates, type FormatTemplate } from "@/lib/templates";
 import { loadGrades, loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import type { RenderContext } from "@/lib/assessment-render";
@@ -43,6 +45,8 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
 
   const { user, isStaff, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,6 +58,20 @@ const CrearPrueba = () => {
     if (isStaff) { setRestrictedAssignments(null); return; }
     listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
   }, [user, isStaff, authLoading]);
+
+  // Si staff abre una prueba ajena, recuperamos el dueño para mostrarlo.
+  useEffect(() => {
+    if (!editingId || !isStaff) { setOwnerId(null); setOwnerProfile(null); return; }
+    getAssessmentOwner(editingId).then(async (oid) => {
+      setOwnerId(oid);
+      if (oid && oid !== user?.id) {
+        const profs = await listProfiles();
+        setOwnerProfile(profs.find((p) => p.id === oid) ?? null);
+      } else {
+        setOwnerProfile(null);
+      }
+    });
+  }, [editingId, isStaff, user?.id]);
 
   useEffect(() => {
     const t = loadTemplates();
@@ -199,6 +217,12 @@ const CrearPrueba = () => {
             <p className="text-sm text-muted-foreground">
               Construye una evaluación estandarizada. El formato institucional se aplica automáticamente al exportar.
             </p>
+            {isStaff && ownerId && ownerId !== user?.id && (
+              <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs text-amber-900">
+                <Save className="h-3.5 w-3.5" />
+                Editando como UTP/Admin · Autor: <strong>{profileLabel(ownerProfile ?? undefined, ownerId)}</strong>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleNew}>

@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { CatalogManager } from "@/components/CatalogManager";
 import { CurriculumManager } from "@/components/admin/CurriculumManager";
+import { StaffManager } from "@/components/admin/StaffManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -298,6 +299,9 @@ const Configuracion = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Gestión de Personal (solo admin) */}
+      {isAdmin && <StaffManager />}
 
       {/* Gestión Curricular (solo admin) */}
       {isAdmin && <CurriculumManager />}
