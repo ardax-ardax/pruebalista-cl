@@ -69,6 +69,9 @@ export const ASSESSMENT_CSS = `
   .pa-oa-header li { margin: 1pt 0; }
   .pa-oa-header .pa-oa-code { font-weight: bold; }
   .pa-question { margin: 0 0 14pt; padding-bottom: 8pt; border-bottom: 0.5pt solid #d0d0d0; page-break-inside: avoid; break-inside: avoid; }
+  /* Modo 2 columnas para alternativas (ahorro de espacio). */
+  .pa-options.pa-options-2col { column-count: 2; column-gap: 18pt; margin-left: 14pt; }
+  .pa-options.pa-options-2col li { break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
   .pa-question.pa-no-sep { border-bottom: none; padding-bottom: 0; }
   .pa-question-title { font-weight: bold; font-size: 10pt; margin-top: 2pt; margin-bottom: 1pt; break-after: avoid; page-break-after: avoid; }
   .pa-question-header { font-weight: normal; font-size: 10pt; margin-bottom: 3pt; break-after: avoid; page-break-after: avoid; }
@@ -192,6 +195,14 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       })()
     : "";
 
+  // Layout overrides (Optimización de Espacio): per-prueba.
+  const layout = meta.layout;
+  const twoColOptions = layout?.optionsColumns === 2;
+  const qSpacingPt = layout?.questionSpacing;
+  const qStyleAttr = qSpacingPt != null
+    ? ` style="margin-bottom:${qSpacingPt}pt;padding-bottom:${Math.max(2, qSpacingPt - 6)}pt;"`
+    : "";
+
   let qNum = 0;
   const questionsHtml = assessment.questions
     .map((q, i) => {
@@ -211,14 +222,15 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
       const noSep = !next || next.type === "section-title" || next.type === "info-block";
       const titleHtml = q.title ? `<div class="pa-question-title">${escape(q.title)}</div>` : "";
       const header = `${titleHtml}<div class="pa-question-header"><span class="pa-question-number">${qNum})</span> ${sanitizeRichText(q.prompt)}</div>`;
-      // Split solo si el usuario eligió 2 columnas (con retrocompatibilidad: si tenía imagen y no se eligió, asumir 2 columnas).
       const wantsTwo = (q.type === "multiple-choice" || q.type === "true-false") && (q.useTwoColumns ?? !!q.image);
       const isSplit = wantsTwo && !!q.image;
       const headerImg = q.image && !isSplit ? renderImageHtml(q.image) : "";
+      // Solo aplicamos 2 columnas globales si la pregunta NO está en split (split ya divide la celda).
+      const optsClass = `pa-options${twoColOptions && !isSplit ? " pa-options-2col" : ""}`;
       let body = "";
       if (q.type === "multiple-choice") {
         const letters = ["a", "b", "c", "d", "e", "f"];
-        const optionsList = `<ol class="pa-options">${(q.options ?? [])
+        const optionsList = `<ol class="${optsClass}">${(q.options ?? [])
           .map((o, i) => {
             const optImg = o.image ? renderImageHtml(o.image) : "";
             return `<li><span class="pa-option-letter">${letters[i] ?? i + 1})</span>${escape(o.text)}${optImg}</li>`;
@@ -251,7 +263,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           .map(() => `<div class="pa-answer-line"></div>`)
           .join("");
       }
-      return `<div class="pa-question${noSep ? " pa-no-sep" : ""}">${header}${headerImg}${body}</div>`;
+      return `<div class="pa-question${noSep ? " pa-no-sep" : ""}"${qStyleAttr}>${header}${headerImg}${body}</div>`;
     })
     .join("");
 
@@ -290,13 +302,34 @@ function renderImageHtml(img: QuestionImage): string {
 
 // ====================== React render (para preview en pantalla) ======================
 
+// Resuelve márgenes efectivos en cm (template + override de meta.layout en mm).
+export function effectiveMarginsCm(ctx: RenderContext): { top: number; right: number; bottom: number; left: number } {
+  const t = ctx.template;
+  const layout = ctx.assessment.meta.layout;
+  if (layout) {
+    return {
+      top: layout.marginTop / 10,
+      bottom: layout.marginBottom / 10,
+      left: layout.marginSide / 10,
+      right: layout.marginSide / 10,
+    };
+  }
+  return {
+    top: t.spacing.marginTop ?? 2,
+    right: t.spacing.marginRight ?? 2,
+    bottom: t.spacing.marginBottom ?? 2,
+    left: t.spacing.marginLeft ?? 2.5,
+  };
+}
+
 export function AssessmentPreviewRender({ ctx }: { ctx: RenderContext }) {
   const html = renderAssessmentHtml(ctx);
+  const m = effectiveMarginsCm(ctx);
   const wrapperStyle: CSSProperties = {
     background: "white",
     color: "black",
     boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-    padding: "2cm 2cm 2cm 2.5cm",
+    padding: `${m.top}cm ${m.right}cm ${m.bottom}cm ${m.left}cm`,
     width: `${ctx.template.pageSize.widthCm}cm`,
     minHeight: `${ctx.template.pageSize.heightCm}cm`,
     margin: "0 auto",

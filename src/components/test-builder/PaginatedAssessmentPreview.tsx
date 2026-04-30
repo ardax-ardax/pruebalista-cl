@@ -3,7 +3,7 @@
 // respetando page-break-inside: avoid. No duplica lógica de render.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ASSESSMENT_CSS, renderAssessmentHtml, type RenderContext } from "@/lib/assessment-render";
+import { ASSESSMENT_CSS, effectiveMarginsCm, renderAssessmentHtml, type RenderContext } from "@/lib/assessment-render";
 
 const CM_TO_PX = 37.8; // 1cm ≈ 37.8 px @96dpi
 
@@ -22,10 +22,12 @@ function geomFromTemplate(ctx: RenderContext): PageGeom {
   const t = ctx.template;
   const widthPx = t.pageSize.widthCm * CM_TO_PX;
   const heightPx = t.pageSize.heightCm * CM_TO_PX;
-  const padTopPx = (t.spacing.marginTop ?? 2) * CM_TO_PX;
-  const padRightPx = (t.spacing.marginRight ?? 2) * CM_TO_PX;
-  const padBottomPx = (t.spacing.marginBottom ?? 2) * CM_TO_PX;
-  const padLeftPx = (t.spacing.marginLeft ?? 2.5) * CM_TO_PX;
+  // Márgenes: si la prueba tiene `meta.layout`, sobreescriben los del template.
+  const m = effectiveMarginsCm(ctx);
+  const padTopPx = m.top * CM_TO_PX;
+  const padRightPx = m.right * CM_TO_PX;
+  const padBottomPx = m.bottom * CM_TO_PX;
+  const padLeftPx = m.left * CM_TO_PX;
   return {
     widthPx,
     heightPx,

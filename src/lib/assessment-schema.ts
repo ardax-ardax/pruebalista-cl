@@ -67,6 +67,32 @@ export interface Question {
   sourceIndicators?: string[];      // códigos de indicadores usados
 }
 
+// Optimización de Diseño y Papel: overrides opcionales por prueba.
+// Solo editables por admin / utp_head; los docentes los ven en solo lectura.
+// Márgenes en milímetros, espaciado entre preguntas en pt.
+export interface AssessmentLayout {
+  marginTop: number;     // mm (10–40)
+  marginBottom: number;  // mm (10–40)
+  marginSide: number;    // mm (10–40) — aplica a izquierda y derecha
+  questionSpacing: number; // pt (entre preguntas)
+  optionsColumns: 1 | 2; // distribución de alternativas A/B/C/D
+}
+
+export const DEFAULT_LAYOUT: AssessmentLayout = {
+  marginTop: 20,
+  marginBottom: 20,
+  marginSide: 20,
+  questionSpacing: 14,
+  optionsColumns: 1,
+};
+
+export const LAYOUT_LIMITS = {
+  marginMinMm: 10,
+  marginMaxMm: 40,
+  spacingMinPt: 4,
+  spacingMaxPt: 28,
+} as const;
+
 export interface AssessmentMeta {
   templateId: string; // id de FormatTemplate (banner-evaluacion / banner-guia / ...)
   title: string;
@@ -80,6 +106,7 @@ export interface AssessmentMeta {
   studentName?: string;
   linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
   showOaInHeader?: boolean; // si true, imprime los OAs bajo las instrucciones de la prueba
+  layout?: AssessmentLayout; // optimización de espacio (papel)
 }
 
 export interface Assessment {
