@@ -7,8 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ShieldCheck, RefreshCw, Users } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, RefreshCw, Users, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  bulkInviteEmails,
+  deleteInvitation,
+  listInvitations,
+  type InvitationRole,
+  type PendingInvitation,
+} from "@/lib/invitations";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
