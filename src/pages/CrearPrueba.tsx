@@ -295,6 +295,9 @@ const CrearPrueba = () => {
               grades={grades}
               teachers={teachers}
               restrictedAssignments={restrictedAssignments}
+              canChooseTeacher={canChooseTeacher}
+              lockedTeacherLabel={lockedTeacherLabel}
+              allowSelfAssignment={appSettings.allow_self_assignment}
             />
           </TabsContent>
           <TabsContent value="content" className="mt-4">
