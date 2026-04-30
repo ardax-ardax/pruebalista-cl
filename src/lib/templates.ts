@@ -7,6 +7,14 @@ export interface FormatTemplate {
   name: string;
   description: string;
   isBuiltIn?: boolean;
+  /**
+   * Modo "ensayo estandarizado". Si está presente, fuerza diseño de 2 columnas
+   * de página y fuente específica sin importar la configuración por prueba.
+   *  - "simce": 2 col, sans-serif (Arial), sin línea divisoria.
+   *  - "paes":  2 col con línea divisoria, serif (Times New Roman), 5 alternativas.
+   */
+  essayMode?: "simce" | "paes";
+
   typography: {
     bodyFont: string;
     headingFont: string;
