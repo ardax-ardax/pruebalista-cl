@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { AssessmentMeta } from "@/lib/assessment-schema";
 import type { FormatTemplate } from "@/lib/templates";
 import type { GradeOption, SubjectOption, TeacherOption } from "@/lib/catalog";
-import { getOAs } from "@/lib/curriculum-data";
+import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
+import { Info } from "lucide-react";
 
 interface Props {
   meta: AssessmentMeta;
