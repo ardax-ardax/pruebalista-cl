@@ -105,10 +105,8 @@ export const getAssessment = async (id: string): Promise<Assessment | null> => {
 export const upsertAssessment = async (a: Assessment): Promise<Assessment> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No hay sesión iniciada");
-  const next: Assessment = { ...a, updatedAt: Date.now() };
-
-  // Preservar el dueño original cuando un staff (UTP/Admin) edita una prueba ajena.
-  // Si la fila ya existe, conservamos su user_id; si es nueva, asignamos al usuario actual.
+  const safeId = isUuid(a.id) ? a.id : newAssessmentId();
+  const next: Assessment = { ...a, id: safeId, updatedAt: Date.now() };
   const { data: existing } = await supabase
     .from("assessments")
     .select("user_id")
