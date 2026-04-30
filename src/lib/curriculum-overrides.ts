@@ -115,34 +115,57 @@ const removeLocal = (gradeValue: string, subjectValue: string, oaCode: string) =
   safeWrite(cache);
 };
 
-// Sincroniza la cache local con la BD (si está disponible y el usuario puede leer).
-export const loadOverridesFromCloud = async (): Promise<{ ok: boolean; count: number; error?: string }> => {
-  try {
-    const { data, error } = await supabase
-      .from("curriculum_base")
-      .select("grade_value, subject_value, oa_code, oa_description, eje, indicators");
-    if (error) return { ok: false, count: 0, error: error.message };
-    const rows = (data ?? []) as Array<{
-      grade_value: string;
-      subject_value: string;
-      oa_code: string;
-      oa_description: string;
-      eje: string | null;
-      indicators: unknown;
-    }>;
-    cache = rows.map((r) => ({
-      grade_value: r.grade_value,
-      subject_value: r.subject_value,
-      oa_code: r.oa_code,
-      oa_description: r.oa_description,
-      eje: r.eje ?? undefined,
-      indicators: Array.isArray(r.indicators) ? (r.indicators as Indicator[]) : [],
-    }));
-    safeWrite(cache);
+// Sincroniza la cache local con la BD. Optimizada:
+//  - Deduplica fetches paralelos (in-flight promise compartida).
+//  - Respeta un TTL (5 min): si la cache ya fue hidratada recientemente,
+//    no vuelve a tocar la red. Esto hace que cambiar de curso/asignatura
+//    sea instantáneo después de la primera carga.
+//  - `force: true` salta el TTL (útil tras guardar un override).
+export const loadOverridesFromCloud = async (
+  opts: { force?: boolean } = {},
+): Promise<{ ok: boolean; count: number; error?: string }> => {
+  const fresh = Date.now() - cloudHydratedAt < CLOUD_TTL_MS;
+  if (!opts.force && fresh && cache) {
     return { ok: true, count: cache.length };
-  } catch (e) {
-    return { ok: false, count: 0, error: (e as Error).message };
   }
+  if (cloudPromise) return cloudPromise;
+
+  cloudPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from("curriculum_base")
+        .select("grade_value, subject_value, oa_code, oa_description, eje, indicators")
+        .order("grade_value", { ascending: true })
+        .order("subject_value", { ascending: true })
+        .order("oa_code", { ascending: true });
+      if (error) return { ok: false, count: 0, error: error.message };
+      const rows = (data ?? []) as Array<{
+        grade_value: string;
+        subject_value: string;
+        oa_code: string;
+        oa_description: string;
+        eje: string | null;
+        indicators: unknown;
+      }>;
+      cache = rows.map((r) => ({
+        grade_value: r.grade_value,
+        subject_value: r.subject_value,
+        oa_code: r.oa_code,
+        oa_description: r.oa_description,
+        eje: r.eje ?? undefined,
+        indicators: Array.isArray(r.indicators) ? (r.indicators as Indicator[]) : [],
+      }));
+      safeWrite(cache);
+      cloudHydratedAt = Date.now();
+      return { ok: true, count: cache.length };
+    } catch (e) {
+      return { ok: false, count: 0, error: (e as Error).message };
+    } finally {
+      cloudPromise = null;
+    }
+  })();
+
+  return cloudPromise;
 };
 
 // Guarda (insert/update) un override. Persiste local SIEMPRE; intenta cloud.
