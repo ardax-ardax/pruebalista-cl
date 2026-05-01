@@ -303,6 +303,7 @@ const CrearPrueba = () => {
     }
   };
 
+  const validate = (): string | null => {
     if (!assessment.meta.subjectValue) return "Selecciona la asignatura";
     if (!assessment.meta.gradeValue) return "Selecciona el curso";
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
