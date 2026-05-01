@@ -18,7 +18,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isStaff, signOut } = useAuth();
-  const { planType, creditsAvailable } = useUserUsage();
+  const { effectivePlan, creditsAvailable } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
 
@@ -72,15 +72,15 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && planType === "free" && (
+            {user && effectivePlan === "free" && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
               </Badge>
             )}
-            {user && planType === "pro" && (
+            {user && effectivePlan === "pro" && (
               <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
             )}
-            {user && planType === "institucional" && (
+            {user && effectivePlan === "institucional" && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
             )}
             {user && (
