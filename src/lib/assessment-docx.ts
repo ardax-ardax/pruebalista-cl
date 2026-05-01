@@ -275,6 +275,42 @@ function studentRow(ctx: BuildContext): Table {
   const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   const bottom = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
   const cellBorders = { top: noBorder, left: noBorder, right: noBorder, bottom };
+
+  const isEssay = !!ctx.template.essayMode;
+
+  if (isEssay) {
+    // Cuadernillo Maestro: 3 campos en blanco para identificación manual.
+    const cw = (pct: number) => Math.round(contentWidthTwip * pct);
+    const mkCell = (pct: number, label: string, marginLeft: number, marginRight: number) =>
+      new TableCell({
+        borders: cellBorders,
+        width: { size: cw(pct), type: WidthType.DXA },
+        margins: { top: 120, bottom: 80, left: marginLeft, right: marginRight },
+        children: [
+          new Paragraph({
+            spacing: { before: 60, after: 60 },
+            children: [
+              new TextRun({ text: `${label}: `, bold: true, size: ptToHalfPt(9) }),
+              new TextRun({ text: "", size: ptToHalfPt(9) }),
+            ],
+          }),
+        ],
+      });
+    return new Table({
+      width: { size: contentWidthTwip, type: WidthType.DXA },
+      columnWidths: [cw(0.55), cw(0.25), cw(0.20)],
+      rows: [
+        new TableRow({
+          children: [
+            mkCell(0.55, "Nombre", 0, 120),
+            mkCell(0.25, "RUT", 120, 120),
+            mkCell(0.20, "Fecha", 120, 0),
+          ],
+        }),
+      ],
+    });
+  }
+
   return new Table({
     width: { size: contentWidthTwip, type: WidthType.DXA },
     columnWidths: [Math.round(contentWidthTwip * 0.65), Math.round(contentWidthTwip * 0.35)],
