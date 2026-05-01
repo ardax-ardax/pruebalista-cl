@@ -318,6 +318,9 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={handleExportPdf}>
               <FileDown className="h-4 w-4" /> PDF
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setOmrOpen(true)}>
+              <Printer className="h-4 w-4" /> Hoja OMR
+            </Button>
             <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
               <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
             </Button>
