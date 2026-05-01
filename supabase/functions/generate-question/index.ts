@@ -146,13 +146,20 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: usageRow } = await adminClient
       .from("user_usage")
-      .select("credits_available, plan_type")
+      .select("credits_available, plan_type, plan_expires_at")
       .eq("user_id", user.id)
       .maybeSingle();
 
     // Si no existe fila, crearla (fallback para usuarios registrados antes de la migración)
-    const planType = usageRow?.plan_type ?? "free";
+    const rawPlan = usageRow?.plan_type ?? "free";
     const credits = usageRow?.credits_available ?? 0;
+    const expiresAt = usageRow?.plan_expires_at;
+
+    // Compute effective plan respecting expiration
+    let planType = rawPlan;
+    if (rawPlan !== "free" && expiresAt && new Date(expiresAt) <= new Date()) {
+      planType = "free";
+    }
 
     if (!usageRow) {
       await adminClient.from("user_usage").insert({ user_id: user.id });

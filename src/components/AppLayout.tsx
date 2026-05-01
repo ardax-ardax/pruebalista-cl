@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Sparkles } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
@@ -18,7 +18,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isStaff, signOut } = useAuth();
-  const { planType, creditsAvailable } = useUserUsage();
+  const { effectivePlan, creditsAvailable } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
 
@@ -59,6 +59,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             {isStaff && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
             {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
               <Button
                 variant="ghost"
@@ -71,15 +72,15 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && planType === "free" && (
+            {user && effectivePlan === "free" && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
               </Badge>
             )}
-            {user && planType === "pro" && (
+            {user && effectivePlan === "pro" && (
               <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
             )}
-            {user && planType === "institucional" && (
+            {user && effectivePlan === "institucional" && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
             )}
             {user && (

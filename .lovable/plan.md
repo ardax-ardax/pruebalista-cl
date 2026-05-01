@@ -1,79 +1,72 @@
 
-## Plan: Monetización y Control de Marca de Agua
+## Plan: Panel de Administración Global
 
-### 1. Base de Datos — tabla `user_usage`
+### 1. Base de Datos (Migraciones)
 
-Crear migración con:
+**Tabla `global_settings`** (single-row, similar a `app_settings`):
+- `id` boolean PK default true
+- `enable_payments` boolean default false
+- `default_free_credits` int default 20
+- `maintenance_mode` boolean default false
+- `updated_at` timestamptz
+- RLS: solo admin puede leer/escribir
 
-```sql
-CREATE TABLE public.user_usage (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-  credits_available int NOT NULL DEFAULT 20,
-  plan_type text NOT NULL DEFAULT 'free' CHECK (plan_type IN ('free','pro','institucional')),
-  last_reset timestamptz NOT NULL DEFAULT now(),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+**Columna nueva en `user_usage`:**
+- `plan_expires_at` timestamptz nullable default null
 
-ALTER TABLE public.user_usage ENABLE ROW LEVEL SECURITY;
+**RLS para `global_settings`:**
+- SELECT/UPDATE solo para admin (`has_role(auth.uid(), 'admin')`)
 
--- Usuarios leen su propio registro
-CREATE POLICY "Users read own usage" ON public.user_usage
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
+**Actualizar `handle_new_user`:**
+- Leer `default_free_credits` desde `global_settings` al crear el registro en `user_usage`, en vez de hardcodear 20.
 
--- Solo admin puede insertar/actualizar
-CREATE POLICY "Admin manages usage" ON public.user_usage
-  FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin'::app_role))
-  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+### 2. Nueva Página `/admin/dashboard`
 
--- Service role (edge functions) puede actualizar créditos
--- (las edge functions usan service_role_key, que bypasea RLS)
-```
+Accesible solo para rol `admin` (reutilizando `AdminGuard` ajustado o un nuevo guard que solo permita admin, no UTP).
 
-Actualizar el trigger `handle_new_user` para crear automáticamente una fila en `user_usage` al registrarse un nuevo usuario.
+**Tres secciones con tabs:**
 
-### 2. Edge Function `generate-question` — verificación de créditos
+**a) Ajustes Globales:**
+- Switch para `enable_payments` y `maintenance_mode`
+- Campo numérico para `default_free_credits`
+- Botón guardar
 
-Modificar la edge function para que, antes de llamar a la IA:
+**b) Gestión de Usuarios:**
+- Tabla con búsqueda que muestra: email, display_name, plan_type, credits_available, plan_expires_at
+- Consulta join entre `profiles`, `user_usage` y `user_roles`
+- Acciones inline por usuario:
+  - Selector para cambiar `plan_type` (free/pro/institucional)
+  - Botón "Recargar Créditos" (dialog con input numérico)
+  - Date picker para establecer/quitar `plan_expires_at`
 
-1. Use `SUPABASE_SERVICE_ROLE_KEY` para consultar `user_usage` del usuario autenticado (extraer uid del JWT).
-2. Si `plan_type = 'institucional'` → sin límite, continúa normalmente.
-3. Si `credits_available <= 0` → responde 402 con mensaje "Sin créditos disponibles".
-4. Tras generación exitosa → decrementa `credits_available` en 1 via UPDATE.
+**c) Control de Instituciones:**
+- Nota: actualmente la app es mono-institución (no existe tabla de instituciones ni `institution_id` en profiles). Se implementará una vista simplificada que permita al admin seleccionar múltiples usuarios y asignarles masivamente el plan "institucional".
+- Tabla de usuarios con checkboxes + botón "Asignar Plan Institucional" masivo.
 
-### 3. Marca de Agua Condicional
+### 3. Lógica de Respeto a Membresía
 
-**`RenderContext`** (`assessment-render.tsx`): agregar campo opcional `planType?: 'free' | 'pro' | 'institucional'`.
+- En `useUserUsage`, agregar `planExpiresAt` al estado.
+- El plan efectivo se calcula así: si `plan_expires_at` existe y es futuro, se respeta el `plan_type` guardado. Si ya venció, se trata como `free` en el cliente.
+- La edge function `generate-question` también verificará la expiración antes de otorgar beneficios del plan.
 
-**`renderAssessmentHtml`**: al final del HTML, si `planType === 'free'`, inyectar un pie de página con "Generado con PruebaLista.cl — Versión Gratuita". Agregar CSS para que aparezca en cada página impresa (`position: fixed; bottom: 0`).
+### 4. Navegación
 
-**`CrearPrueba.tsx`**: cargar el `plan_type` del usuario desde `user_usage` y pasarlo al `RenderContext`. También pasarlo al componente `AssessmentPreview`.
+- Agregar enlace "Admin Panel" en `AppLayout` visible solo para `isAdmin`.
+- Registrar ruta `/admin/dashboard` en `App.tsx` con guard de admin.
 
-**`assessment-pdf.ts`**: el HTML ya contendrá la marca de agua condicional, así que `window.print()` la incluirá automáticamente.
-
-### 4. Restricciones de Exportación y UI
-
-**Bloqueo de .docx** (`CrearPrueba.tsx`):
-- Si `planType === 'free'`, deshabilitar el botón "Descargar .docx" y mostrar tooltip/mensaje invitando a subir a Pro.
-
-**Contador de créditos** (`AppLayout.tsx`):
-- Crear un hook `useUserUsage()` que consulte `user_usage` y exponga `credits_available` y `plan_type`.
-- En el header: si `plan_type === 'free'`, mostrar badge con "N créditos IA". Si es `pro` o `institucional`, mostrar badge con el nombre del plan (ej: "Pro", "Institucional").
-
-### Archivos a crear/editar
+### 5. Archivos a crear/modificar
 
 | Archivo | Acción |
-|---|---|
-| `supabase/migrations/...sql` | Nueva tabla + RLS + actualizar trigger |
-| `supabase/functions/generate-question/index.ts` | Verificación y descuento de créditos |
-| `src/hooks/useUserUsage.ts` | Nuevo hook para consultar plan y créditos |
-| `src/lib/assessment-render.tsx` | Marca de agua condicional en HTML |
-| `src/pages/CrearPrueba.tsx` | Pasar planType al contexto, bloquear .docx |
-| `src/components/AppLayout.tsx` | Mostrar créditos/plan en header |
+|---------|--------|
+| `supabase/migrations/...sql` | Crear `global_settings`, agregar `plan_expires_at` |
+| `src/pages/AdminDashboard.tsx` | Nueva página completa |
+| `src/lib/global-settings.ts` | CRUD para global_settings |
+| `src/hooks/useUserUsage.ts` | Agregar `planExpiresAt` y lógica de expiración |
+| `src/components/AppLayout.tsx` | Enlace a admin panel |
+| `src/App.tsx` | Nueva ruta |
+| `supabase/functions/generate-question/index.ts` | Verificar expiración de plan |
 
-### Detalle técnico
+### Notas técnicas
 
-- La edge function usa `SUPABASE_SERVICE_ROLE_KEY` (ya disponible como secret) para bypass de RLS al decrementar créditos.
-- El JWT del usuario se extrae del header `Authorization` en la edge function para identificar al usuario.
-- La marca de agua usa CSS `@media print` con `position: fixed; bottom: 0` para repetirse en cada página impresa.
+- La RLS de `user_usage` ya permite admin full access, así que las actualizaciones de plan/créditos desde el panel funcionarán.
+- No se necesita tabla de instituciones adicional dado que la app es mono-colegio; la asignación masiva se hace por selección manual de usuarios.

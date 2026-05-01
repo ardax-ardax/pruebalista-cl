@@ -137,6 +137,30 @@ export type Database = {
         }
         Relationships: []
       }
+      global_settings: {
+        Row: {
+          default_free_credits: number
+          enable_payments: boolean
+          id: boolean
+          maintenance_mode: boolean
+          updated_at: string
+        }
+        Insert: {
+          default_free_credits?: number
+          enable_payments?: boolean
+          id?: boolean
+          maintenance_mode?: boolean
+          updated_at?: string
+        }
+        Update: {
+          default_free_credits?: number
+          enable_payments?: boolean
+          id?: boolean
+          maintenance_mode?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pending_invitations: {
         Row: {
           consumed_at: string | null
@@ -280,6 +304,7 @@ export type Database = {
           credits_available: number
           id: string
           last_reset: string
+          plan_expires_at: string | null
           plan_type: string
           user_id: string
         }
@@ -288,6 +313,7 @@ export type Database = {
           credits_available?: number
           id?: string
           last_reset?: string
+          plan_expires_at?: string | null
           plan_type?: string
           user_id: string
         }
@@ -296,6 +322,7 @@ export type Database = {
           credits_available?: number
           id?: string
           last_reset?: string
+          plan_expires_at?: string | null
           plan_type?: string
           user_id?: string
         }
