@@ -1,30 +1,59 @@
-# Restringir tipos de pregunta en modo PAES
 
-## Problema
-Al elegir la plantilla **Ensayo PAES** siguen visibles botones y opciones de tipos de pregunta que no corresponden al formato oficial PAES (que es 100% selección múltiple con 5 alternativas). Hoy se filtran solo "Verdadero/Falso" y "Desarrollo", pero quedan activos:
+## Flujo de Trabajo y Aprobación de Evaluaciones
 
-- **Bloque info** y **Sección** en la barra "Agregar".
-- En el diálogo **Generar con IA**, el selector permite elegir V/F y Desarrollo.
-- En **SIMCE** la regla es similar pero algo más laxa (puede tener bloques de lectura → "info-block" sí aplica).
+### 1. Base de Datos
 
-## Cambios
+Migración SQL para agregar dos columnas a `assessments`:
 
-### 1. `src/components/test-builder/QuestionList.tsx`
-Diferenciar el filtro `addable` según `essayMode`:
+```sql
+ALTER TABLE assessments ADD COLUMN status text NOT NULL DEFAULT 'borrador';
+ALTER TABLE assessments ADD COLUMN utp_feedback text;
+```
 
-- **PAES**: dejar únicamente `multiple-choice`. Ocultar V/F, Desarrollo, Bloque info y Sección (el formato oficial no usa secciones internas; el cuadernillo es lineal).
-- **SIMCE**: mantener `multiple-choice`, `info-block` (necesario para textos de lectura) y `section-title`. Excluir V/F y Desarrollo (igual que hoy).
-- **Sin essayMode**: comportamiento actual (todos los tipos).
+Actualizar la política RLS de UPDATE para que:
+- Los docentes (`user` role) solo puedan cambiar `status` de `borrador` a `pendiente_revision` o de `rechazado` a `pendiente_revision` en sus propias pruebas.
+- Staff (`utp_head`/`admin`) puedan cambiar `status` a cualquier valor y escribir `utp_feedback`.
 
-### 2. `src/components/test-builder/AIGenerateDialog.tsx`
-Aceptar prop opcional `essayMode?: "simce" | "paes" | null` desde `QuestionList`. Cuando sea `"paes"`:
-- Forzar `type = "multiple-choice"` al abrir.
-- Ocultar las opciones `true-false` y `short-answer` del Select (o deshabilitar el Select y mostrar texto fijo "Selección múltiple — formato PAES").
+Se implementa con una función `security definer` que valide las transiciones permitidas, más políticas RLS ajustadas.
 
-Cuando sea `"simce"`: ocultar también V/F y Desarrollo (alineado con la barra de tipos).
+### 2. Schema TypeScript
 
-### 3. Validación defensiva
-En `QuestionList.tsx`, si `essayMode === "paes"` y existen preguntas con `type` distinto a `multiple-choice` (ej. importadas de versiones anteriores), no eliminarlas automáticamente, pero mostrar un aviso suave en el editor de esa pregunta indicando que no corresponde al formato PAES.
+- Agregar `status` y `utpFeedback` al tipo `Assessment` en `assessment-schema.ts`.
+- Definir el tipo `AssessmentStatus = 'borrador' | 'pendiente_revision' | 'aprobado' | 'rechazado'`.
+- Actualizar `emptyAssessment()` con `status: 'borrador'`.
 
-## Fuera de alcance
-No se tocan: el motor PDF/DOCX, los ejes temáticos, ni el esquema de datos. Solo restricciones de UI en la creación de preguntas.
+### 3. Storage Layer
+
+- Actualizar `assessment-storage.ts` para leer/escribir `status` y `utp_feedback` como columnas directas (no dentro del JSONB `data`).
+- Agregar función `updateAssessmentStatus(id, status, feedback?)` que haga un UPDATE parcial.
+
+### 4. Interfaz del Docente (CrearPrueba.tsx)
+
+- Agregar botón **"Enviar a Revisión UTP"** visible cuando `status === 'borrador'` o `status === 'rechazado'`.
+- Si `status` es `pendiente_revision` o `aprobado`, deshabilitar toda edición (tabs meta y contenido en modo lectura). Mostrar banner informativo.
+- Si `status === 'rechazado'`, mostrar el feedback de UTP en un Alert prominente antes del formulario, con opción de corregir y reenviar.
+
+### 5. Interfaz del Jefe UTP (MisPruebas.tsx)
+
+- Agregar filtro de estado (Todos / Pendientes / Aprobados / Rechazados) junto a los filtros existentes.
+- Al abrir una prueba ajena en `CrearPrueba.tsx`, si el usuario es UTP/admin y la prueba está en `pendiente_revision`, mostrar un panel de acciones con:
+  - Botón **"Aprobar Evaluación"** (cambia a `aprobado`).
+  - Botón **"Rechazar con Comentarios"** (abre textarea para feedback, cambia a `rechazado`).
+
+### 6. Badges de Estado
+
+- En `MisPruebas.tsx`, agregar un `Badge` junto al título de cada prueba:
+  - Gris: Borrador
+  - Amarillo: Pendiente de Revisión
+  - Verde: Aprobado
+  - Rojo: Rechazado
+
+### Archivos a crear/editar
+
+| Archivo | Cambio |
+|---------|--------|
+| Migración SQL | Nuevas columnas + políticas RLS |
+| `src/lib/assessment-schema.ts` | Tipo `AssessmentStatus`, campos en `Assessment` |
+| `src/lib/assessment-storage.ts` | Lectura/escritura de `status`/`utp_feedback`, función `updateAssessmentStatus` |
+| `src/pages/MisPruebas.tsx` | Badges, filtro de estado |
+| `src/pages/CrearPrueba.tsx` | Botón enviar a revisión, modo lectura, panel UTP, feedback display |
