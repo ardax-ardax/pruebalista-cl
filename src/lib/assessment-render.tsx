@@ -348,7 +348,12 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
     : "";
 
-  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}</div>`;
+  // Marca de agua solo para plan free
+  const watermark = ctx.planType === "free"
+    ? `<div class="pa-watermark">Generado con PruebaLista.cl — Versión Gratuita</div>`
+    : "";
+
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>`;
 
 }
 
