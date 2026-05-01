@@ -5,6 +5,8 @@ export interface Profile {
   email: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  customInstitutionName: string | null;
+  customLogoUrl: string | null;
 }
 
 export interface ListProfilesResult {
@@ -15,7 +17,7 @@ export interface ListProfilesResult {
 export const listProfiles = async (): Promise<ListProfilesResult> => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url");
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url");
   if (error) {
     console.error("listProfiles", error);
     return { profiles: [], error: error.message };
@@ -25,8 +27,44 @@ export const listProfiles = async (): Promise<ListProfilesResult> => {
     email: r.email,
     displayName: r.display_name,
     avatarUrl: r.avatar_url,
+    customInstitutionName: (r as Record<string, unknown>).custom_institution_name as string | null,
+    customLogoUrl: (r as Record<string, unknown>).custom_logo_url as string | null,
   }));
   return { profiles, error: null };
+};
+
+export const getMyProfile = async (): Promise<Profile | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    email: data.email,
+    displayName: data.display_name,
+    avatarUrl: data.avatar_url,
+    customInstitutionName: (data as Record<string, unknown>).custom_institution_name as string | null,
+    customLogoUrl: (data as Record<string, unknown>).custom_logo_url as string | null,
+  };
+};
+
+export const updateMyProfile = async (updates: {
+  custom_institution_name?: string | null;
+  custom_logo_url?: string | null;
+  display_name?: string;
+}): Promise<{ ok: boolean; error?: string }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "No autenticado" };
+  const { error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 };
 
 export const syncProfilesFromAuth = async (): Promise<{ ok: boolean; total?: number; synced?: number; error?: string }> => {
