@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { ExternalLink, FilePlus2, FileText, Library, LogOut, Settings } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isStaff, signOut } = useAuth();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
 
@@ -55,6 +55,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <nav className="flex items-center gap-1">
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
+            {isStaff && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
             {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
             {isEmbedded && (
               <Button

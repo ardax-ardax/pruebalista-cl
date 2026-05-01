@@ -9,6 +9,7 @@ import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
 import MisPruebas from "./pages/MisPruebas.tsx";
 import Configuracion from "./pages/Configuracion.tsx";
+import Cursos from "./pages/Cursos.tsx";
 import AuthPage from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
             <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
+            <Route path="/cursos" element={<AuthGuard><AdminGuard><Cursos /></AdminGuard></AuthGuard>} />
             <Route path="/configuracion" element={<AuthGuard><AdminGuard><Configuracion /></AdminGuard></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
