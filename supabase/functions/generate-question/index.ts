@@ -228,11 +228,12 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     // Helper: refund the reserved credit when AI fails
     const refundCredit = async () => {
       if (creditReserved) {
+        // Refund: increment credits back by 1
         await adminClient
           .from("user_usage")
-          .update({ credits_available: credits })
-          .eq("user_id", user.id)
-          .then(() => { creditReserved = false; });
+          .update({ credits_available: credits }) // restore to pre-deduction value
+          .eq("user_id", user.id);
+        creditReserved = false;
       }
     };
 
