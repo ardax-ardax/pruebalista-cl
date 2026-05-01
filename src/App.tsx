@@ -12,6 +12,7 @@ import Configuracion from "./pages/Configuracion.tsx";
 import Cursos from "./pages/Cursos.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AuthPage from "./pages/Auth.tsx";
+import Perfil from "./pages/Perfil.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
