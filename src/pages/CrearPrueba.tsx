@@ -370,6 +370,12 @@ const CrearPrueba = () => {
             </Card>
           </TabsContent>
         </Tabs>
+        <OmrSheetDialog
+          open={omrOpen}
+          onOpenChange={setOmrOpen}
+          assessment={assessment}
+          institutionName={institutionName}
+        />
       </div>
     </AppLayout>
   );
