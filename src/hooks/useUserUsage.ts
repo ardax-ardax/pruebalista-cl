@@ -11,6 +11,7 @@ export interface UserUsage {
   effectivePlan: PlanType;
   planExpiresAt: string | null;
   lastReset: string;
+  monthlyQuota: number | null;
 }
 
 const DEFAULT_USAGE: UserUsage = {
@@ -19,6 +20,7 @@ const DEFAULT_USAGE: UserUsage = {
   effectivePlan: "free",
   planExpiresAt: null,
   lastReset: "",
+  monthlyQuota: null,
 };
 
 function computeEffectivePlan(planType: PlanType, expiresAt: string | null): PlanType {
@@ -36,7 +38,7 @@ export function useUserUsage() {
     if (!user) return;
     const { data } = await supabase
       .from("user_usage")
-      .select("credits_available, plan_type, last_reset, plan_expires_at")
+      .select("credits_available, plan_type, last_reset, plan_expires_at, monthly_quota")
       .eq("user_id", user.id)
       .maybeSingle();
     if (data) {
@@ -47,6 +49,7 @@ export function useUserUsage() {
         effectivePlan: computeEffectivePlan(pt, data.plan_expires_at),
         planExpiresAt: data.plan_expires_at,
         lastReset: data.last_reset,
+        monthlyQuota: data.monthly_quota ?? null,
       });
     }
     setLoading(false);
