@@ -151,17 +151,41 @@ function bannerTable(ctx: BuildContext): Table {
       })()
     : [new Paragraph({ children: [new TextRun("")] })];
 
+  const isPaes = template.essayMode === "paes";
+  const isEssay = !!template.essayMode;
+
   const infoChildren: Paragraph[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: institutionName, bold: true, size: ptToHalfPt(11) })],
     }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: "Profesor/a: ", bold: true, size: ptToHalfPt(9) }),
-        new TextRun({ text: teacherLabel, size: ptToHalfPt(9) }),
-      ],
-    }),
+  ];
+
+  if (isEssay) {
+    // Cuadernillo Maestro: anónimo institucional, sin profesor identificable.
+    infoChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({
+            text: isPaes ? "Ensayo PAES" : "Ensayo SIMCE",
+            bold: true,
+            size: ptToHalfPt(10),
+          }),
+        ],
+      }),
+    );
+  } else {
+    infoChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Profesor/a: ", bold: true, size: ptToHalfPt(9) }),
+          new TextRun({ text: teacherLabel, size: ptToHalfPt(9) }),
+        ],
+      }),
+    );
+  }
+  infoChildren.push(
     new Paragraph({
       children: [
         new TextRun({ text: "Asignatura: ", bold: true, size: ptToHalfPt(9) }),
@@ -170,11 +194,10 @@ function bannerTable(ctx: BuildContext): Table {
         new TextRun({ text: gradeLabel, size: ptToHalfPt(9) }),
       ],
     }),
-  ];
+  );
 
-  const isPaes = template.essayMode === "paes";
   const linkedOA = ctx.assessment.meta.linkedOA ?? [];
-  if (!isPaes && linkedOA.length > 0) {
+  if (!isEssay && linkedOA.length > 0) {
     infoChildren.push(
       new Paragraph({
         children: [
@@ -203,6 +226,23 @@ function bannerTable(ctx: BuildContext): Table {
         }),
       );
     }
+  }
+
+  // En modo Cuadernillo Maestro NO incluimos caja de calificación.
+  if (isEssay) {
+    return new Table({
+      width: { size: contentWidthTwip, type: WidthType.DXA },
+      columnWidths: [w(0.22), w(0.78)],
+      rows: [
+        new TableRow({
+          height: { value: 1100, rule: HeightRule.ATLEAST },
+          children: [
+            new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, children: logoChildren }),
+            new TableCell({ borders, width: { size: w(0.78), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, children: infoChildren }),
+          ],
+        }),
+      ],
+    });
   }
 
   const gradeChildren: Paragraph[] = showGradeBox
