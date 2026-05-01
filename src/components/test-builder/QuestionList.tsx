@@ -177,6 +177,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         gradeLabel={gradeLabel}
         subjectValue={meta.subjectValue}
         subjectLabel={subjectLabel}
+        essayMode={essayMode}
         onGenerated={(q) => onChange([...questions, q])}
       />
     </div>
