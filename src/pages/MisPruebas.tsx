@@ -168,11 +168,24 @@ const MisPruebas = () => {
               const authorLabel = isStaff && !isOwn
                 ? profileLabel(profileById.get(userId), userId)
                 : null;
+              const statusBadge = (() => {
+                const s = a.status ?? "borrador";
+                const map: Record<string, { label: string; cls: string }> = {
+                  borrador: { label: "Borrador", cls: "bg-muted text-muted-foreground" },
+                  pendiente_revision: { label: "Pendiente", cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+                  aprobado: { label: "Aprobado", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+                  rechazado: { label: "Rechazado", cls: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+                };
+                return map[s] ?? map.borrador;
+              })();
               return (
                 <Card key={a.id} className="shadow-card">
                   <CardContent className="p-4 flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{a.meta.title || "Sin título"}</div>
+                      <div className="font-medium truncate flex items-center gap-2">
+                        {a.meta.title || "Sin título"}
+                        <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
+                      </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                         <span>{labelOf(subjects, a.meta.subjectValue)}</span>
                         <span>·</span>
