@@ -123,6 +123,20 @@ const Configuracion = () => {
       : "Auto-asignación desactivada: docentes solo ven sus asignaciones.");
   };
 
+  const handleToggleHideCredits = async (value: boolean) => {
+    setSavingSetting(true);
+    const res = await setHideCreditsFromTeachers(value);
+    setSavingSetting(false);
+    if (!res.ok) {
+      toast.error("No se pudo guardar: " + (res.error ?? ""));
+      return;
+    }
+    setAppSettings((s) => ({ ...s, hide_credits_from_teachers: value }));
+    toast.success(value
+      ? "Créditos ocultos: los docentes verán 'Plan Institucional' en lugar del contador."
+      : "Créditos visibles: los docentes verán su saldo de créditos IA.");
+  };
+
   const updateSubjects = (next: SubjectOption[]) => {
     setSubjects(next);
     saveSubjects(next);
