@@ -170,19 +170,13 @@ Deno.serve(async (req) => {
     const needsDeduction = planType !== "institucional" || monthlyQuota !== null;
 
     // --- ATOMIC credit reservation BEFORE calling the AI ---
-    // This prevents race conditions where concurrent requests both pass the check.
+    // Uses a DB function with row-level locking to prevent race conditions.
     let creditReserved = false;
     if (needsDeduction) {
-      const { data: deducted, error: deductErr } = await adminClient
-        .from("user_usage")
-        .update({ credits_available: Math.max(0, credits - 1) })
-        .eq("user_id", user.id)
-        .gt("credits_available", 0)
-        .select("credits_available")
-        .maybeSingle();
+      const { data: newCredits, error: rpcErr } = await adminClient
+        .rpc("deduct_credit", { _user_id: user.id });
 
-      if (deductErr || !deducted) {
-        // No row updated → user has 0 credits
+      if (rpcErr || newCredits === -1) {
         const errMsg = planType === "institucional"
           ? "Has alcanzado tu cuota mensual de generaciones IA asignada por la UTP. Contacta a tu Jefe de UTP para solicitar más créditos."
           : "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas.";
