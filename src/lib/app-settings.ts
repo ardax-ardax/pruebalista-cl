@@ -83,3 +83,14 @@ export const setInstitutionLogo = async (
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 };
+
+export const setHideCreditsFromTeachers = async (
+  value: boolean,
+): Promise<{ ok: boolean; error?: string }> => {
+  const { error } = await supabase
+    .from("app_settings")
+    .update({ hide_credits_from_teachers: value, updated_at: new Date().toISOString() })
+    .eq("id", true);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+};
