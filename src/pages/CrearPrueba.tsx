@@ -33,7 +33,7 @@ import {
   updateAssessmentStatus,
   getAssessmentOwner,
 } from "@/lib/assessment-storage";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadInstitutionName, loadLogo, loadTemplates, type FormatTemplate } from "@/lib/templates";
 import { loadGrades, loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import type { RenderContext } from "@/lib/assessment-render";
