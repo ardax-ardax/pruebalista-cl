@@ -68,6 +68,30 @@ export type Database = {
         }
         Relationships: []
       }
+      courses: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       curriculum_base: {
         Row: {
           created_at: string
@@ -160,6 +184,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      students: {
+        Row: {
+          course_id: string
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          rut: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          first_name: string
+          id?: string
+          last_name: string
+          rut: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          rut?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_assignments: {
         Row: {
