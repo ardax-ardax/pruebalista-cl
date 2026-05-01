@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
+import { loadAppSettings } from "@/lib/app-settings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,10 +19,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
-  const { user, isAdmin, isStaff, signOut } = useAuth();
+  const { user, isAdmin, isStaff, role, signOut } = useAuth();
   const { effectivePlan, creditsAvailable } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
+  const [hideCredits, setHideCredits] = useState(false);
+
+  useEffect(() => {
+    loadAppSettings().then((s) => setHideCredits(s.hide_credits_from_teachers));
+  }, []);
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
@@ -41,6 +48,10 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     navigate("/auth", { replace: true });
   };
 
+  // Si hide_credits está activo y el usuario es docente (rol user), ocultar créditos y mostrar badge institucional
+  const isTeacher = role === "user" || (!role && !isStaff && !isAdmin);
+  const shouldHideCredits = hideCredits && isTeacher;
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
@@ -58,7 +69,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             {isStaff && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
-            {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
               <Button
@@ -72,15 +83,18 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && effectivePlan === "free" && (
+            {user && shouldHideCredits && (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Plan Institucional</Badge>
+            )}
+            {user && !shouldHideCredits && effectivePlan === "free" && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
               </Badge>
             )}
-            {user && effectivePlan === "pro" && (
+            {user && !shouldHideCredits && effectivePlan === "pro" && (
               <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
             )}
-            {user && effectivePlan === "institucional" && (
+            {user && !shouldHideCredits && effectivePlan === "institucional" && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
             )}
             {user && (

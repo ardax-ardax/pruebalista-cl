@@ -7,6 +7,7 @@ import { TemplateEditor } from "@/components/TemplateEditor";
 import { CatalogManager } from "@/components/CatalogManager";
 import { CurriculumManager } from "@/components/admin/CurriculumManager";
 import { StaffManager } from "@/components/admin/StaffManager";
+import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,7 @@ import {
   setAllowSelfAssignment,
   setInstitutionName as setInstitutionNameRemote,
   setInstitutionLogo as setInstitutionLogoRemote,
+  setHideCreditsFromTeachers,
   DEFAULT_APP_SETTINGS,
   DEFAULT_INSTITUTION_NAME,
   type AppSettings,
@@ -58,7 +60,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 const Configuracion = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStaff } = useAuth();
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
@@ -119,6 +121,20 @@ const Configuracion = () => {
     toast.success(value
       ? "Auto-asignación activada: docentes ven todo el catálogo."
       : "Auto-asignación desactivada: docentes solo ven sus asignaciones.");
+  };
+
+  const handleToggleHideCredits = async (value: boolean) => {
+    setSavingSetting(true);
+    const res = await setHideCreditsFromTeachers(value);
+    setSavingSetting(false);
+    if (!res.ok) {
+      toast.error("No se pudo guardar: " + (res.error ?? ""));
+      return;
+    }
+    setAppSettings((s) => ({ ...s, hide_credits_from_teachers: value }));
+    toast.success(value
+      ? "Créditos ocultos: los docentes verán 'Plan Institucional' en lugar del contador."
+      : "Créditos visibles: los docentes verán su saldo de créditos IA.");
   };
 
   const updateSubjects = (next: SubjectOption[]) => {
@@ -398,6 +414,36 @@ const Configuracion = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Toggle ocultar créditos a docentes (staff) */}
+      {isStaff && (
+        <Card className="shadow-card mb-8 border-primary/40">
+          <CardHeader>
+            <CardTitle className="text-lg">Visibilidad de créditos IA</CardTitle>
+            <CardDescription>
+              Controla si los docentes pueden ver su contador de créditos de IA o si ven un badge de "Plan Institucional".
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+              <div className="text-sm">
+                <div className="font-medium">Ocultar créditos a los docentes</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Si está <strong>activo</strong>, los docentes verán "Plan Institucional" en lugar de su saldo de créditos. El equipo directivo siempre verá los datos reales.
+                </div>
+              </div>
+              <Switch
+                checked={appSettings.hide_credits_from_teachers}
+                onCheckedChange={handleToggleHideCredits}
+                disabled={savingSetting}
+              />
+            </label>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Consumo de IA por docente (staff: UTP + Admin) */}
+      {isStaff && <UtpUsageManager />}
 
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}

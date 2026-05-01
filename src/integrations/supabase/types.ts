@@ -14,9 +14,34 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generation_log: {
+        Row: {
+          created_at: string
+          id: string
+          oa_code: string | null
+          question_type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          oa_code?: string | null
+          question_type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          oa_code?: string | null
+          question_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           allow_self_assignment: boolean
+          hide_credits_from_teachers: boolean
           id: boolean
           institution_logo: string | null
           institution_name: string
@@ -25,6 +50,7 @@ export type Database = {
         }
         Insert: {
           allow_self_assignment?: boolean
+          hide_credits_from_teachers?: boolean
           id?: boolean
           institution_logo?: string | null
           institution_name?: string
@@ -33,6 +59,7 @@ export type Database = {
         }
         Update: {
           allow_self_assignment?: boolean
+          hide_credits_from_teachers?: boolean
           id?: boolean
           institution_logo?: string | null
           institution_name?: string
@@ -304,6 +331,7 @@ export type Database = {
           credits_available: number
           id: string
           last_reset: string
+          monthly_quota: number | null
           plan_expires_at: string | null
           plan_type: string
           user_id: string
@@ -313,6 +341,7 @@ export type Database = {
           credits_available?: number
           id?: string
           last_reset?: string
+          monthly_quota?: number | null
           plan_expires_at?: string | null
           plan_type?: string
           user_id: string
@@ -322,6 +351,7 @@ export type Database = {
           credits_available?: number
           id?: string
           last_reset?: string
+          monthly_quota?: number | null
           plan_expires_at?: string | null
           plan_type?: string
           user_id?: string
