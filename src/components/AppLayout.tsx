@@ -71,6 +71,17 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
+            {user && planType === "free" && (
+              <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
+              </Badge>
+            )}
+            {user && planType === "pro" && (
+              <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
+            )}
+            {user && planType === "institucional" && (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
+            )}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
