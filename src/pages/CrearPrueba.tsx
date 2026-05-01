@@ -65,7 +65,7 @@ const CrearPrueba = () => {
   const [showRejectForm, setShowRejectForm] = useState(false);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
-  const { planType, creditsAvailable, refresh: refreshUsage } = useUserUsage();
+  const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
 
