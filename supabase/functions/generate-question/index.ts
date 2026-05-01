@@ -234,11 +234,11 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     // Helper: refund the reserved credit when AI fails
     const refundCredit = async () => {
       if (creditReserved) {
-        await adminClient.rpc("", {}).catch(() => {}); // no-op; use direct update
         await adminClient
           .from("user_usage")
-          .update({ credits_available: credits }) // restore original value
-          .eq("user_id", user.id);
+          .update({ credits_available: credits })
+          .eq("user_id", user.id)
+          .then(() => { creditReserved = false; });
       }
     };
 
