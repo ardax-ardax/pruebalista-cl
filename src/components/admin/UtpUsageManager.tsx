@@ -92,11 +92,12 @@ export const UtpUsageManager = () => {
   const handleSetQuota = async (userId: string) => {
     const val = editingQuota[userId];
     if (val === undefined || val === "") return;
-    const num = val === "sin" ? null : parseInt(val, 10);
-    if (num !== null && (isNaN(num) || num < 0)) {
-      toast.error("Ingresa un número válido o 'sin' para quitar la cuota");
+    const raw = parseInt(val, 10);
+    if (isNaN(raw) || raw < 0) {
+      toast.error("Ingresa un número válido (0 para quitar la cuota)");
       return;
     }
+    const num = raw === 0 ? null : raw;
     setBusy(true);
     const { error } = await supabase
       .from("user_usage")
