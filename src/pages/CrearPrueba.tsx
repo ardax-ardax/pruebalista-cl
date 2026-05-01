@@ -261,7 +261,48 @@ const CrearPrueba = () => {
     }
   };
 
-  const validate = (): string | null => {
+  const handleSubmitForReview = async () => {
+    const err = validate();
+    if (err) { toast.error(err); return; }
+    if (!editingId) {
+      toast.error("Guarda la prueba primero antes de enviarla a revisión.");
+      return;
+    }
+    try {
+      await updateAssessmentStatus(assessment.id, "pendiente_revision");
+      setAssessment({ ...assessment, status: "pendiente_revision" });
+      toast.success("Prueba enviada a revisión UTP");
+    } catch (e) {
+      toast.error("Error: " + (e as Error).message);
+    }
+  };
+
+  const handleApprove = async () => {
+    try {
+      await updateAssessmentStatus(assessment.id, "aprobado");
+      setAssessment({ ...assessment, status: "aprobado", utpFeedback: null });
+      toast.success("Evaluación aprobada");
+    } catch (e) {
+      toast.error("Error: " + (e as Error).message);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectFeedback.trim()) {
+      toast.error("Escribe un comentario para el docente");
+      return;
+    }
+    try {
+      await updateAssessmentStatus(assessment.id, "rechazado", rejectFeedback.trim());
+      setAssessment({ ...assessment, status: "rechazado", utpFeedback: rejectFeedback.trim() });
+      setRejectFeedback("");
+      setShowRejectForm(false);
+      toast.success("Evaluación rechazada con comentarios");
+    } catch (e) {
+      toast.error("Error: " + (e as Error).message);
+    }
+  };
+
     if (!assessment.meta.subjectValue) return "Selecciona la asignatura";
     if (!assessment.meta.gradeValue) return "Selecciona el curso";
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
