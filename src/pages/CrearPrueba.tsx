@@ -20,7 +20,9 @@ import { OmrSheetDialog } from "@/components/omr/OmrSheetDialog";
 import {
   computeTotalPoints,
   emptyAssessment,
+  ASSESSMENT_STATUS_LABEL,
   type Assessment,
+  type AssessmentStatus,
 } from "@/lib/assessment-schema";
 import {
   clearDraft,
