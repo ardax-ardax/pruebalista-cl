@@ -4,12 +4,14 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 import { loadGrades, loadSubjects } from "@/lib/catalog";
-import type { Assessment } from "@/lib/assessment-schema";
+import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
+import { ASSESSMENT_STATUS_LABEL } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Item { assessment: Assessment; userId: string; }
