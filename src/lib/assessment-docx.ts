@@ -23,7 +23,7 @@ import {
 import { saveAs } from "file-saver";
 
 import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessment-schema";
-import { PAES_VARIANTS } from "./assessment-schema";
+import { PAES_VARIANTS, resolvePageSize } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
 import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
