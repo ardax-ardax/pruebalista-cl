@@ -105,7 +105,7 @@ const MisPruebas = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isStaff && (
-              <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); setSubjectFilter(ALL); }}>
+              <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); setSubjectFilter(ALL); setStatusFilter(ALL); }}>
                 {showAll ? "Ver solo mías" : "Ver todas"}
               </Button>
             )}
