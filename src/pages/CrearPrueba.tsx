@@ -356,8 +356,16 @@ const CrearPrueba = () => {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
               {editingId ? "Editar prueba" : "Crear prueba"}
+              {editingId && (
+                <Badge className={`text-xs ${
+                  assessmentStatus === "borrador" ? "bg-muted text-muted-foreground" :
+                  assessmentStatus === "pendiente_revision" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" :
+                  assessmentStatus === "aprobado" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" :
+                  "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                }`}>{ASSESSMENT_STATUS_LABEL[assessmentStatus]}</Badge>
+              )}
             </h1>
             <p className="text-sm text-muted-foreground">
               Construye una evaluación estandarizada. El formato institucional se aplica automáticamente al exportar.
@@ -373,9 +381,11 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={handleNew}>
               <Plus className="h-4 w-4" /> Nueva
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSave}>
-              <Save className="h-4 w-4" /> Guardar
-            </Button>
+            {!readOnly && (
+              <Button variant="outline" size="sm" onClick={handleSave}>
+                <Save className="h-4 w-4" /> Guardar
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleExportPdf}>
               <FileDown className="h-4 w-4" /> PDF
             </Button>
@@ -385,8 +395,66 @@ const CrearPrueba = () => {
             <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
               <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
             </Button>
+            {/* Docente: enviar a revisión */}
+            {!isStaff && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
+              <Button size="sm" variant="default" onClick={handleSubmitForReview}>
+                <Send className="h-4 w-4" /> Enviar a Revisión UTP
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Read-only banner for teachers */}
+        {readOnly && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Prueba en modo lectura</AlertTitle>
+            <AlertDescription>
+              {assessmentStatus === "pendiente_revision"
+                ? "Esta prueba está pendiente de revisión por la UTP. No puedes editarla hasta que sea revisada."
+                : "Esta prueba fue aprobada y no puede ser modificada."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Feedback UTP when rejected */}
+        {assessmentStatus === "rechazado" && assessment.utpFeedback && (
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Evaluación rechazada por UTP</AlertTitle>
+            <AlertDescription className="whitespace-pre-wrap">{assessment.utpFeedback}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* UTP/Admin approval panel */}
+        {isStaff && editingId && ownerId && ownerId !== user?.id && assessmentStatus === "pendiente_revision" && (
+          <Card className="border-primary">
+            <CardContent className="p-4 space-y-3">
+              <h3 className="font-semibold text-sm">Panel de Revisión UTP</h3>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={handleApprove} className="bg-green-600 hover:bg-green-700 text-white">
+                  <CheckCircle2 className="h-4 w-4" /> Aprobar Evaluación
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setShowRejectForm(!showRejectForm)}>
+                  <XCircle className="h-4 w-4" /> Rechazar con Comentarios
+                </Button>
+              </div>
+              {showRejectForm && (
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Escribe las observaciones para el docente…"
+                    value={rejectFeedback}
+                    onChange={(e) => setRejectFeedback(e.target.value)}
+                    rows={3}
+                  />
+                  <Button size="sm" variant="destructive" onClick={handleReject} disabled={!rejectFeedback.trim()}>
+                    Confirmar Rechazo
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
