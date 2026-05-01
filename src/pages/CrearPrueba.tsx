@@ -158,16 +158,27 @@ const CrearPrueba = () => {
   }, []);
 
 
+  // Determina si la prueba es de solo lectura para el docente
+  const isOwnAssessment = !ownerId || ownerId === user?.id;
+  const assessmentStatus = assessment?.status ?? "borrador";
+  const readOnly = (() => {
+    if (!assessment) return false;
+    // Staff siempre puede editar
+    if (isStaff) return false;
+    // Docente: solo puede editar en borrador o rechazado
+    return assessmentStatus === "pendiente_revision" || assessmentStatus === "aprobado";
+  })();
+
   // Autosave: si editamos una prueba guardada, actualizamos en la nube.
   // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
-    if (!assessment) return;
+    if (!assessment || readOnly) return;
     if (editingId) {
       upsertAssessment(assessment).catch((e) => console.warn("autosave", e));
     } else {
       saveDraft(assessment);
     }
-  }, [assessment, editingId]);
+  }, [assessment, editingId, readOnly]);
 
   const template = useMemo(
     () => templates.find((t) => t.id === assessment?.meta.templateId) ?? templates[0] ?? null,
