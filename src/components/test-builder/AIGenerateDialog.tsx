@@ -46,6 +46,13 @@ export const AIGenerateDialog = ({
     if (oaCode && !linkedOA.includes(oaCode)) setOaCode(linkedOA[0] ?? "");
   }, [linkedOA, oaCode]);
 
+  // En modos PAES/SIMCE solo selección múltiple es válida → forzamos.
+  useEffect(() => {
+    if ((essayMode === "paes" || essayMode === "simce") && type !== "multiple-choice") {
+      setType("multiple-choice");
+    }
+  }, [essayMode, type]);
+
   const toggleIndicator = (code: string, checked: boolean) => {
     setSelectedIndicators((prev) =>
       checked ? [...prev, code] : prev.filter((c) => c !== code),
