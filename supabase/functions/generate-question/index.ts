@@ -1,6 +1,7 @@
 // Edge function: genera una pregunta alineada a un OA usando Lovable AI Gateway.
-// Devuelve un objeto compatible con la interfaz `Question` (subset suficiente para
-// que el cliente lo combine con `newQuestion(type)`).
+// Verifica créditos del usuario antes de llamar a la IA.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -123,6 +124,48 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY no configurada");
 
+    // --- Autenticar usuario ---
+    const authHeader = req.headers.get("authorization") ?? "";
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Cliente con token del usuario para obtener uid
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "No autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Verificar créditos con service role ---
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: usageRow } = await adminClient
+      .from("user_usage")
+      .select("credits_available, plan_type")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    // Si no existe fila, crearla (fallback para usuarios registrados antes de la migración)
+    const planType = usageRow?.plan_type ?? "free";
+    const credits = usageRow?.credits_available ?? 0;
+
+    if (!usageRow) {
+      await adminClient.from("user_usage").insert({ user_id: user.id });
+    }
+
+    // Plan institucional: sin límite de créditos
+    if (planType !== "institucional" && credits <= 0) {
+      return new Response(
+        JSON.stringify({ error: "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas." }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const body = (await req.json()) as Payload;
     if (!body?.oaCode || !body?.oaDescription || !body?.questionType) {
       return new Response(JSON.stringify({ error: "Parámetros faltantes" }), {
@@ -216,6 +259,14 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // --- Descontar crédito tras generación exitosa (excepto institucional) ---
+    if (planType !== "institucional") {
+      await adminClient
+        .from("user_usage")
+        .update({ credits_available: Math.max(0, credits - 1) })
+        .eq("user_id", user.id);
     }
 
     return new Response(JSON.stringify(parsed), {
