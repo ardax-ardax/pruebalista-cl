@@ -18,6 +18,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isStaff, signOut } = useAuth();
+  const { planType, creditsAvailable } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
 
