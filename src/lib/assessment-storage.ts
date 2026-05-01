@@ -146,7 +146,7 @@ export const deleteAssessment = async (id: string): Promise<void> => {
 export const getLocalLegacyAssessments = async (): Promise<Assessment[]> => {
   try {
     const items = await get<Assessment[]>(KEY_LOCAL_LIB);
-    return items ? items.map(migrate) : [];
+    return items ? items.map((a) => migrate(a)) : [];
   } catch {
     return [];
   }
