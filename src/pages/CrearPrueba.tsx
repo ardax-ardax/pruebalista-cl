@@ -225,9 +225,9 @@ const CrearPrueba = () => {
       subjectLabel,
       gradeLabel,
       teacherLabel,
-      planType,
+      planType: effectivePlan,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName, planType]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan]);
 
   if (!assessment || !template || !renderCtx) {
     return (
@@ -395,7 +395,7 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={() => setOmrOpen(true)}>
               <Printer className="h-4 w-4" /> Hoja OMR
             </Button>
-            {planType === "free" ? (
+            {effectivePlan === "free" ? (
               <Button size="sm" variant="secondary" disabled title="Disponible en plan Pro">
                 <Download className="h-4 w-4" /> .docx (Pro)
               </Button>
