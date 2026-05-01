@@ -697,14 +697,17 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
       }),
     );
   }
-  if (assessment.meta.instructions) {
+  const effectiveInstructions =
+    assessment.meta.instructions ||
+    (template.essayMode ? defaultInstructionsFor(template.essayMode) ?? "" : "");
+  if (effectiveInstructions) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.JUSTIFIED,
         spacing: { before: 60, after: 180 },
         children: [
           new TextRun({ text: "Instrucciones: ", bold: true, size: ptToHalfPt(template.typography.bodySize) }),
-          new TextRun({ text: assessment.meta.instructions, size: ptToHalfPt(template.typography.bodySize) }),
+          new TextRun({ text: effectiveInstructions, size: ptToHalfPt(template.typography.bodySize) }),
         ],
       }),
     );
