@@ -4,12 +4,14 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 import { loadGrades, loadSubjects } from "@/lib/catalog";
-import type { Assessment } from "@/lib/assessment-schema";
+import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
+import { ASSESSMENT_STATUS_LABEL } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Item { assessment: Assessment; userId: string; }
@@ -24,6 +26,7 @@ const MisPruebas = () => {
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
+  const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
 
@@ -76,10 +79,15 @@ const MisPruebas = () => {
   }, [items, subjects, isStaff]);
 
   const visible = (() => {
-    if (!isStaff || !showAll) return items.filter((i) => i.userId === user?.id);
+    if (!isStaff || !showAll) {
+      let list = items.filter((i) => i.userId === user?.id);
+      if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
+      return list;
+    }
     let list = items;
     if (teacherFilter !== ALL) list = list.filter((i) => i.userId === teacherFilter);
     if (subjectFilter !== ALL) list = list.filter((i) => i.assessment.meta.subjectValue === subjectFilter);
+    if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
     return list;
   })();
 
@@ -97,7 +105,7 @@ const MisPruebas = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isStaff && (
-              <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); setSubjectFilter(ALL); }}>
+              <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); setSubjectFilter(ALL); setStatusFilter(ALL); }}>
                 {showAll ? "Ver solo mías" : "Ver todas"}
               </Button>
             )}
@@ -127,6 +135,18 @@ const MisPruebas = () => {
                 </SelectContent>
               </Select>
             )}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-[200px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos los estados</SelectItem>
+                <SelectItem value="borrador">Borrador</SelectItem>
+                <SelectItem value="pendiente_revision">Pendiente de Revisión</SelectItem>
+                <SelectItem value="aprobado">Aprobado</SelectItem>
+                <SelectItem value="rechazado">Rechazado</SelectItem>
+              </SelectContent>
+            </Select>
             <Button asChild size="sm">
               <Link to="/"><FilePlus2 className="h-4 w-4" /> Nueva prueba</Link>
             </Button>
@@ -148,11 +168,24 @@ const MisPruebas = () => {
               const authorLabel = isStaff && !isOwn
                 ? profileLabel(profileById.get(userId), userId)
                 : null;
+              const statusBadge = (() => {
+                const s = a.status ?? "borrador";
+                const map: Record<string, { label: string; cls: string }> = {
+                  borrador: { label: "Borrador", cls: "bg-muted text-muted-foreground" },
+                  pendiente_revision: { label: "Pendiente", cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+                  aprobado: { label: "Aprobado", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+                  rechazado: { label: "Rechazado", cls: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+                };
+                return map[s] ?? map.borrador;
+              })();
               return (
                 <Card key={a.id} className="shadow-card">
                   <CardContent className="p-4 flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{a.meta.title || "Sin título"}</div>
+                      <div className="font-medium truncate flex items-center gap-2">
+                        {a.meta.title || "Sin título"}
+                        <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
+                      </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                         <span>{labelOf(subjects, a.meta.subjectValue)}</span>
                         <span>·</span>
