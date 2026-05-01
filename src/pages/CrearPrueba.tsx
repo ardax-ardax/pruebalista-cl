@@ -503,7 +503,7 @@ const CrearPrueba = () => {
             <PreviewLayoutToolbar
               meta={assessment.meta}
               onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
-              canEdit={isStaff}
+              canEdit={isStaff || effectivePlan !== "institucional"}
             />
             <Card className="shadow-card">
               <CardContent className="p-0">
