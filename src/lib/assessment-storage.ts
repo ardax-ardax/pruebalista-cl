@@ -59,11 +59,13 @@ type Row = {
   user_id: string;
   title: string;
   data: Assessment;
+  status: string;
+  utp_feedback: string | null;
   created_at: string;
   updated_at: string;
 };
 
-const rowToAssessment = (r: Row): Assessment => migrate(r.data);
+const rowToAssessment = (r: Row): Assessment => migrate(r.data, r.status, r.utp_feedback);
 
 export const listAssessments = async (): Promise<Assessment[]> => {
   const { data, error } = await supabase
