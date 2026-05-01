@@ -4,13 +4,14 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Eye, FileDown, FileText, Pencil, Plus, Save } from "lucide-react";
+import { Download, Eye, FileDown, FileText, Pencil, Plus, Printer, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
 import { QuestionList } from "@/components/test-builder/QuestionList";
 import { AssessmentPreview } from "@/components/test-builder/AssessmentPreview";
 import { PreviewLayoutToolbar } from "@/components/test-builder/PreviewLayoutToolbar";
+import { OmrSheetDialog } from "@/components/omr/OmrSheetDialog";
 
 
 import {
@@ -47,6 +48,7 @@ const CrearPrueba = () => {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
+  const [omrOpen, setOmrOpen] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
@@ -316,6 +318,9 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={handleExportPdf}>
               <FileDown className="h-4 w-4" /> PDF
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setOmrOpen(true)}>
+              <Printer className="h-4 w-4" /> Hoja OMR
+            </Button>
             <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
               <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
             </Button>
@@ -365,6 +370,12 @@ const CrearPrueba = () => {
             </Card>
           </TabsContent>
         </Tabs>
+        <OmrSheetDialog
+          open={omrOpen}
+          onOpenChange={setOmrOpen}
+          assessment={assessment}
+          institutionName={institutionName}
+        />
       </div>
     </AppLayout>
   );
