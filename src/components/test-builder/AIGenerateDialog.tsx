@@ -18,13 +18,14 @@ interface Props {
   gradeLabel: string;
   subjectValue: string;
   subjectLabel: string;
+  essayMode?: "simce" | "paes" | null;
   onGenerated: (q: Question) => void;
 }
 
 type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
 
 export const AIGenerateDialog = ({
-  open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, onGenerated,
+  open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, essayMode, onGenerated,
 }: Props) => {
   const [oaCode, setOaCode] = useState<string>(linkedOA[0] ?? "");
   const [type, setType] = useState<SupportedType>("multiple-choice");
