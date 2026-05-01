@@ -225,6 +225,7 @@ const CrearPrueba = () => {
       subjectLabel,
       gradeLabel,
       teacherLabel,
+      planType,
     };
   }, [assessment, template, subjects, grades, teachers, logo, institutionName]);
 
