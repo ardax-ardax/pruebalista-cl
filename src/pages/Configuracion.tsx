@@ -7,6 +7,7 @@ import { TemplateEditor } from "@/components/TemplateEditor";
 import { CatalogManager } from "@/components/CatalogManager";
 import { CurriculumManager } from "@/components/admin/CurriculumManager";
 import { StaffManager } from "@/components/admin/StaffManager";
+import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
