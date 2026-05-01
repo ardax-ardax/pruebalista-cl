@@ -68,14 +68,33 @@ export interface Question {
 }
 
 // Optimización de Diseño y Papel: overrides opcionales por prueba.
-// Solo editables por admin / utp_head; los docentes los ven en solo lectura.
+// Editables por admin/utp_head y por usuarios individuales (no institucionales).
 // Márgenes en milímetros, espaciado entre preguntas en pt.
+
+export type PageSizeKey = "folio" | "carta" | "a4" | "oficio";
+
+export const PAGE_SIZE_OPTIONS: { key: PageSizeKey; label: string; widthCm: number; heightCm: number }[] = [
+  { key: "folio",  label: "Folio (21.59 × 33.02 cm)",  widthCm: 21.59, heightCm: 33.02 },
+  { key: "carta",  label: "Carta (21.59 × 27.94 cm)",  widthCm: 21.59, heightCm: 27.94 },
+  { key: "a4",     label: "A4 (21 × 29.7 cm)",         widthCm: 21,    heightCm: 29.7 },
+  { key: "oficio", label: "Oficio (21.6 × 34 cm)",     widthCm: 21.6,  heightCm: 34 },
+];
+
+export function resolvePageSize(layout: AssessmentLayout | undefined, templatePageSize: { widthCm: number; heightCm: number }): { widthCm: number; heightCm: number } {
+  if (layout?.pageSizeKey) {
+    const found = PAGE_SIZE_OPTIONS.find((o) => o.key === layout.pageSizeKey);
+    if (found) return { widthCm: found.widthCm, heightCm: found.heightCm };
+  }
+  return templatePageSize;
+}
+
 export interface AssessmentLayout {
   marginTop: number;     // mm (10–40)
   marginBottom: number;  // mm (10–40)
   marginSide: number;    // mm (10–40) — aplica a izquierda y derecha
   questionSpacing: number; // pt (entre preguntas)
   optionsColumns: 1 | 2; // distribución de alternativas A/B/C/D
+  pageSizeKey?: PageSizeKey; // override de tamaño de página (null = usa el del template)
 }
 
 export const DEFAULT_LAYOUT: AssessmentLayout = {
