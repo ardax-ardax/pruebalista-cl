@@ -164,14 +164,27 @@ export const AIGenerateDialog = ({
 
             <div>
               <Label className="text-xs">Tipo de pregunta</Label>
-              <Select value={type} onValueChange={(v) => setType(v as SupportedType)}>
+              <Select
+                value={type}
+                onValueChange={(v) => setType(v as SupportedType)}
+                disabled={essayMode === "paes" || essayMode === "simce"}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="multiple-choice">Selección múltiple</SelectItem>
-                  <SelectItem value="true-false">Verdadero / Falso</SelectItem>
-                  <SelectItem value="short-answer">Desarrollo</SelectItem>
+                  {essayMode !== "paes" && essayMode !== "simce" && (
+                    <>
+                      <SelectItem value="true-false">Verdadero / Falso</SelectItem>
+                      <SelectItem value="short-answer">Desarrollo</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {(essayMode === "paes" || essayMode === "simce") && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Formato {essayMode === "paes" ? "PAES" : "SIMCE"}: solo selección múltiple.
+                </p>
+              )}
             </div>
           </div>
         )}
