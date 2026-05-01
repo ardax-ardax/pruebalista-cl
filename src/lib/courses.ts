@@ -42,7 +42,7 @@ export async function createCourse(input: { name: string; level: string }): Prom
 }
 
 export async function updateCourse(id: string, input: { name?: string; level?: string }): Promise<void> {
-  const patch: Record<string, string> = {};
+  const patch: { name?: string; level?: string } = {};
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.level !== undefined) patch.level = input.level.trim();
   const { error } = await supabase.from("courses").update(patch).eq("id", id);
