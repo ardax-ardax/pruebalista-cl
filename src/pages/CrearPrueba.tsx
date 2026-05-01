@@ -11,6 +11,7 @@ import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm
 import { QuestionList } from "@/components/test-builder/QuestionList";
 import { AssessmentPreview } from "@/components/test-builder/AssessmentPreview";
 import { PreviewLayoutToolbar } from "@/components/test-builder/PreviewLayoutToolbar";
+import { OmrSheetDialog } from "@/components/omr/OmrSheetDialog";
 
 
 import {
