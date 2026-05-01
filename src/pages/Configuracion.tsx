@@ -415,6 +415,36 @@ const Configuracion = () => {
         </Card>
       )}
 
+      {/* Toggle ocultar créditos a docentes (staff) */}
+      {isStaff && (
+        <Card className="shadow-card mb-8 border-primary/40">
+          <CardHeader>
+            <CardTitle className="text-lg">Visibilidad de créditos IA</CardTitle>
+            <CardDescription>
+              Controla si los docentes pueden ver su contador de créditos de IA o si ven un badge de "Plan Institucional".
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+              <div className="text-sm">
+                <div className="font-medium">Ocultar créditos a los docentes</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Si está <strong>activo</strong>, los docentes verán "Plan Institucional" en lugar de su saldo de créditos. El equipo directivo siempre verá los datos reales.
+                </div>
+              </div>
+              <Switch
+                checked={appSettings.hide_credits_from_teachers}
+                onCheckedChange={handleToggleHideCredits}
+                disabled={savingSetting}
+              />
+            </label>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Consumo de IA por docente (staff: UTP + Admin) */}
+      {isStaff && <UtpUsageManager />}
+
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}
 
