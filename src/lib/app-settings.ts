@@ -6,6 +6,7 @@ export interface AppSettings {
   allow_self_assignment: boolean;
   institution_name: string;
   institution_logo: string | null;
+  hide_credits_from_teachers: boolean;
 }
 
 export const DEFAULT_INSTITUTION_NAME = "New Little College La Florida";
@@ -14,6 +15,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   allow_self_assignment: false,
   institution_name: DEFAULT_INSTITUTION_NAME,
   institution_logo: null,
+  hide_credits_from_teachers: false,
 };
 
 let defaultLogoDataUrlPromise: Promise<string | null> | null = null;
@@ -34,7 +36,7 @@ export const loadDefaultInstitutionLogo = (): Promise<string | null> => {
 export const loadAppSettings = async (): Promise<AppSettings> => {
   const { data, error } = await supabase
     .from("app_settings")
-    .select("allow_self_assignment, institution_name, institution_logo")
+    .select("allow_self_assignment, institution_name, institution_logo, hide_credits_from_teachers")
     .eq("id", true)
     .maybeSingle();
   if (error) {
@@ -45,6 +47,7 @@ export const loadAppSettings = async (): Promise<AppSettings> => {
     allow_self_assignment: !!data?.allow_self_assignment,
     institution_name: (data?.institution_name as string) || DEFAULT_INSTITUTION_NAME,
     institution_logo: (data?.institution_logo as string | null) ?? null,
+    hide_credits_from_teachers: !!data?.hide_credits_from_teachers,
   };
 };
 
