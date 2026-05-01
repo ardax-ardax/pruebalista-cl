@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserUsage } from "@/hooks/useUserUsage";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isStaff, signOut } = useAuth();
+  const { planType, creditsAvailable } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
 
@@ -68,6 +70,17 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <ExternalLink className="h-4 w-4" />
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
+            )}
+            {user && planType === "free" && (
+              <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
+              </Badge>
+            )}
+            {user && planType === "pro" && (
+              <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
+            )}
+            {user && planType === "institucional" && (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
             )}
             {user && (
               <DropdownMenu>

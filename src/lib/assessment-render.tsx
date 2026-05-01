@@ -17,6 +17,7 @@ export interface RenderContext {
   subjectLabel: string;
   gradeLabel: string;
   teacherLabel: string;
+  planType?: "free" | "pro" | "institucional";
 }
 
 // === CSS común para preview y print ===
@@ -164,6 +165,25 @@ export const ASSESSMENT_CSS = `
     height: 100%;
     position: relative;
     overflow: hidden;
+  /* Marca de agua (solo plan free) */
+  .pa-watermark {
+    text-align: center;
+    font-size: 8pt;
+    color: #999;
+    border-top: 0.5pt solid #ccc;
+    padding-top: 4pt;
+    margin-top: 12pt;
+  }
+  @media print {
+    .pa-watermark {
+      position: fixed;
+      bottom: 5mm;
+      left: 0;
+      right: 0;
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
   }
 `;
 
@@ -347,7 +367,12 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
     : "";
 
-  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}</div>`;
+  // Marca de agua solo para plan free
+  const watermark = ctx.planType === "free"
+    ? `<div class="pa-watermark">Generado con PruebaLista.cl — Versión Gratuita</div>`
+    : "";
+
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>`;
 
 }
 

@@ -41,6 +41,7 @@ import { exportAssessmentToPdf } from "@/lib/assessment-pdf";
 import { exportAssessmentToDocx } from "@/lib/assessment-docx";
 import { buildAssessmentFileName } from "@/lib/assessment-file-name";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserUsage, type PlanType } from "@/hooks/useUserUsage";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
 import { loadAppSettings, loadDefaultInstitutionLogo, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
 
@@ -64,6 +65,7 @@ const CrearPrueba = () => {
   const [showRejectForm, setShowRejectForm] = useState(false);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
+  const { planType, creditsAvailable, refresh: refreshUsage } = useUserUsage();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
 
@@ -223,8 +225,9 @@ const CrearPrueba = () => {
       subjectLabel,
       gradeLabel,
       teacherLabel,
+      planType,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, planType]);
 
   if (!assessment || !template || !renderCtx) {
     return (
@@ -392,9 +395,15 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={() => setOmrOpen(true)}>
               <Printer className="h-4 w-4" /> Hoja OMR
             </Button>
-            <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
-              <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
-            </Button>
+            {planType === "free" ? (
+              <Button size="sm" variant="secondary" disabled title="Disponible en plan Pro">
+                <Download className="h-4 w-4" /> .docx (Pro)
+              </Button>
+            ) : (
+              <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
+                <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
+              </Button>
+            )}
             {/* Docente: enviar a revisión */}
             {!isStaff && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
               <Button size="sm" variant="default" onClick={handleSubmitForReview}>
