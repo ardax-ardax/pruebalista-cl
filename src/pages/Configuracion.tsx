@@ -52,6 +52,7 @@ import {
   setAllowSelfAssignment,
   setInstitutionName as setInstitutionNameRemote,
   setInstitutionLogo as setInstitutionLogoRemote,
+  setHideCreditsFromTeachers,
   DEFAULT_APP_SETTINGS,
   DEFAULT_INSTITUTION_NAME,
   type AppSettings,
