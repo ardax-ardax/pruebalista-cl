@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Sparkles } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
@@ -59,6 +59,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             {isStaff && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
             {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
               <Button
                 variant="ghost"
