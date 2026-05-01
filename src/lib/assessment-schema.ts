@@ -132,10 +132,21 @@ export const PAES_VARIANTS: { value: PaesVariant; label: string; questionGoal: n
 // Metas oficiales SIMCE (varían por nivel y asignatura, usamos 65 como referencia general).
 export const SIMCE_QUESTION_GOAL = 65;
 
+export type AssessmentStatus = "borrador" | "pendiente_revision" | "aprobado" | "rechazado";
+
+export const ASSESSMENT_STATUS_LABEL: Record<AssessmentStatus, string> = {
+  borrador: "Borrador",
+  pendiente_revision: "Pendiente de Revisión",
+  aprobado: "Aprobado",
+  rechazado: "Rechazado",
+};
+
 export interface Assessment {
   id: string;
   createdAt: number;
   updatedAt: number;
+  status: AssessmentStatus;
+  utpFeedback?: string | null;
   meta: AssessmentMeta;
   questions: Question[];
 }
@@ -193,6 +204,7 @@ export const emptyAssessment = (templateId: string): Assessment => ({
   id: newAssessmentId(),
   createdAt: Date.now(),
   updatedAt: Date.now(),
+  status: "borrador",
   meta: {
     templateId,
     title: "",
