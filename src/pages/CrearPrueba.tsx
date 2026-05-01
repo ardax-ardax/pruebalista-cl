@@ -395,9 +395,15 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={() => setOmrOpen(true)}>
               <Printer className="h-4 w-4" /> Hoja OMR
             </Button>
-            <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
-              <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
-            </Button>
+            {planType === "free" ? (
+              <Button size="sm" variant="secondary" disabled title="Disponible en plan Pro">
+                <Download className="h-4 w-4" /> .docx (Pro)
+              </Button>
+            ) : (
+              <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
+                <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
+              </Button>
+            )}
             {/* Docente: enviar a revisión */}
             {!isStaff && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
               <Button size="sm" variant="default" onClick={handleSubmitForReview}>
