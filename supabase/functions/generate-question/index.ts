@@ -146,14 +146,14 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: usageRow } = await adminClient
       .from("user_usage")
-      .select("credits_available, plan_type, plan_expires_at")
+      .select("credits_available, plan_type, plan_expires_at, monthly_quota")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Si no existe fila, crearla (fallback para usuarios registrados antes de la migración)
     const rawPlan = usageRow?.plan_type ?? "free";
     const credits = usageRow?.credits_available ?? 0;
     const expiresAt = usageRow?.plan_expires_at;
+    const monthlyQuota = usageRow?.monthly_quota ?? null;
 
     // Compute effective plan respecting expiration
     let planType = rawPlan;
@@ -165,7 +165,15 @@ Deno.serve(async (req) => {
       await adminClient.from("user_usage").insert({ user_id: user.id });
     }
 
-    // Plan institucional: sin límite de créditos
+    // Verificar cuota: incluso plan institucional se bloquea si tiene cuota y credits <= 0
+    if (planType === "institucional" && monthlyQuota !== null && credits <= 0) {
+      return new Response(
+        JSON.stringify({ error: "Has alcanzado tu cuota mensual de generaciones IA asignada por la UTP. Contacta a tu Jefe de UTP para solicitar más créditos." }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Plan no institucional: verificar créditos normales
     if (planType !== "institucional" && credits <= 0) {
       return new Response(
         JSON.stringify({ error: "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas." }),
@@ -268,13 +276,23 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
       });
     }
 
-    // --- Descontar crédito tras generación exitosa (excepto institucional) ---
-    if (planType !== "institucional") {
+    // --- Descontar crédito tras generación exitosa ---
+    // Para institucional sin cuota: no descontar. Con cuota: sí descontar.
+    if (planType !== "institucional" || monthlyQuota !== null) {
       await adminClient
         .from("user_usage")
         .update({ credits_available: Math.max(0, credits - 1) })
         .eq("user_id", user.id);
     }
+
+    // --- Registrar en ai_generation_log ---
+    await adminClient
+      .from("ai_generation_log")
+      .insert({
+        user_id: user.id,
+        oa_code: body.oaCode,
+        question_type: body.questionType,
+      });
 
     return new Response(JSON.stringify(parsed), {
       status: 200,
