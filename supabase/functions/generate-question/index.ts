@@ -231,6 +231,17 @@ Tipo de pregunta: ${body.questionType}${indicatorsBlock}
 
 Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicadores señalados" : ""}.`;
 
+    // Helper: refund the reserved credit when AI fails
+    const refundCredit = async () => {
+      if (creditReserved) {
+        await adminClient.rpc("", {}).catch(() => {}); // no-op; use direct update
+        await adminClient
+          .from("user_usage")
+          .update({ credits_available: credits }) // restore original value
+          .eq("user_id", user.id);
+      }
+    };
+
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -249,12 +260,14 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     });
 
     if (aiResp.status === 429) {
+      await refundCredit();
       return new Response(
         JSON.stringify({ error: "Límite de uso alcanzado. Intenta nuevamente en unos segundos." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     if (aiResp.status === 402) {
+      await refundCredit();
       return new Response(
         JSON.stringify({ error: "Sin créditos disponibles en Lovable AI. Recarga en Settings > Workspace > Usage." }),
         { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -263,6 +276,7 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     if (!aiResp.ok) {
       const t = await aiResp.text();
       console.error("AI gateway error", aiResp.status, t);
+      await refundCredit();
       return new Response(JSON.stringify({ error: "Error del proveedor de IA" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -273,6 +287,7 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     const toolCall = json?.choices?.[0]?.message?.tool_calls?.[0];
     const argStr = toolCall?.function?.arguments;
     if (!argStr) {
+      await refundCredit();
       return new Response(JSON.stringify({ error: "La IA no devolvió una pregunta válida" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -283,19 +298,11 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     try {
       parsed = JSON.parse(argStr);
     } catch {
+      await refundCredit();
       return new Response(JSON.stringify({ error: "La IA devolvió JSON inválido" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // --- Descontar crédito tras generación exitosa ---
-    // Para institucional sin cuota: no descontar. Con cuota: sí descontar.
-    if (planType !== "institucional" || monthlyQuota !== null) {
-      await adminClient
-        .from("user_usage")
-        .update({ credits_available: Math.max(0, credits - 1) })
-        .eq("user_id", user.id);
     }
 
     // --- Registrar en ai_generation_log ---
