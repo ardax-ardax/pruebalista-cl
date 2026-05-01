@@ -79,10 +79,15 @@ const MisPruebas = () => {
   }, [items, subjects, isStaff]);
 
   const visible = (() => {
-    if (!isStaff || !showAll) return items.filter((i) => i.userId === user?.id);
+    if (!isStaff || !showAll) {
+      let list = items.filter((i) => i.userId === user?.id);
+      if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
+      return list;
+    }
     let list = items;
     if (teacherFilter !== ALL) list = list.filter((i) => i.userId === teacherFilter);
     if (subjectFilter !== ALL) list = list.filter((i) => i.assessment.meta.subjectValue === subjectFilter);
+    if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
     return list;
   })();
 
