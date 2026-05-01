@@ -28,6 +28,7 @@ import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
 import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
 import { findOA } from "./curriculum-data";
+import { defaultInstructionsFor } from "./essay-defaults";
 
 function paesVariantLabelDocx(v?: PaesVariant): string {
   if (!v) return "PAES";
@@ -151,17 +152,41 @@ function bannerTable(ctx: BuildContext): Table {
       })()
     : [new Paragraph({ children: [new TextRun("")] })];
 
+  const isPaes = template.essayMode === "paes";
+  const isEssay = !!template.essayMode;
+
   const infoChildren: Paragraph[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: institutionName, bold: true, size: ptToHalfPt(11) })],
     }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: "Profesor/a: ", bold: true, size: ptToHalfPt(9) }),
-        new TextRun({ text: teacherLabel, size: ptToHalfPt(9) }),
-      ],
-    }),
+  ];
+
+  if (isEssay) {
+    // Cuadernillo Maestro: anónimo institucional, sin profesor identificable.
+    infoChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({
+            text: isPaes ? "Ensayo PAES" : "Ensayo SIMCE",
+            bold: true,
+            size: ptToHalfPt(10),
+          }),
+        ],
+      }),
+    );
+  } else {
+    infoChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Profesor/a: ", bold: true, size: ptToHalfPt(9) }),
+          new TextRun({ text: teacherLabel, size: ptToHalfPt(9) }),
+        ],
+      }),
+    );
+  }
+  infoChildren.push(
     new Paragraph({
       children: [
         new TextRun({ text: "Asignatura: ", bold: true, size: ptToHalfPt(9) }),
@@ -170,11 +195,10 @@ function bannerTable(ctx: BuildContext): Table {
         new TextRun({ text: gradeLabel, size: ptToHalfPt(9) }),
       ],
     }),
-  ];
+  );
 
-  const isPaes = template.essayMode === "paes";
   const linkedOA = ctx.assessment.meta.linkedOA ?? [];
-  if (!isPaes && linkedOA.length > 0) {
+  if (!isEssay && linkedOA.length > 0) {
     infoChildren.push(
       new Paragraph({
         children: [
@@ -203,6 +227,23 @@ function bannerTable(ctx: BuildContext): Table {
         }),
       );
     }
+  }
+
+  // En modo Cuadernillo Maestro NO incluimos caja de calificación.
+  if (isEssay) {
+    return new Table({
+      width: { size: contentWidthTwip, type: WidthType.DXA },
+      columnWidths: [w(0.22), w(0.78)],
+      rows: [
+        new TableRow({
+          height: { value: 1100, rule: HeightRule.ATLEAST },
+          children: [
+            new TableCell({ borders, width: { size: w(0.22), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, children: logoChildren }),
+            new TableCell({ borders, width: { size: w(0.78), type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, verticalAlign: VerticalAlign.CENTER, children: infoChildren }),
+          ],
+        }),
+      ],
+    });
   }
 
   const gradeChildren: Paragraph[] = showGradeBox
@@ -235,6 +276,42 @@ function studentRow(ctx: BuildContext): Table {
   const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   const bottom = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
   const cellBorders = { top: noBorder, left: noBorder, right: noBorder, bottom };
+
+  const isEssay = !!ctx.template.essayMode;
+
+  if (isEssay) {
+    // Cuadernillo Maestro: 3 campos en blanco para identificación manual.
+    const cw = (pct: number) => Math.round(contentWidthTwip * pct);
+    const mkCell = (pct: number, label: string, marginLeft: number, marginRight: number) =>
+      new TableCell({
+        borders: cellBorders,
+        width: { size: cw(pct), type: WidthType.DXA },
+        margins: { top: 120, bottom: 80, left: marginLeft, right: marginRight },
+        children: [
+          new Paragraph({
+            spacing: { before: 60, after: 60 },
+            children: [
+              new TextRun({ text: `${label}: `, bold: true, size: ptToHalfPt(9) }),
+              new TextRun({ text: "", size: ptToHalfPt(9) }),
+            ],
+          }),
+        ],
+      });
+    return new Table({
+      width: { size: contentWidthTwip, type: WidthType.DXA },
+      columnWidths: [cw(0.55), cw(0.25), cw(0.20)],
+      rows: [
+        new TableRow({
+          children: [
+            mkCell(0.55, "Nombre", 0, 120),
+            mkCell(0.25, "RUT", 120, 120),
+            mkCell(0.20, "Fecha", 120, 0),
+          ],
+        }),
+      ],
+    });
+  }
+
   return new Table({
     width: { size: contentWidthTwip, type: WidthType.DXA },
     columnWidths: [Math.round(contentWidthTwip * 0.65), Math.round(contentWidthTwip * 0.35)],
@@ -621,14 +698,17 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
       }),
     );
   }
-  if (assessment.meta.instructions) {
+  const effectiveInstructions =
+    assessment.meta.instructions ||
+    (template.essayMode ? defaultInstructionsFor(template.essayMode) ?? "" : "");
+  if (effectiveInstructions) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.JUSTIFIED,
         spacing: { before: 60, after: 180 },
         children: [
           new TextRun({ text: "Instrucciones: ", bold: true, size: ptToHalfPt(template.typography.bodySize) }),
-          new TextRun({ text: assessment.meta.instructions, size: ptToHalfPt(template.typography.bodySize) }),
+          new TextRun({ text: effectiveInstructions, size: ptToHalfPt(template.typography.bodySize) }),
         ],
       }),
     );

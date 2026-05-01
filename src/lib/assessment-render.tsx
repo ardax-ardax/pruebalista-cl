@@ -6,6 +6,7 @@ import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessm
 import { PAES_VARIANTS } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
+import { defaultInstructionsFor } from "./essay-defaults";
 import { findOA } from "./curriculum-data";
 
 export interface RenderContext {
@@ -195,29 +196,53 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-row"><span><strong>Variante:</strong> ${escape(paesVariantLabel(meta.paesVariant))}</span>${meta.paesAxis ? `<span><strong>Eje Temático:</strong> ${escape(meta.paesAxis)}</span>` : ""}</div>`
     : "";
 
+  // === Header ===
+  // En modo Cuadernillo Maestro (SIMCE/PAES) el header es ANÓNIMO institucional:
+  // sin profesor identificable, sin fecha, sin caja de calificación. Solo logo +
+  // nombre del colegio + variante/eje. La identificación del alumno se llena a mano.
   const banner = template.header?.enabled
-    ? `<table class="pa-banner"><tr>
-        <td class="pa-logo-cell">${logoDataUrl ? `<img src="${logoDataUrl}" alt="Logo" />` : ""}</td>
-        <td class="pa-info-cell">
-          <div class="pa-inst-name">${escape(institutionName)}</div>
-          <div class="pa-row"><span><strong>Profesor/a:</strong> ${escape(teacherLabel || "")}</span></div>
-          <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
-          ${oaLine}
-          ${paesLine}
-          ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
-        </td>
-        ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><br/><br/></td>`}
-      </tr></table>`
+    ? isEssay
+      ? `<table class="pa-banner"><tr>
+          <td class="pa-logo-cell">${logoDataUrl ? `<img src="${logoDataUrl}" alt="Logo" />` : ""}</td>
+          <td class="pa-info-cell">
+            <div class="pa-inst-name">${escape(institutionName)}</div>
+            <div class="pa-row"><span><strong>${isPaes ? "Ensayo PAES" : "Ensayo SIMCE"}</strong></span></div>
+            <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
+            ${paesLine}
+          </td>
+        </tr></table>`
+      : `<table class="pa-banner"><tr>
+          <td class="pa-logo-cell">${logoDataUrl ? `<img src="${logoDataUrl}" alt="Logo" />` : ""}</td>
+          <td class="pa-info-cell">
+            <div class="pa-inst-name">${escape(institutionName)}</div>
+            <div class="pa-row"><span><strong>Profesor/a:</strong> ${escape(teacherLabel || "")}</span></div>
+            <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
+            ${oaLine}
+            ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
+          </td>
+          ${showGradeBox ? `<td class="pa-grade-cell">Calificación<br/><br/><br/></td>` : `<td class="pa-grade-cell">Pje. Total<br/><br/><br/></td>`}
+        </tr></table>`
     : "";
 
-  const studentRow = `<table class="pa-student-row"><tr>
-    <td style="width:65%"><strong>Nombre:</strong> ${escape(meta.studentName || "")}</td>
-    <td style="width:35%"><strong>Puntaje obtenido:</strong></td>
-  </tr></table>`;
+  // Fila de identificación del alumno:
+  // - Cuadernillo Maestro: campos en blanco (Nombre, RUT, Curso, Fecha) para llenar a mano.
+  // - Resto: comportamiento clásico (nombre y puntaje).
+  const studentRow = isEssay
+    ? `<table class="pa-student-row"><tr>
+        <td style="width:55%"><strong>Nombre:</strong> ______________________________________</td>
+        <td style="width:25%"><strong>RUT:</strong> ____________________</td>
+        <td style="width:20%"><strong>Fecha:</strong> ____________</td>
+      </tr></table>`
+    : `<table class="pa-student-row"><tr>
+        <td style="width:65%"><strong>Nombre:</strong> ${escape(meta.studentName || "")}</td>
+        <td style="width:35%"><strong>Puntaje obtenido:</strong></td>
+      </tr></table>`;
 
   const title = meta.title ? `<div class="pa-title">${escape(meta.title)}</div>` : "";
-  const instructions = meta.instructions
-    ? `<div class="pa-instructions"><strong>Instrucciones:</strong> ${escape(meta.instructions)}</div>`
+  const effectiveInstructions =
+    meta.instructions || (isEssay ? defaultInstructionsFor(template.essayMode) : null);
+  const instructions = effectiveInstructions
+    ? `<div class="pa-instructions"><strong>Instrucciones:</strong> ${escape(effectiveInstructions)}</div>`
     : "";
 
   // En PAES NO renderizamos la tabla de OA; en su lugar mostramos el eje temático.
