@@ -33,7 +33,7 @@ import {
   updateAssessmentStatus,
   getAssessmentOwner,
 } from "@/lib/assessment-storage";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadInstitutionName, loadLogo, loadTemplates, type FormatTemplate } from "@/lib/templates";
 import { loadGrades, loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
 import type { RenderContext } from "@/lib/assessment-render";
@@ -81,13 +81,19 @@ const CrearPrueba = () => {
     listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
   }, [user, isStaff, authLoading]);
 
-  // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado).
+  // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
+  // y para aplicar branding personalizado para usuarios individuales).
   useEffect(() => {
     if (!user) { setCurrentProfile(null); return; }
-    listProfiles().then(({ profiles: profs }) => {
-      setCurrentProfile(profs.find((p) => p.id === user.id) ?? null);
+    getMyProfile().then((p) => {
+      setCurrentProfile(p);
+      // Si el usuario NO es staff y tiene branding personalizado, usarlo
+      if (!isStaff && p) {
+        if (p.customInstitutionName) setInstitutionName(p.customInstitutionName);
+        if (p.customLogoUrl) setLogo(p.customLogoUrl);
+      }
     });
-  }, [user?.id]);
+  }, [user?.id, isStaff]);
 
   // Si staff abre una prueba ajena, recuperamos el dueño para mostrarlo.
   useEffect(() => {
@@ -503,7 +509,7 @@ const CrearPrueba = () => {
             <PreviewLayoutToolbar
               meta={assessment.meta}
               onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
-              canEdit={isStaff}
+              canEdit={isStaff || effectivePlan !== "institucional"}
             />
             <Card className="shadow-card">
               <CardContent className="p-0">

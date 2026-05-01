@@ -1,9 +1,10 @@
 // Exporta el HTML de evaluación a PDF reutilizando la ventana de impresión.
 // Mantiene paridad visual completa con el preview HTML y con el .docx:
-//   - Tamaño de página del template
+//   - Tamaño de página del template (o override por prueba)
 //   - Márgenes per-prueba (meta.layout) en mm si están definidos
 //   - Reglas de columnas (SIMCE/PAES) heredadas del CSS de assessment-render
 import { renderAssessmentHtml, ASSESSMENT_CSS, type RenderContext } from "./assessment-render";
+import { resolvePageSize } from "./assessment-schema";
 
 export function exportAssessmentToPdf(ctx: RenderContext, fileName: string) {
   const html = renderAssessmentHtml(ctx);
@@ -11,10 +12,10 @@ export function exportAssessmentToPdf(ctx: RenderContext, fileName: string) {
   if (!printWindow) {
     throw new Error("No se pudo abrir la ventana de impresión. Permite ventanas emergentes.");
   }
-  const { widthCm, heightCm } = ctx.template.pageSize;
+  const layout = ctx.assessment.meta.layout;
+  const { widthCm, heightCm } = resolvePageSize(layout, ctx.template.pageSize);
 
   // Márgenes: si la prueba define meta.layout (mm), priorízalos. Si no, usa los del template.
-  const layout = ctx.assessment.meta.layout;
   const marginCss = layout
     ? `${layout.marginTop}mm ${layout.marginSide}mm ${layout.marginBottom}mm ${layout.marginSide}mm`
     : `${ctx.template.spacing.marginTop}cm ${ctx.template.spacing.marginRight}cm ${ctx.template.spacing.marginBottom}cm ${ctx.template.spacing.marginLeft}cm`;

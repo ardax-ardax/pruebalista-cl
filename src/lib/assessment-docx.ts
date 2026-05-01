@@ -23,7 +23,7 @@ import {
 import { saveAs } from "file-saver";
 
 import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessment-schema";
-import { PAES_VARIANTS } from "./assessment-schema";
+import { PAES_VARIANTS, resolvePageSize } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
 import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
@@ -790,11 +790,14 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
       {
         properties: {
           page: {
-            size: {
-              width: cmToTwip(template.pageSize.widthCm),
-              height: cmToTwip(template.pageSize.heightCm),
-              orientation: PageOrientation.PORTRAIT,
-            },
+            size: (() => {
+              const ps = resolvePageSize(assessment.meta.layout, template.pageSize);
+              return {
+                width: cmToTwip(ps.widthCm),
+                height: cmToTwip(ps.heightCm),
+                orientation: PageOrientation.PORTRAIT,
+              };
+            })(),
             margin: (() => {
               // Si la prueba tiene `meta.layout`, los márgenes (mm) sobreescriben al template (cm).
               const layout = assessment.meta.layout;

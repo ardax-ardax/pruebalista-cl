@@ -1,6 +1,6 @@
 // Barra de "Optimización de papel" que vive sobre la vista previa.
-// Permite a admin/UTP ajustar márgenes, espaciado y nº de columnas en vivo,
-// y a los docentes verlos en modo solo lectura sin cambiar de pestaña.
+// Permite a admin/UTP (y a usuarios individuales) ajustar márgenes, espaciado,
+// nº de columnas y tamaño de página en vivo.
 import { useState } from "react";
 import { ChevronDown, Lock, RotateCcw, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,11 +9,14 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DEFAULT_LAYOUT,
   LAYOUT_LIMITS,
+  PAGE_SIZE_OPTIONS,
   type AssessmentLayout,
   type AssessmentMeta,
+  type PageSizeKey,
 } from "@/lib/assessment-schema";
 
 interface Props {
@@ -32,8 +35,12 @@ export const PreviewLayoutToolbar = ({ meta, onMetaChange, canEdit }: Props) => 
 
   const reset = () => onMetaChange({ ...meta, layout: { ...DEFAULT_LAYOUT } });
 
-  // Resumen tipo "M:20·20·25mm · 6pt · 1col" para la barra cerrada.
-  const summary = `M:${layout.marginTop}·${layout.marginBottom}·${layout.marginSide}mm · ${layout.questionSpacing}pt · ${layout.optionsColumns}col`;
+  const pageSizeLabel = layout.pageSizeKey
+    ? PAGE_SIZE_OPTIONS.find((o) => o.key === layout.pageSizeKey)?.label ?? "Template"
+    : "Template";
+
+  // Resumen tipo "Folio · M:20·20·25mm · 6pt · 1col" para la barra cerrada.
+  const summary = `${layout.pageSizeKey ? pageSizeLabel.split(" (")[0] : "Auto"} · M:${layout.marginTop}·${layout.marginBottom}·${layout.marginSide}mm · ${layout.questionSpacing}pt · ${layout.optionsColumns}col`;
 
   return (
     <Card className="shadow-card">
@@ -74,6 +81,27 @@ export const PreviewLayoutToolbar = ({ meta, onMetaChange, canEdit }: Props) => 
                 Solo Administradores y Jefe UTP pueden modificar estos valores.
               </p>
             )}
+
+            {/* Tamaño de página */}
+            <div className="mb-4">
+              <Label className="text-xs mb-1.5 block">Tamaño de página</Label>
+              <Select
+                value={layout.pageSizeKey ?? "__template__"}
+                onValueChange={(v) => patch({ pageSizeKey: v === "__template__" ? undefined : v as PageSizeKey })}
+                disabled={!canEdit}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__template__">Predeterminado del template</SelectItem>
+                  {PAGE_SIZE_OPTIONS.map((o) => (
+                    <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <ToolbarSlider
                 label="Margen sup."

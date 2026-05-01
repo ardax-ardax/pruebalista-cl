@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Shield, Sparkles } from "lucide-react";
+import { ExternalLink, FilePlus2, FileText, GraduationCap, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
@@ -121,6 +121,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                       </div>
                     )}
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/perfil")} className="gap-2">
+                    <User className="h-4 w-4" />
+                    Mi Perfil
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="gap-2 text-destructive focus:text-destructive">
                     <LogOut className="h-4 w-4" />
