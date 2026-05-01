@@ -60,8 +60,10 @@ const CrearPrueba = () => {
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [rejectFeedback, setRejectFeedback] = useState("");
+  const [showRejectForm, setShowRejectForm] = useState(false);
 
-  const { user, isStaff, loading: authLoading } = useAuth();
+  const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
 
