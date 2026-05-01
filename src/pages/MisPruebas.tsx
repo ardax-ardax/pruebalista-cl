@@ -135,6 +135,18 @@ const MisPruebas = () => {
                 </SelectContent>
               </Select>
             )}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-[200px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos los estados</SelectItem>
+                <SelectItem value="borrador">Borrador</SelectItem>
+                <SelectItem value="pendiente_revision">Pendiente de Revisión</SelectItem>
+                <SelectItem value="aprobado">Aprobado</SelectItem>
+                <SelectItem value="rechazado">Rechazado</SelectItem>
+              </SelectContent>
+            </Select>
             <Button asChild size="sm">
               <Link to="/"><FilePlus2 className="h-4 w-4" /> Nueva prueba</Link>
             </Button>
