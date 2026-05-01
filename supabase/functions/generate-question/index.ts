@@ -165,20 +165,33 @@ Deno.serve(async (req) => {
       await adminClient.from("user_usage").insert({ user_id: user.id });
     }
 
-    // Verificar cuota: incluso plan institucional se bloquea si tiene cuota y credits <= 0
-    if (planType === "institucional" && monthlyQuota !== null && credits <= 0) {
-      return new Response(
-        JSON.stringify({ error: "Has alcanzado tu cuota mensual de generaciones IA asignada por la UTP. Contacta a tu Jefe de UTP para solicitar más créditos." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Determine if we need to deduct credits for this request
+    // Institucional WITHOUT quota = unlimited (no deduction needed)
+    const needsDeduction = planType !== "institucional" || monthlyQuota !== null;
 
-    // Plan no institucional: verificar créditos normales
-    if (planType !== "institucional" && credits <= 0) {
-      return new Response(
-        JSON.stringify({ error: "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    // --- ATOMIC credit reservation BEFORE calling the AI ---
+    // This prevents race conditions where concurrent requests both pass the check.
+    let creditReserved = false;
+    if (needsDeduction) {
+      const { data: deducted, error: deductErr } = await adminClient
+        .from("user_usage")
+        .update({ credits_available: Math.max(0, credits - 1) })
+        .eq("user_id", user.id)
+        .gt("credits_available", 0)
+        .select("credits_available")
+        .maybeSingle();
+
+      if (deductErr || !deducted) {
+        // No row updated → user has 0 credits
+        const errMsg = planType === "institucional"
+          ? "Has alcanzado tu cuota mensual de generaciones IA asignada por la UTP. Contacta a tu Jefe de UTP para solicitar más créditos."
+          : "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas.";
+        return new Response(
+          JSON.stringify({ error: errMsg }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      creditReserved = true;
     }
 
     const body = (await req.json()) as Payload;
