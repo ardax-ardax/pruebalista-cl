@@ -28,6 +28,7 @@ import type { FormatTemplate } from "./templates";
 import { richTextToRuns } from "./rich-text";
 import { hasCrop, imageCacheKey, processAssessmentImages, type ProcessedImage } from "./image-crop";
 import { findOA } from "./curriculum-data";
+import { defaultInstructionsFor } from "./essay-defaults";
 
 function paesVariantLabelDocx(v?: PaesVariant): string {
   if (!v) return "PAES";
