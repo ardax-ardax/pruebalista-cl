@@ -78,10 +78,15 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
     const t = loadTemplates().find((tt) => tt.id === meta.templateId);
     return t?.essayMode ?? null;
   }, [meta.templateId]);
-  const isEssay = !!essayMode;
-  const addable = isEssay
-    ? ADDABLE.filter((it) => it.type !== "short-answer" && it.type !== "true-false")
-    : ADDABLE;
+  // PAES: solo selección múltiple (formato oficial DEMRE).
+  // SIMCE: selección múltiple + bloque info (textos de lectura) + secciones.
+  // Sin essayMode: todos los tipos disponibles.
+  const addable =
+    essayMode === "paes"
+      ? ADDABLE.filter((it) => it.type === "multiple-choice")
+      : essayMode === "simce"
+      ? ADDABLE.filter((it) => it.type !== "short-answer" && it.type !== "true-false")
+      : ADDABLE;
 
   // Meta de preguntas según variante PAES o SIMCE.
   const questionGoal = useMemo(() => {
