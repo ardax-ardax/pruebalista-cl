@@ -227,7 +227,7 @@ const CrearPrueba = () => {
       teacherLabel,
       planType,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, planType]);
 
   if (!assessment || !template || !renderCtx) {
     return (
