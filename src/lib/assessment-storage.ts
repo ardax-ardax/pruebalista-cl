@@ -134,11 +134,12 @@ export const updateAssessmentStatus = async (
   status: AssessmentStatus,
   utpFeedback?: string | null,
 ): Promise<void> => {
-  const payload: Record<string, unknown> = { status };
-  if (utpFeedback !== undefined) payload.utp_feedback = utpFeedback;
   const { error } = await supabase
     .from("assessments")
-    .update(payload)
+    .update({
+      status,
+      ...(utpFeedback !== undefined ? { utp_feedback: utpFeedback } : {}),
+    })
     .eq("id", id);
   if (error) throw error;
 };
