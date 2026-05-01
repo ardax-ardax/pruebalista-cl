@@ -2,17 +2,17 @@
 // con RLS. El borrador (mientras se edita una prueba nueva) sigue en IndexedDB
 // porque es local al dispositivo.
 import { get, set, del } from "idb-keyval";
-import { migrateQuestion, newAssessmentId, isUuid, type Assessment } from "./assessment-schema";
+import { migrateQuestion, newAssessmentId, isUuid, type Assessment, type AssessmentStatus } from "./assessment-schema";
 import { supabase } from "@/integrations/supabase/client";
 
 const KEY_DRAFT = "estandarizador.assessment.draft.v1";
 const KEY_LOCAL_LIB = "estandarizador.assessment.library.v1";
 
-const migrate = (a: Assessment): Assessment => ({
+const migrate = (a: Assessment, dbStatus?: string, dbFeedback?: string | null): Assessment => ({
   ...a,
-  // Si el borrador trae un id antiguo no-UUID (formato local previo),
-  // lo reemplazamos por un UUID válido para que pueda persistirse en Postgres.
   id: isUuid(a.id) ? a.id : newAssessmentId(),
+  status: (dbStatus as Assessment["status"]) ?? a.status ?? "borrador",
+  utpFeedback: dbFeedback ?? a.utpFeedback ?? null,
   meta: { ...a.meta, linkedOA: a.meta?.linkedOA ?? [] },
   questions: (a.questions ?? []).map(migrateQuestion),
 });
