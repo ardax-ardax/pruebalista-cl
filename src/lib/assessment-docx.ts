@@ -790,7 +790,6 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
       {
         properties: {
           page: {
-            size: {
             size: (() => {
               const ps = resolvePageSize(assessment.meta.layout, template.pageSize);
               return {
@@ -799,7 +798,6 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
                 orientation: PageOrientation.PORTRAIT,
               };
             })(),
-            },
             margin: (() => {
               // Si la prueba tiene `meta.layout`, los márgenes (mm) sobreescriben al template (cm).
               const layout = assessment.meta.layout;
