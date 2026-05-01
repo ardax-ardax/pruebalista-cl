@@ -6,6 +6,7 @@ import type { Assessment, Question, QuestionImage, PaesVariant } from "./assessm
 import { PAES_VARIANTS } from "./assessment-schema";
 import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
+import { defaultInstructionsFor } from "./essay-defaults";
 import { findOA } from "./curriculum-data";
 
 export interface RenderContext {
