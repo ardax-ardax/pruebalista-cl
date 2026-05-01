@@ -165,20 +165,27 @@ Deno.serve(async (req) => {
       await adminClient.from("user_usage").insert({ user_id: user.id });
     }
 
-    // Verificar cuota: incluso plan institucional se bloquea si tiene cuota y credits <= 0
-    if (planType === "institucional" && monthlyQuota !== null && credits <= 0) {
-      return new Response(
-        JSON.stringify({ error: "Has alcanzado tu cuota mensual de generaciones IA asignada por la UTP. Contacta a tu Jefe de UTP para solicitar más créditos." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Determine if we need to deduct credits for this request
+    // Institucional WITHOUT quota = unlimited (no deduction needed)
+    const needsDeduction = planType !== "institucional" || monthlyQuota !== null;
 
-    // Plan no institucional: verificar créditos normales
-    if (planType !== "institucional" && credits <= 0) {
-      return new Response(
-        JSON.stringify({ error: "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    // --- ATOMIC credit reservation BEFORE calling the AI ---
+    // Uses a DB function with row-level locking to prevent race conditions.
+    let creditReserved = false;
+    if (needsDeduction) {
+      const { data: newCredits, error: rpcErr } = await adminClient
+        .rpc("deduct_credit", { _user_id: user.id });
+
+      if (rpcErr || newCredits === -1) {
+        const errMsg = planType === "institucional"
+          ? "Has alcanzado tu cuota mensual de generaciones IA asignada por la UTP. Contacta a tu Jefe de UTP para solicitar más créditos."
+          : "Sin créditos de IA disponibles. Mejora tu plan para seguir generando preguntas.";
+        return new Response(
+          JSON.stringify({ error: errMsg }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      creditReserved = true;
     }
 
     const body = (await req.json()) as Payload;
@@ -218,6 +225,18 @@ Tipo de pregunta: ${body.questionType}${indicatorsBlock}
 
 Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicadores señalados" : ""}.`;
 
+    // Helper: refund the reserved credit when AI fails
+    const refundCredit = async () => {
+      if (creditReserved) {
+        // Refund: increment credits back by 1
+        await adminClient
+          .from("user_usage")
+          .update({ credits_available: credits }) // restore to pre-deduction value
+          .eq("user_id", user.id);
+        creditReserved = false;
+      }
+    };
+
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -236,12 +255,14 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     });
 
     if (aiResp.status === 429) {
+      await refundCredit();
       return new Response(
         JSON.stringify({ error: "Límite de uso alcanzado. Intenta nuevamente en unos segundos." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     if (aiResp.status === 402) {
+      await refundCredit();
       return new Response(
         JSON.stringify({ error: "Sin créditos disponibles en Lovable AI. Recarga en Settings > Workspace > Usage." }),
         { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -250,6 +271,7 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     if (!aiResp.ok) {
       const t = await aiResp.text();
       console.error("AI gateway error", aiResp.status, t);
+      await refundCredit();
       return new Response(JSON.stringify({ error: "Error del proveedor de IA" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -260,6 +282,7 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     const toolCall = json?.choices?.[0]?.message?.tool_calls?.[0];
     const argStr = toolCall?.function?.arguments;
     if (!argStr) {
+      await refundCredit();
       return new Response(JSON.stringify({ error: "La IA no devolvió una pregunta válida" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -270,19 +293,11 @@ Genera una pregunta alineada al OA${body.indicators?.length ? " y a los indicado
     try {
       parsed = JSON.parse(argStr);
     } catch {
+      await refundCredit();
       return new Response(JSON.stringify({ error: "La IA devolvió JSON inválido" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // --- Descontar crédito tras generación exitosa ---
-    // Para institucional sin cuota: no descontar. Con cuota: sí descontar.
-    if (planType !== "institucional" || monthlyQuota !== null) {
-      await adminClient
-        .from("user_usage")
-        .update({ credits_available: Math.max(0, credits - 1) })
-        .eq("user_id", user.id);
     }
 
     // --- Registrar en ai_generation_log ---
