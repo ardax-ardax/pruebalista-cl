@@ -9,6 +9,7 @@ import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
 import MisPruebas from "./pages/MisPruebas.tsx";
 import Configuracion from "./pages/Configuracion.tsx";
+import Cursos from "./pages/Cursos.tsx";
 import AuthPage from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
