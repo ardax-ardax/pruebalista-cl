@@ -17,6 +17,7 @@ export interface RenderContext {
   subjectLabel: string;
   gradeLabel: string;
   teacherLabel: string;
+  planType?: "free" | "pro" | "institucional";
 }
 
 // === CSS común para preview y print ===
