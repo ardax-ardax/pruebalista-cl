@@ -41,6 +41,7 @@ import { exportAssessmentToPdf } from "@/lib/assessment-pdf";
 import { exportAssessmentToDocx } from "@/lib/assessment-docx";
 import { buildAssessmentFileName } from "@/lib/assessment-file-name";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserUsage, type PlanType } from "@/hooks/useUserUsage";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
 import { loadAppSettings, loadDefaultInstitutionLogo, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
 
