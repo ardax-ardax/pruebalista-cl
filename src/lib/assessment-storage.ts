@@ -120,10 +120,27 @@ export const upsertAssessment = async (a: Assessment): Promise<Assessment> => {
     id: next.id,
     user_id: ownerId,
     title: next.meta.title ?? "",
+    status: next.status ?? "borrador",
+    utp_feedback: next.utpFeedback ?? null,
     data: next as never,
   }], { onConflict: "id" });
   if (error) throw error;
   return next;
+};
+
+/** Actualiza solo el estado (y opcionalmente feedback) de una prueba. */
+export const updateAssessmentStatus = async (
+  id: string,
+  status: AssessmentStatus,
+  utpFeedback?: string | null,
+): Promise<void> => {
+  const payload: Record<string, unknown> = { status };
+  if (utpFeedback !== undefined) payload.utp_feedback = utpFeedback;
+  const { error } = await supabase
+    .from("assessments")
+    .update(payload)
+    .eq("id", id);
+  if (error) throw error;
 };
 
 /** Devuelve el user_id dueño de una prueba (para mostrar autoría al editar). */
