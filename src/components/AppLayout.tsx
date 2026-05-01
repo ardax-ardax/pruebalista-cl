@@ -69,7 +69,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
             {isStaff && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
-            {isAdmin && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
               <Button
