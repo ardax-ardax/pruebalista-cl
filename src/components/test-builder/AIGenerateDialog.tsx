@@ -18,13 +18,14 @@ interface Props {
   gradeLabel: string;
   subjectValue: string;
   subjectLabel: string;
+  essayMode?: "simce" | "paes" | null;
   onGenerated: (q: Question) => void;
 }
 
 type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
 
 export const AIGenerateDialog = ({
-  open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, onGenerated,
+  open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, essayMode, onGenerated,
 }: Props) => {
   const [oaCode, setOaCode] = useState<string>(linkedOA[0] ?? "");
   const [type, setType] = useState<SupportedType>("multiple-choice");
@@ -44,6 +45,13 @@ export const AIGenerateDialog = ({
   useEffect(() => {
     if (oaCode && !linkedOA.includes(oaCode)) setOaCode(linkedOA[0] ?? "");
   }, [linkedOA, oaCode]);
+
+  // En modos PAES/SIMCE solo selección múltiple es válida → forzamos.
+  useEffect(() => {
+    if ((essayMode === "paes" || essayMode === "simce") && type !== "multiple-choice") {
+      setType("multiple-choice");
+    }
+  }, [essayMode, type]);
 
   const toggleIndicator = (code: string, checked: boolean) => {
     setSelectedIndicators((prev) =>
@@ -156,14 +164,27 @@ export const AIGenerateDialog = ({
 
             <div>
               <Label className="text-xs">Tipo de pregunta</Label>
-              <Select value={type} onValueChange={(v) => setType(v as SupportedType)}>
+              <Select
+                value={type}
+                onValueChange={(v) => setType(v as SupportedType)}
+                disabled={essayMode === "paes" || essayMode === "simce"}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="multiple-choice">Selección múltiple</SelectItem>
-                  <SelectItem value="true-false">Verdadero / Falso</SelectItem>
-                  <SelectItem value="short-answer">Desarrollo</SelectItem>
+                  {essayMode !== "paes" && essayMode !== "simce" && (
+                    <>
+                      <SelectItem value="true-false">Verdadero / Falso</SelectItem>
+                      <SelectItem value="short-answer">Desarrollo</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {(essayMode === "paes" || essayMode === "simce") && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Formato {essayMode === "paes" ? "PAES" : "SIMCE"}: solo selección múltiple.
+                </p>
+              )}
             </div>
           </div>
         )}
