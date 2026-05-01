@@ -463,27 +463,31 @@ const CrearPrueba = () => {
             <TabsTrigger value="preview"><Eye className="h-4 w-4 mr-1" /> Vista previa</TabsTrigger>
           </TabsList>
           <TabsContent value="meta" className="mt-4">
-            <AssessmentMetaForm
-              meta={assessment.meta}
-              onChange={(m) => setAssessment({ ...assessment, meta: m })}
-              templates={templates}
-              subjects={subjects}
-              grades={grades}
-              teachers={teachers}
-              restrictedAssignments={restrictedAssignments}
-              canChooseTeacher={canChooseTeacher}
-              lockedTeacherLabel={lockedTeacherLabel}
-              allowSelfAssignment={appSettings.allow_self_assignment}
-            />
+            <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
+              <AssessmentMetaForm
+                meta={assessment.meta}
+                onChange={(m) => setAssessment({ ...assessment, meta: m })}
+                templates={templates}
+                subjects={subjects}
+                grades={grades}
+                teachers={teachers}
+                restrictedAssignments={restrictedAssignments}
+                canChooseTeacher={canChooseTeacher}
+                lockedTeacherLabel={lockedTeacherLabel}
+                allowSelfAssignment={appSettings.allow_self_assignment}
+              />
+            </div>
           </TabsContent>
           <TabsContent value="content" className="mt-4">
-            <QuestionList
-              questions={assessment.questions}
-              onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
-              meta={assessment.meta}
-              gradeLabel={renderCtx.gradeLabel}
-              subjectLabel={renderCtx.subjectLabel}
-            />
+            <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
+              <QuestionList
+                questions={assessment.questions}
+                onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                meta={assessment.meta}
+                gradeLabel={renderCtx.gradeLabel}
+                subjectLabel={renderCtx.subjectLabel}
+              />
+            </div>
           </TabsContent>
           <TabsContent value="preview" className="mt-4 space-y-4">
 
