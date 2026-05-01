@@ -122,6 +122,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/perfil")} className="gap-2">
+                    <User className="h-4 w-4" />
+                    Mi Perfil
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="gap-2 text-destructive focus:text-destructive">
                     <LogOut className="h-4 w-4" />
                     Cerrar sesión
