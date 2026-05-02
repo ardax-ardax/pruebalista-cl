@@ -73,14 +73,30 @@ export const QuestionEditor = ({
   const isTf = question.type === "true-false";
 
   return (
+    <Collapsible open={!collapsed} onOpenChange={() => onToggleCollapse?.()}>
     <Card className="shadow-card">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
+          {dragHandleProps && (
+            <button type="button" className="cursor-grab touch-none text-muted-foreground hover:text-foreground" {...dragHandleProps}>
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
           <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-secondary px-2 text-xs font-semibold text-secondary-foreground">
             {visibleNumber !== null ? visibleNumber : "—"}
           </span>
           <span className="text-xs text-muted-foreground">{QUESTION_TYPE_LABEL[question.type]}</span>
+          {collapsed && question.prompt && (
+            <span className="text-xs text-muted-foreground truncate max-w-[200px]">{question.prompt.slice(0, 60)}</span>
+          )}
           <div className="ml-auto flex items-center gap-1">
+            {onToggleCollapse && (
+              <CollapsibleTrigger asChild>
+                <Button type="button" size="icon" variant="ghost" title={collapsed ? "Expandir" : "Colapsar"}>
+                  <ChevronsUpDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+            )}
             <Button type="button" size="icon" variant="ghost" disabled={!canUp} onClick={onMoveUp} title="Subir">
               <ChevronUp className="h-4 w-4" />
             </Button>
@@ -96,6 +112,7 @@ export const QuestionEditor = ({
           </div>
         </div>
 
+        <CollapsibleContent>
         {question.type === "section-title" && (
           <div className="space-y-2">
             <Input
