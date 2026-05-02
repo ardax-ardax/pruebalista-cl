@@ -155,8 +155,16 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
           <Button type="button" size="sm" variant="outline" onClick={() => setBankOpen(true)}>
             <Library className="h-4 w-4" /> Desde banco
           </Button>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
+          <span className="ml-auto flex items-center gap-2">
+            {questions.length > 1 && (
+              <Button type="button" size="sm" variant="ghost" onClick={toggleAll} title={allCollapsed ? "Expandir todo" : "Colapsar todo"}>
+                {allCollapsed ? <ChevronsUpDown className="h-4 w-4" /> : <ChevronsDownUp className="h-4 w-4" />}
+                {allCollapsed ? "Expandir" : "Colapsar"}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
+            </span>
           </span>
         </CardContent>
       </Card>
@@ -192,23 +200,29 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {questions.map((q, i) => (
-            <QuestionEditor
-              key={q.id}
-              question={q}
-              index={i}
-              visibleNumber={visibleNumber(questions, i)}
-              onChange={(nq) => update(i, nq)}
-              onDelete={() => remove(i)}
-              onDuplicate={() => duplicate(i)}
-              onMoveUp={() => move(i, -1)}
-              onMoveDown={() => move(i, 1)}
-              canUp={i > 0}
-              canDown={i < questions.length - 1}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {questions.map((q, i) => (
+                <SortableQuestionItem
+                  key={q.id}
+                  question={q}
+                  index={i}
+                  visibleNumber={visibleNumber(questions, i)}
+                  onChange={(nq) => update(i, nq)}
+                  onDelete={() => remove(i)}
+                  onDuplicate={() => duplicate(i)}
+                  onMoveUp={() => move(i, -1)}
+                  onMoveDown={() => move(i, 1)}
+                  canUp={i > 0}
+                  canDown={i < questions.length - 1}
+                  collapsed={collapsedIds.has(q.id)}
+                  onToggleCollapse={() => toggleCollapse(q.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <AIGenerateDialog
