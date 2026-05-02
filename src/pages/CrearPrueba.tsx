@@ -406,6 +406,21 @@ const CrearPrueba = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                <Check className="h-3.5 w-3.5" /> Guardado ✓
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span className="inline-flex items-center gap-1 text-xs text-destructive">
+                <CloudOff className="h-3.5 w-3.5" /> Error al guardar
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={handleNew}>
               <Plus className="h-4 w-4" /> Nueva
             </Button>
