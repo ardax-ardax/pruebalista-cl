@@ -19,33 +19,19 @@ export function useAIEnabled(): AIEnabledState {
     }
 
     const check = async () => {
-      // Check global setting
-      const { data: globalData } = await supabase
+      const { data } = await supabase
         .from("global_settings")
-        .select("ai_enabled")
+        .select("ai_enabled, ai_disabled_reason")
         .eq("id", true)
         .maybeSingle();
 
-      if (globalData && !globalData.ai_enabled) {
+      if (data && !data.ai_enabled) {
+        const reason = data.ai_disabled_reason?.trim()
+          ? data.ai_disabled_reason
+          : "La generación con IA está temporalmente deshabilitada por el administrador.";
         setState({
           aiEnabled: false,
-          reason: "La generación con IA está deshabilitada globalmente por el administrador.",
-          loading: false,
-        });
-        return;
-      }
-
-      // Check per-user setting
-      const { data: usageData } = await supabase
-        .from("user_usage")
-        .select("ai_enabled")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (usageData && !usageData.ai_enabled) {
-        setState({
-          aiEnabled: false,
-          reason: "La generación con IA está deshabilitada para tu cuenta. Contacta al administrador.",
+          reason: `${reason}\n\nTus créditos no se verán afectados y podrás usarlos cuando se reactive.`,
           loading: false,
         });
         return;
