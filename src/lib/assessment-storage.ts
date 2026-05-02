@@ -126,6 +126,8 @@ export const upsertAssessment = async (a: Assessment): Promise<Assessment> => {
     data: next as never,
   }], { onConflict: "id" });
   if (error) throw error;
+  // Guardar preguntas en el banco (background, no bloquea)
+  saveQuestionsToBank(next.questions, next.meta).catch(() => {});
   return next;
 };
 
