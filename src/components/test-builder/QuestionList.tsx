@@ -115,6 +115,9 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
           <Button type="button" size="sm" variant="default" onClick={() => setAiOpen(true)}>
             <Sparkles className="h-4 w-4" /> Generar con IA
           </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setBankOpen(true)}>
+            <Library className="h-4 w-4" /> Desde banco
+          </Button>
           <span className="ml-auto text-xs text-muted-foreground">
             {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
           </span>
