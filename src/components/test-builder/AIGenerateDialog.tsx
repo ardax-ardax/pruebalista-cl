@@ -104,7 +104,12 @@ export const AIGenerateDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        {noOA ? (
+        {!aiEnabled && !aiLoading ? (
+          <Alert variant="destructive">
+            <Ban className="h-4 w-4" />
+            <AlertDescription>{aiDisabledReason}</AlertDescription>
+          </Alert>
+        ) : noOA ? (
           <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             Aún no has vinculado OAs a esta evaluación. Ve a la pestaña <strong>Datos</strong> y selecciona al menos un Objetivo de Aprendizaje.
           </div>
