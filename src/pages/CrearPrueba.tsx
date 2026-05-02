@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Eye, FileDown, FileText, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Check, Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
@@ -64,6 +64,8 @@ const CrearPrueba = () => {
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
   const [rejectFeedback, setRejectFeedback] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
@@ -184,10 +186,25 @@ const CrearPrueba = () => {
   useEffect(() => {
     if (!assessment || readOnly) return;
     if (editingId) {
-      upsertAssessment(assessment).catch((e) => console.warn("autosave", e));
+      setSaveStatus("saving");
+      clearTimeout(saveTimerRef.current);
+      upsertAssessment(assessment)
+        .then(() => {
+          setSaveStatus("saved");
+          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+        })
+        .catch((e) => {
+          console.warn("autosave", e);
+          setSaveStatus("error");
+          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
+        });
     } else {
       saveDraft(assessment);
+      setSaveStatus("saved");
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
+    return () => clearTimeout(saveTimerRef.current);
   }, [assessment, editingId, readOnly]);
 
   const template = useMemo(
@@ -389,6 +406,21 @@ const CrearPrueba = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                <Check className="h-3.5 w-3.5" /> Guardado ✓
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span className="inline-flex items-center gap-1 text-xs text-destructive">
+                <CloudOff className="h-3.5 w-3.5" /> Error al guardar
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={handleNew}>
               <Plus className="h-4 w-4" /> Nueva
             </Button>

@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckSquare, FileText, Hash, Info, Library, ListChecks, Plus, Sparkles, Type } from "lucide-react";
+import { CheckSquare, ChevronsDownUp, ChevronsUpDown, FileText, Hash, Info, Library, ListChecks, Plus, Sparkles, Type } from "lucide-react";
 import {
   computeTotalPoints,
   newQuestion,
@@ -49,9 +52,47 @@ const visibleNumber = (qs: Question[], i: number): number | null => {
   return n;
 };
 
+const SortableQuestionItem = (props: {
+  question: import("@/lib/assessment-schema").Question;
+  index: number;
+  visibleNumber: number | null;
+  onChange: (q: import("@/lib/assessment-schema").Question) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canUp: boolean;
+  canDown: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.question.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <QuestionEditor
+        {...props}
+        dragHandleProps={listeners}
+      />
+    </div>
+  );
+};
+
 export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
+
   const [aiOpen, setAiOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
   const add = (type: QuestionType) => onChange([...questions, newQuestion(type)]);
   const update = (i: number, q: Question) => {
     const next = questions.slice();
@@ -70,6 +111,33 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
     const next = questions.slice();
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = questions.findIndex((q) => q.id === active.id);
+    const newIndex = questions.findIndex((q) => q.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onChange(arrayMove(questions, oldIndex, newIndex));
+  };
+
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allCollapsed = questions.length > 0 && collapsedIds.size === questions.length;
+  const toggleAll = () => {
+    if (allCollapsed) {
+      setCollapsedIds(new Set());
+    } else {
+      setCollapsedIds(new Set(questions.map((q) => q.id)));
+    }
   };
 
   const total = computeTotalPoints(questions);
@@ -118,8 +186,16 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
           <Button type="button" size="sm" variant="outline" onClick={() => setBankOpen(true)}>
             <Library className="h-4 w-4" /> Desde banco
           </Button>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
+          <span className="ml-auto flex items-center gap-2">
+            {questions.length > 1 && (
+              <Button type="button" size="sm" variant="ghost" onClick={toggleAll} title={allCollapsed ? "Expandir todo" : "Colapsar todo"}>
+                {allCollapsed ? <ChevronsUpDown className="h-4 w-4" /> : <ChevronsDownUp className="h-4 w-4" />}
+                {allCollapsed ? "Expandir" : "Colapsar"}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
+            </span>
           </span>
         </CardContent>
       </Card>
@@ -155,23 +231,29 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {questions.map((q, i) => (
-            <QuestionEditor
-              key={q.id}
-              question={q}
-              index={i}
-              visibleNumber={visibleNumber(questions, i)}
-              onChange={(nq) => update(i, nq)}
-              onDelete={() => remove(i)}
-              onDuplicate={() => duplicate(i)}
-              onMoveUp={() => move(i, -1)}
-              onMoveDown={() => move(i, 1)}
-              canUp={i > 0}
-              canDown={i < questions.length - 1}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {questions.map((q, i) => (
+                <SortableQuestionItem
+                  key={q.id}
+                  question={q}
+                  index={i}
+                  visibleNumber={visibleNumber(questions, i)}
+                  onChange={(nq) => update(i, nq)}
+                  onDelete={() => remove(i)}
+                  onDuplicate={() => duplicate(i)}
+                  onMoveUp={() => move(i, -1)}
+                  onMoveDown={() => move(i, 1)}
+                  canUp={i > 0}
+                  canDown={i < questions.length - 1}
+                  collapsed={collapsedIds.has(q.id)}
+                  onToggleCollapse={() => toggleCollapse(q.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <AIGenerateDialog

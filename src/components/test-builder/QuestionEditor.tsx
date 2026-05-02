@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ChevronDown, ChevronUp, Copy, Plus, Trash2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import {
   newId,
   newStatement,
@@ -28,10 +30,14 @@ interface Props {
   onMoveDown: () => void;
   canUp: boolean;
   canDown: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  dragHandleProps?: Record<string, any>;
 }
 
 export const QuestionEditor = ({
   question, visibleNumber, onChange, onDelete, onDuplicate, onMoveUp, onMoveDown, canUp, canDown,
+  collapsed = false, onToggleCollapse, dragHandleProps,
 }: Props) => {
   const update = (patch: Partial<Question>) => onChange({ ...question, ...patch });
 
@@ -67,14 +73,30 @@ export const QuestionEditor = ({
   const isTf = question.type === "true-false";
 
   return (
+    <Collapsible open={!collapsed} onOpenChange={() => onToggleCollapse?.()}>
     <Card className="shadow-card">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
+          {dragHandleProps && (
+            <button type="button" className="cursor-grab touch-none text-muted-foreground hover:text-foreground" {...dragHandleProps}>
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
           <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-secondary px-2 text-xs font-semibold text-secondary-foreground">
             {visibleNumber !== null ? visibleNumber : "—"}
           </span>
           <span className="text-xs text-muted-foreground">{QUESTION_TYPE_LABEL[question.type]}</span>
+          {collapsed && question.prompt && (
+            <span className="text-xs text-muted-foreground truncate max-w-[200px]">{question.prompt.slice(0, 60)}</span>
+          )}
           <div className="ml-auto flex items-center gap-1">
+            {onToggleCollapse && (
+              <CollapsibleTrigger asChild>
+                <Button type="button" size="icon" variant="ghost" title={collapsed ? "Expandir" : "Colapsar"}>
+                  <ChevronsUpDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+            )}
             <Button type="button" size="icon" variant="ghost" disabled={!canUp} onClick={onMoveUp} title="Subir">
               <ChevronUp className="h-4 w-4" />
             </Button>
@@ -90,6 +112,7 @@ export const QuestionEditor = ({
           </div>
         </div>
 
+        <CollapsibleContent>
         {question.type === "section-title" && (
           <div className="space-y-2">
             <Input
@@ -329,7 +352,9 @@ export const QuestionEditor = ({
             </Select>
           </div>
         )}
+        </CollapsibleContent>
       </CardContent>
     </Card>
+    </Collapsible>
   );
 };

@@ -1,25 +1,35 @@
 
-# Layout lado a lado: Editor + Vista Previa en tiempo real
+# Mejoras UX: Drag & Drop, Preguntas Colapsables e Indicador de Autoguardado
 
-## Resumen
+## 1. Drag & Drop para reordenar preguntas
 
-Modificar la página "Crear prueba" para que en pantallas grandes (≥1024px) el tab "Contenido" muestre el editor de preguntas a la izquierda y la vista previa del documento a la derecha, sincronizados en tiempo real. En móvil se mantiene el sistema de tabs actual.
+Instalar `@dnd-kit/core` y `@dnd-kit/sortable` para permitir arrastrar y soltar preguntas en lugar de usar solo las flechas arriba/abajo.
 
-## Cambios en `src/pages/CrearPrueba.tsx`
+**Cambios:**
+- **`QuestionList.tsx`**: Envolver la lista de preguntas con `DndContext` y `SortableContext`. Cada `QuestionEditor` se envuelve en un componente sortable que usa el `id` de la pregunta.
+- **`QuestionEditor.tsx`**: Agregar un asa de arrastre (icono `GripVertical`) a la izquierda de cada pregunta. Los botones de flechas se mantienen como alternativa.
 
-1. **Reemplazar el tab "Vista previa" separado** por un layout de dos columnas dentro del tab "Contenido" (solo en desktop):
-   - Columna izquierda (~50%): `QuestionList` (editor de preguntas)
-   - Columna derecha (~50%): `AssessmentPreview` con `PreviewLayoutToolbar`, dentro de un contenedor sticky para que siga visible al hacer scroll
+## 2. Preguntas colapsables
 
-2. **En móvil** (< 1024px): mantener los 3 tabs como están (Datos, Contenido, Vista previa). Sin cambios en la experiencia móvil.
+Permitir colapsar/expandir el contenido de cada pregunta para reducir el ruido visual en pruebas largas.
 
-3. **En desktop** (≥ 1024px): mostrar solo 2 tabs (Datos, Contenido + Preview). El tab "Vista previa" se oculta porque ya está integrado en "Contenido".
+**Cambios:**
+- **`QuestionEditor.tsx`**: Usar el componente `Collapsible` (ya existe en el proyecto) para envolver el cuerpo de cada pregunta. El encabezado (numero, tipo, botones) siempre visible; el contenido editable se puede colapsar con un click en el encabezado o un botón chevron.
+- **`QuestionList.tsx`**: Agregar un botón "Colapsar todo / Expandir todo" en la barra superior para gestionar todas las preguntas a la vez.
 
-4. La vista previa derecha usa `position: sticky; top: 80px` para mantenerse visible mientras el usuario hace scroll por las preguntas.
+## 3. Indicador de autoguardado
 
-## Detalles técnicos
+Mostrar un estado visual ("Guardando...", "Guardado ✓") para que el usuario sepa que sus cambios se persisten.
 
-- Se usa `useIsMobile()` o media query `lg:` de Tailwind para determinar el layout
-- No se crean componentes nuevos; se reorganiza el JSX existente
-- No requiere cambios en base de datos
-- No requiere nuevas dependencias
+**Cambios:**
+- **`CrearPrueba.tsx`**: Modificar el `useEffect` de autosave (linea ~184) para trackear el estado de guardado (`idle`, `saving`, `saved`, `error`). Mostrar un badge/texto discreto en el header de la página (junto al botón Guardar) con el estado actual. Después de guardar exitosamente, mostrar "Guardado ✓" durante 3 segundos y luego volver a idle.
+
+## Detalle técnico
+
+| Mejora | Archivos | Dependencias nuevas |
+|--------|----------|-------------------|
+| Drag & Drop | `QuestionList.tsx`, `QuestionEditor.tsx` | `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` |
+| Colapsables | `QuestionEditor.tsx`, `QuestionList.tsx` | Ninguna (usa `Collapsible` existente) |
+| Autoguardado | `CrearPrueba.tsx` | Ninguna |
+
+No requiere cambios en base de datos.
