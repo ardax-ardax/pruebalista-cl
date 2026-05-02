@@ -69,6 +69,7 @@ const CrearPrueba = () => {
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Carga app_settings (modo auto-asignación) al montar.
   useEffect(() => {
