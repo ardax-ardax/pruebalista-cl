@@ -4,6 +4,7 @@
 import { get, set, del } from "idb-keyval";
 import { migrateQuestion, newAssessmentId, isUuid, type Assessment, type AssessmentStatus } from "./assessment-schema";
 import { supabase } from "@/integrations/supabase/client";
+import { saveQuestionsToBank } from "./question-bank";
 
 const KEY_DRAFT = "estandarizador.assessment.draft.v1";
 const KEY_LOCAL_LIB = "estandarizador.assessment.library.v1";
