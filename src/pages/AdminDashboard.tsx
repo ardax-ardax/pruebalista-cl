@@ -294,11 +294,12 @@ export default function AdminDashboard() {
                 ) : (
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                     <TableRow>
                         <TableHead>Usuario</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Plan</TableHead>
                         <TableHead className="text-center">Créditos</TableHead>
+                        <TableHead className="text-center">IA</TableHead>
                         <TableHead>Expira</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
