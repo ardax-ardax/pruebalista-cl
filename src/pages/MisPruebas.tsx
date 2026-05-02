@@ -219,6 +219,9 @@ const MisPruebas = () => {
                     <Button size="sm" variant="outline" onClick={() => navigate(`/?id=${a.id}`)}>
                       <Pencil className="h-4 w-4" /> Editar
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDuplicate(a)}>
+                      <Copy className="h-4 w-4" /> Duplicar
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => handleDelete(a.id, a.meta.title)}>
                       <Trash2 className="h-4 w-4" /> Eliminar
                     </Button>
