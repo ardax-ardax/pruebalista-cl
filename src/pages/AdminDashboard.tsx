@@ -242,6 +242,19 @@ export default function AdminDashboard() {
                       onCheckedChange={(v) => setSettings({ ...settings, ai_enabled: v })}
                     />
                   </div>
+                  {!settings.ai_enabled && (
+                    <div className="space-y-2 pl-4 border-l-2 border-destructive/30">
+                      <Label className="font-medium">Motivo de desactivación</Label>
+                      <Input
+                        placeholder="Ej: Mantenimiento programado, Período de evaluaciones..."
+                        value={settings.ai_disabled_reason}
+                        onChange={(e) => setSettings({ ...settings, ai_disabled_reason: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Este mensaje será visible para los usuarios cuando intenten usar la IA.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label className="font-medium">Créditos IA iniciales (nuevos usuarios)</Label>
                     <Input
