@@ -14,6 +14,7 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AuthPage from "./pages/Auth.tsx";
 import Perfil from "./pages/Perfil.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import BancoPreguntas from "./pages/BancoPreguntas.tsx";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/configuracion" element={<AuthGuard><AdminGuard><Configuracion /></AdminGuard></AuthGuard>} />
             <Route path="/admin/dashboard" element={<AuthGuard><AdminGuard><AdminDashboard /></AdminGuard></AuthGuard>} />
             <Route path="/perfil" element={<AuthGuard><Perfil /></AuthGuard>} />
+            <Route path="/banco-preguntas" element={<AuthGuard><BancoPreguntas /></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

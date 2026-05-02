@@ -248,6 +248,51 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank: {
+        Row: {
+          created_at: string
+          difficulty: string | null
+          grade_value: string | null
+          id: string
+          oa_code: string | null
+          prompt_preview: string | null
+          question_data: Json
+          question_type: string
+          source: string
+          subject_value: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: string | null
+          grade_value?: string | null
+          id?: string
+          oa_code?: string | null
+          prompt_preview?: string | null
+          question_data: Json
+          question_type: string
+          source?: string
+          subject_value?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string | null
+          grade_value?: string | null
+          id?: string
+          oa_code?: string | null
+          prompt_preview?: string | null
+          question_data?: Json
+          question_type?: string
+          source?: string
+          subject_value?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           course_id: string

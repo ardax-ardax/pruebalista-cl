@@ -1,80 +1,91 @@
 
-# Plan: Personalización para usuarios individuales
+# Banco de Preguntas
 
 ## Resumen
-Implementar 5 mejoras para que los docentes que se registran individualmente (sin institución) tengan control sobre su experiencia: márgenes, tamaño de página, nombre de institución, logo y una página de perfil.
+
+Todas las preguntas (generadas con IA o creadas manualmente) se guardan automáticamente en un banco centralizado. Cada rol tiene su nivel de acceso:
+
+- **Docente**: ve y reutiliza solo sus propias preguntas.
+- **Jefe UTP**: ve todas las preguntas de la institución (lectura).
+- **Admin**: ve todas las preguntas con controles completos (filtros, eliminar).
 
 ---
 
-## 1. Migración de base de datos
+## 1. Tabla `question_bank` (migración)
 
-**Tabla `profiles`**: agregar columnas:
-- `custom_institution_name` (text, nullable) — nombre personalizado del colegio/institución
-- `custom_logo_url` (text, nullable) — URL del logo subido
-
-**Storage bucket `user-logos`**: bucket público para que cada usuario suba su logo en la carpeta `{user_id}/`.
-
-RLS de storage: cada usuario sube/edita/borra solo en su carpeta; lectura pública.
-
----
-
-## 2. Selector de tamaño de página
-
-**`assessment-schema.ts`**: Agregar tipo `PageSizeKey` con 4 opciones (Folio, Carta, A4, Oficio) y campo `pageSizeKey` opcional en `AssessmentLayout`.
-
-**`PreviewLayoutToolbar.tsx`**: Agregar un dropdown de tamaño de página sobre los sliders de margen. Funciona igual que los sliders — editable si `canEdit` es true.
-
-**`assessment-pdf.ts`**: Si `layout.pageSizeKey` está definido, usar esas dimensiones en vez de las del template.
-
-**`assessment-docx.ts`**: Misma lógica — priorizar `pageSizeKey` del layout sobre el template.
-
----
-
-## 3. Desbloquear márgenes para usuarios individuales
-
-**`CrearPrueba.tsx`** línea 506: Cambiar `canEdit={isStaff}` a:
+```sql
+CREATE TABLE public.question_bank (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  question_data jsonb NOT NULL,        -- Question completa (mismo schema)
+  question_type text NOT NULL,          -- "multiple-choice", "true-false", "short-answer"
+  subject_value text,                   -- asignatura
+  grade_value text,                     -- nivel
+  oa_code text,                         -- OA vinculado
+  difficulty text,                      -- "baja", "media", "alta"
+  source text NOT NULL DEFAULT 'manual', -- "manual" | "ai"
+  title text,                           -- título corto para búsqueda
+  prompt_preview text,                  -- primeros ~120 chars del enunciado
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 ```
-canEdit={isStaff || effectivePlan !== "institucional"}
-```
-Esto permite que usuarios free/pro editen márgenes y tamaño de página libremente. Los docentes institucionales siguen bloqueados (solo la UTP controla sus márgenes).
+
+**RLS**:
+- SELECT: `user_id = auth.uid()` (docente ve las suyas) + `is_staff(auth.uid())` (staff ve todas).
+- INSERT: `user_id = auth.uid()` (cada usuario inserta las suyas).
+- DELETE: `user_id = auth.uid() OR has_role(auth.uid(), 'admin')` (docente borra las suyas, admin borra cualquiera).
+- UPDATE: no se permite (las preguntas del banco son inmutables; se copian al usarlas).
 
 ---
 
-## 4. Página de perfil (`/perfil`)
+## 2. Guardado automático de preguntas
 
-Nueva página accesible para **todos** los usuarios autenticados con:
-- Campo de texto: "Nombre de tu institución" (se guarda en `profiles.custom_institution_name`)
-- Subida de logo (se guarda en el bucket `user-logos`, URL en `profiles.custom_logo_url`)
-- Vista previa del logo actual
-- Botón guardar
+**Cuándo se guarda**: cada vez que el docente guarda una evaluación (`saveAssessment`), se extraen las preguntas de tipo evaluable (no `info-block` ni `section-title`) y se insertan en `question_bank` con un `ON CONFLICT DO NOTHING` basado en un hash o simplemente insertando siempre (el banco crece).
 
-**`App.tsx`**: Agregar ruta `/perfil` (sin AdminGuard).
-**`AppLayout.tsx`**: Agregar enlace "Perfil" en el menú del avatar para todos los usuarios.
+**Archivo**: `src/lib/question-bank.ts` (nuevo)
+- `saveQuestionsToBank(questions, meta)`: recorre las preguntas, arma los rows y hace un batch insert.
+- `searchBank(filters)`: consulta con filtros opcionales (type, subject, grade, oa, difficulty, texto).
+- `deleteFromBank(id)`: elimina una pregunta.
 
----
-
-## 5. Usar branding personalizado en el builder
-
-**`CrearPrueba.tsx`**: Al cargar, si el usuario NO es staff:
-1. Leer `profiles.custom_institution_name` y `profiles.custom_logo_url`
-2. Si existen, usarlos como `institutionName` y `logo` en el `RenderContext`
-3. Si no existen, usar los valores institucionales por defecto (como ahora)
-
-Esto hace que el encabezado de la prueba muestre el nombre y logo del usuario individual, en vez de "New Little College La Florida".
+**Integración**: en `src/lib/assessment-storage.ts`, dentro de `saveAssessment`, se llama a `saveQuestionsToBank` después del upsert exitoso.
 
 ---
 
-## Archivos a crear/modificar
+## 3. Página "Banco de Preguntas" (`/banco-preguntas`)
+
+**Archivo**: `src/pages/BancoPreguntas.tsx` (nuevo)
+
+**UI**:
+- Barra de filtros: tipo de pregunta, asignatura, nivel, OA, dificultad, origen (IA/manual), búsqueda por texto.
+- Tabla/lista de preguntas con: enunciado (preview), tipo, asignatura, nivel, dificultad, autor, fecha.
+- Para Admin: columna "Autor" visible + botón eliminar.
+- Para UTP Head: misma vista pero sin eliminar.
+- Para Docente: solo sus preguntas, con opción de eliminar las propias.
+
+**Ruta**: se agrega en `App.tsx` protegida con `AuthGuard`.
+**Menú**: se agrega enlace "Banco de Preguntas" en `AppLayout.tsx`.
+
+---
+
+## 4. Reutilizar preguntas desde el builder
+
+**Archivo**: `src/components/test-builder/QuestionBankDialog.tsx` (nuevo)
+
+Diálogo modal que se abre desde `QuestionList.tsx` con un botón "Desde banco". Muestra los mismos filtros de la página pero en formato compacto. El docente selecciona preguntas con checkbox y al confirmar se copian (con nuevos IDs) a la evaluación activa.
+
+**Integración**: en `QuestionList.tsx` se agrega un botón junto a "Agregar pregunta" y "Generar con IA".
+
+---
+
+## 5. Archivos a crear/modificar
 
 | Archivo | Acción |
 |---------|--------|
-| `supabase/migrations/...sql` | Columnas en profiles + bucket storage |
-| `src/lib/assessment-schema.ts` | PageSizeKey, campo pageSizeKey en layout |
-| `src/components/test-builder/PreviewLayoutToolbar.tsx` | Dropdown de tamaño de página |
-| `src/pages/CrearPrueba.tsx` | canEdit desbloqueo + branding personalizado |
-| `src/lib/assessment-pdf.ts` | Respetar pageSizeKey override |
-| `src/lib/assessment-docx.ts` | Respetar pageSizeKey override |
-| `src/lib/profiles.ts` | Agregar getProfile, updateProfile con nuevos campos |
-| `src/pages/Perfil.tsx` | Nueva página de perfil |
-| `src/App.tsx` | Nueva ruta /perfil |
-| `src/components/AppLayout.tsx` | Enlace a perfil en menú avatar |
+| `supabase/migrations/...sql` | Crear tabla + RLS |
+| `src/lib/question-bank.ts` | Nuevo: CRUD del banco |
+| `src/lib/assessment-storage.ts` | Modificar: llamar a saveQuestionsToBank en saveAssessment |
+| `src/pages/BancoPreguntas.tsx` | Nuevo: página completa con filtros |
+| `src/components/test-builder/QuestionBankDialog.tsx` | Nuevo: diálogo para reutilizar |
+| `src/components/test-builder/QuestionList.tsx` | Modificar: agregar botón "Desde banco" |
+| `src/App.tsx` | Agregar ruta /banco-preguntas |
+| `src/components/AppLayout.tsx` | Agregar enlace en menú lateral |

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckSquare, FileText, Hash, Info, ListChecks, Plus, Sparkles, Type } from "lucide-react";
+import { CheckSquare, FileText, Hash, Info, Library, ListChecks, Plus, Sparkles, Type } from "lucide-react";
 import {
   computeTotalPoints,
   newQuestion,
@@ -15,6 +15,7 @@ import { loadTemplates } from "@/lib/templates";
 import { Progress } from "@/components/ui/progress";
 import { QuestionEditor } from "./QuestionEditor";
 import { AIGenerateDialog } from "./AIGenerateDialog";
+import { QuestionBankDialog } from "./QuestionBankDialog";
 
 interface Props {
   questions: Question[];
@@ -50,6 +51,7 @@ const visibleNumber = (qs: Question[], i: number): number | null => {
 
 export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
   const [aiOpen, setAiOpen] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   const add = (type: QuestionType) => onChange([...questions, newQuestion(type)]);
   const update = (i: number, q: Question) => {
     const next = questions.slice();
@@ -112,6 +114,9 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
           })}
           <Button type="button" size="sm" variant="default" onClick={() => setAiOpen(true)}>
             <Sparkles className="h-4 w-4" /> Generar con IA
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setBankOpen(true)}>
+            <Library className="h-4 w-4" /> Desde banco
           </Button>
           <span className="ml-auto text-xs text-muted-foreground">
             {counted} pregunta{counted === 1 ? "" : "s"} · {total} pt{total === 1 ? "" : "s"}
@@ -179,6 +184,12 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         subjectLabel={subjectLabel}
         essayMode={essayMode}
         onGenerated={(q) => onChange([...questions, q])}
+      />
+
+      <QuestionBankDialog
+        open={bankOpen}
+        onOpenChange={setBankOpen}
+        onImport={(qs) => onChange([...questions, ...qs])}
       />
     </div>
   );
