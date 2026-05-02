@@ -4,12 +4,14 @@ export interface GlobalSettings {
   enable_payments: boolean;
   default_free_credits: number;
   maintenance_mode: boolean;
+  ai_enabled: boolean;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   enable_payments: false,
   default_free_credits: 20,
   maintenance_mode: false,
+  ai_enabled: true,
 };
 
 export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
