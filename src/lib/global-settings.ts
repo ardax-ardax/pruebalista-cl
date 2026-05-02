@@ -4,18 +4,20 @@ export interface GlobalSettings {
   enable_payments: boolean;
   default_free_credits: number;
   maintenance_mode: boolean;
+  ai_enabled: boolean;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   enable_payments: false,
   default_free_credits: 20,
   maintenance_mode: false,
+  ai_enabled: true,
 };
 
 export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
   const { data, error } = await supabase
     .from("global_settings")
-    .select("enable_payments, default_free_credits, maintenance_mode")
+    .select("enable_payments, default_free_credits, maintenance_mode, ai_enabled")
     .eq("id", true)
     .maybeSingle();
   if (error || !data) {
@@ -26,6 +28,7 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
     enable_payments: data.enable_payments,
     default_free_credits: data.default_free_credits,
     maintenance_mode: data.maintenance_mode,
+    ai_enabled: data.ai_enabled ?? true,
   };
 };
 

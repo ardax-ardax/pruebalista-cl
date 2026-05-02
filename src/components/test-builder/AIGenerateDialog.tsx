@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Sparkles, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { generateQuestion } from "@/lib/assessment-ai";
 import { findOA } from "@/lib/curriculum-data";
+import { useAIEnabled } from "@/hooks/useAIEnabled";
 import type { Question, QuestionType } from "@/lib/assessment-schema";
 
 interface Props {
@@ -31,6 +33,7 @@ export const AIGenerateDialog = ({
   const [type, setType] = useState<SupportedType>("multiple-choice");
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const { aiEnabled, reason: aiDisabledReason, loading: aiLoading } = useAIEnabled();
 
   const oa = useMemo(
     () => (oaCode ? findOA(gradeValue, subjectValue, oaCode) : undefined),
@@ -101,7 +104,12 @@ export const AIGenerateDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        {noOA ? (
+        {!aiEnabled && !aiLoading ? (
+          <Alert variant="destructive">
+            <Ban className="h-4 w-4" />
+            <AlertDescription>{aiDisabledReason}</AlertDescription>
+          </Alert>
+        ) : noOA ? (
           <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             Aún no has vinculado OAs a esta evaluación. Ve a la pestaña <strong>Datos</strong> y selecciona al menos un Objetivo de Aprendizaje.
           </div>
@@ -191,7 +199,7 @@ export const AIGenerateDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleGenerate} disabled={loading || noOA}>
+          <Button onClick={handleGenerate} disabled={loading || noOA || !aiEnabled}>
             <Sparkles className="h-4 w-4" /> {loading ? "Generando…" : "Generar"}
           </Button>
         </DialogFooter>

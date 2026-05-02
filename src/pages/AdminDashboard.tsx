@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, CreditCard, Loader2, RefreshCw, Save, Search, Settings2, Shield, Users, X } from "lucide-react";
+import { CalendarIcon, CreditCard, Loader2, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ───────── Types ───────── */
@@ -30,6 +30,7 @@ interface UserRow {
   plan_type: string;
   credits_available: number;
   plan_expires_at: string | null;
+  ai_enabled: boolean;
 }
 
 /* ───────── Component ───────── */
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
     setLoadingUsers(true);
     // Join profiles + user_usage
     const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
-    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at");
+    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at, ai_enabled");
 
     if (profiles && usages) {
       const usageMap = new Map(usages.map((u) => [u.user_id, u]));
@@ -75,6 +76,7 @@ export default function AdminDashboard() {
           plan_type: u?.plan_type ?? "free",
           credits_available: u?.credits_available ?? 0,
           plan_expires_at: u?.plan_expires_at ?? null,
+          ai_enabled: u?.ai_enabled ?? true,
         };
       });
       setUsers(merged);
@@ -230,6 +232,18 @@ export default function AdminDashboard() {
                       onCheckedChange={(v) => setSettings({ ...settings, maintenance_mode: v })}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="font-medium flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" /> Generación con IA
+                      </Label>
+                      <p className="text-sm text-muted-foreground">Activa/desactiva la IA para todos los usuarios de la plataforma</p>
+                    </div>
+                    <Switch
+                      checked={settings.ai_enabled}
+                      onCheckedChange={(v) => setSettings({ ...settings, ai_enabled: v })}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label className="font-medium">Créditos IA iniciales (nuevos usuarios)</Label>
                     <Input
@@ -280,11 +294,12 @@ export default function AdminDashboard() {
                 ) : (
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                     <TableRow>
                         <TableHead>Usuario</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Plan</TableHead>
                         <TableHead className="text-center">Créditos</TableHead>
+                        <TableHead className="text-center">IA</TableHead>
                         <TableHead>Expira</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -307,6 +322,20 @@ export default function AdminDashboard() {
                             </Select>
                           </TableCell>
                           <TableCell className="text-center">{u.credits_available}</TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={u.ai_enabled}
+                              onCheckedChange={async (v) => {
+                                const { error } = await supabase
+                                  .from("user_usage")
+                                  .update({ ai_enabled: v })
+                                  .eq("user_id", u.user_id);
+                                if (error) { toast.error(error.message); return; }
+                                toast.success(v ? "IA activada" : "IA desactivada");
+                                loadUsers();
+                              }}
+                            />
+                          </TableCell>
                           <TableCell className="text-sm">
                             {u.plan_expires_at ? format(new Date(u.plan_expires_at), "dd/MM/yyyy") : "—"}
                           </TableCell>
@@ -326,7 +355,7 @@ export default function AdminDashboard() {
                       ))}
                       {filtered.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                             Sin resultados
                           </TableCell>
                         </TableRow>
