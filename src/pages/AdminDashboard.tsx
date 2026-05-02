@@ -297,7 +297,6 @@ export default function AdminDashboard() {
                         <TableHead>Email</TableHead>
                         <TableHead>Plan</TableHead>
                         <TableHead className="text-center">Créditos</TableHead>
-                        <TableHead className="text-center">IA</TableHead>
                         <TableHead>Expira</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -320,20 +319,6 @@ export default function AdminDashboard() {
                             </Select>
                           </TableCell>
                           <TableCell className="text-center">{u.credits_available}</TableCell>
-                          <TableCell className="text-center">
-                            <Switch
-                              checked={u.ai_enabled}
-                              onCheckedChange={async (v) => {
-                                const { error } = await supabase
-                                  .from("user_usage")
-                                  .update({ ai_enabled: v })
-                                  .eq("user_id", u.user_id);
-                                if (error) { toast.error(error.message); return; }
-                                toast.success(v ? "IA activada" : "IA desactivada");
-                                loadUsers();
-                              }}
-                            />
-                          </TableCell>
                           <TableCell className="text-sm">
                             {u.plan_expires_at ? format(new Date(u.plan_expires_at), "dd/MM/yyyy") : "—"}
                           </TableCell>
