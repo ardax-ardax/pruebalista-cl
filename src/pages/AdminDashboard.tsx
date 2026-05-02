@@ -30,6 +30,7 @@ interface UserRow {
   plan_type: string;
   credits_available: number;
   plan_expires_at: string | null;
+  ai_enabled: boolean;
 }
 
 /* ───────── Component ───────── */
