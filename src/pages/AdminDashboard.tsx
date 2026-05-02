@@ -63,7 +63,7 @@ export default function AdminDashboard() {
     setLoadingUsers(true);
     // Join profiles + user_usage
     const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
-    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at");
+    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at, ai_enabled");
 
     if (profiles && usages) {
       const usageMap = new Map(usages.map((u) => [u.user_id, u]));
@@ -76,6 +76,7 @@ export default function AdminDashboard() {
           plan_type: u?.plan_type ?? "free",
           credits_available: u?.credits_available ?? 0,
           plan_expires_at: u?.plan_expires_at ?? null,
+          ai_enabled: u?.ai_enabled ?? true,
         };
       });
       setUsers(merged);
