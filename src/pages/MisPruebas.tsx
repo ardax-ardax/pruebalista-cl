@@ -11,7 +11,7 @@ import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 import { loadGrades, loadSubjects } from "@/lib/catalog";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
-import { ASSESSMENT_STATUS_LABEL } from "@/lib/assessment-schema";
+import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Item { assessment: Assessment; userId: string; }
