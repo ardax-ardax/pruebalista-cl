@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Sparkles, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { generateQuestion } from "@/lib/assessment-ai";
 import { findOA } from "@/lib/curriculum-data";
+import { useAIEnabled } from "@/hooks/useAIEnabled";
 import type { Question, QuestionType } from "@/lib/assessment-schema";
 
 interface Props {
