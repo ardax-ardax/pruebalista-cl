@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,7 @@ const CrearPrueba = () => {
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Carga app_settings (modo auto-asignación) al montar.
   useEffect(() => {
@@ -474,8 +476,10 @@ const CrearPrueba = () => {
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
             <TabsTrigger value="meta"><Pencil className="h-4 w-4 mr-1" /> Datos</TabsTrigger>
-            <TabsTrigger value="content"><FileText className="h-4 w-4 mr-1" /> Contenido</TabsTrigger>
-            <TabsTrigger value="preview"><Eye className="h-4 w-4 mr-1" /> Vista previa</TabsTrigger>
+            <TabsTrigger value="content"><FileText className="h-4 w-4 mr-1" /> {isDesktop ? "Contenido + Preview" : "Contenido"}</TabsTrigger>
+            {!isDesktop && (
+              <TabsTrigger value="preview"><Eye className="h-4 w-4 mr-1" /> Vista previa</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="meta" className="mt-4">
             <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
@@ -494,29 +498,56 @@ const CrearPrueba = () => {
             </div>
           </TabsContent>
           <TabsContent value="content" className="mt-4">
-            <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
-              <QuestionList
-                questions={assessment.questions}
-                onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+            {isDesktop ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
+                  <QuestionList
+                    questions={assessment.questions}
+                    onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                    meta={assessment.meta}
+                    gradeLabel={renderCtx.gradeLabel}
+                    subjectLabel={renderCtx.subjectLabel}
+                  />
+                </div>
+                <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
+                  <PreviewLayoutToolbar
+                    meta={assessment.meta}
+                    onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+                    canEdit={isStaff || effectivePlan !== "institucional"}
+                  />
+                  <Card className="shadow-card">
+                    <CardContent className="p-0">
+                      <AssessmentPreview ctx={renderCtx} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
+                <QuestionList
+                  questions={assessment.questions}
+                  onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                  meta={assessment.meta}
+                  gradeLabel={renderCtx.gradeLabel}
+                  subjectLabel={renderCtx.subjectLabel}
+                />
+              </div>
+            )}
+          </TabsContent>
+          {!isDesktop && (
+            <TabsContent value="preview" className="mt-4 space-y-4">
+              <PreviewLayoutToolbar
                 meta={assessment.meta}
-                gradeLabel={renderCtx.gradeLabel}
-                subjectLabel={renderCtx.subjectLabel}
+                onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+                canEdit={isStaff || effectivePlan !== "institucional"}
               />
-            </div>
-          </TabsContent>
-          <TabsContent value="preview" className="mt-4 space-y-4">
-
-            <PreviewLayoutToolbar
-              meta={assessment.meta}
-              onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
-              canEdit={isStaff || effectivePlan !== "institucional"}
-            />
-            <Card className="shadow-card">
-              <CardContent className="p-0">
-                <AssessmentPreview ctx={renderCtx} />
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <Card className="shadow-card">
+                <CardContent className="p-0">
+                  <AssessmentPreview ctx={renderCtx} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
         <OmrSheetDialog
           open={omrOpen}
