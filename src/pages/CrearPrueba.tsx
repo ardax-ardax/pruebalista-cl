@@ -64,6 +64,8 @@ const CrearPrueba = () => {
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
   const [rejectFeedback, setRejectFeedback] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
