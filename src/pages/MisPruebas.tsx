@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
+import { Copy, FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteAssessment, listAssessmentsWithOwner } from "@/lib/assessment-storage";
+import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 import { loadGrades, loadSubjects } from "@/lib/catalog";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
-import { ASSESSMENT_STATUS_LABEL } from "@/lib/assessment-schema";
+import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Item { assessment: Assessment; userId: string; }
@@ -64,6 +64,25 @@ const MisPruebas = () => {
       toast.success("Prueba eliminada");
     } catch (e) {
       toast.error("No se pudo eliminar: " + (e as Error).message);
+    }
+  };
+
+  const handleDuplicate = async (a: Assessment) => {
+    try {
+      const newId = newAssessmentId();
+      const copy: Assessment = {
+        ...a,
+        id: newId,
+        status: "borrador",
+        utpFeedback: null,
+        updatedAt: Date.now(),
+        meta: { ...a.meta, title: `Copia de ${a.meta.title || "Sin título"}` },
+      };
+      await upsertAssessment(copy);
+      toast.success("Prueba duplicada");
+      navigate(`/?id=${newId}`);
+    } catch (e) {
+      toast.error("No se pudo duplicar: " + (e as Error).message);
     }
   };
 
@@ -199,6 +218,9 @@ const MisPruebas = () => {
                     </div>
                     <Button size="sm" variant="outline" onClick={() => navigate(`/?id=${a.id}`)}>
                       <Pencil className="h-4 w-4" /> Editar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDuplicate(a)}>
+                      <Copy className="h-4 w-4" /> Duplicar
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => handleDelete(a.id, a.meta.title)}>
                       <Trash2 className="h-4 w-4" /> Eliminar
