@@ -52,7 +52,37 @@ const visibleNumber = (qs: Question[], i: number): number | null => {
   return n;
 };
 
-export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
+const SortableQuestionItem = (props: {
+  question: import("@/lib/assessment-schema").Question;
+  index: number;
+  visibleNumber: number | null;
+  onChange: (q: import("@/lib/assessment-schema").Question) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canUp: boolean;
+  canDown: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.question.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <QuestionEditor
+        {...props}
+        dragHandleProps={listeners}
+      />
+    </div>
+  );
+};
+
+
   const [aiOpen, setAiOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
