@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckSquare, FileText, Hash, Info, Library, ListChecks, Plus, Sparkles, Type } from "lucide-react";
+import { CheckSquare, ChevronsDownUp, ChevronsUpDown, FileText, Hash, Info, Library, ListChecks, Plus, Sparkles, Type } from "lucide-react";
 import {
   computeTotalPoints,
   newQuestion,
