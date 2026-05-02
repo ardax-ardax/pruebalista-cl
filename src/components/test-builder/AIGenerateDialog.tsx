@@ -33,6 +33,7 @@ export const AIGenerateDialog = ({
   const [type, setType] = useState<SupportedType>("multiple-choice");
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const { aiEnabled, reason: aiDisabledReason, loading: aiLoading } = useAIEnabled();
 
   const oa = useMemo(
     () => (oaCode ? findOA(gradeValue, subjectValue, oaCode) : undefined),
