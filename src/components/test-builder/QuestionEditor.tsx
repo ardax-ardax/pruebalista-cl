@@ -352,7 +352,9 @@ export const QuestionEditor = ({
             </Select>
           </div>
         )}
+        </CollapsibleContent>
       </CardContent>
     </Card>
+    </Collapsible>
   );
 };
