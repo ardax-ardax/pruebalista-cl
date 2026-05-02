@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckSquare, FileText, Hash, Info, ListChecks, Plus, Sparkles, Type } from "lucide-react";
+import { CheckSquare, FileText, Hash, Info, Library, ListChecks, Plus, Sparkles, Type } from "lucide-react";
 import {
   computeTotalPoints,
   newQuestion,
@@ -15,6 +15,7 @@ import { loadTemplates } from "@/lib/templates";
 import { Progress } from "@/components/ui/progress";
 import { QuestionEditor } from "./QuestionEditor";
 import { AIGenerateDialog } from "./AIGenerateDialog";
+import { QuestionBankDialog } from "./QuestionBankDialog";
 
 interface Props {
   questions: Question[];
