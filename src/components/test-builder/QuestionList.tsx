@@ -82,7 +82,33 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
     onChange(next);
   };
 
-  const total = computeTotalPoints(questions);
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = questions.findIndex((q) => q.id === active.id);
+    const newIndex = questions.findIndex((q) => q.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onChange(arrayMove(questions, oldIndex, newIndex));
+  };
+
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allCollapsed = questions.length > 0 && collapsedIds.size === questions.length;
+  const toggleAll = () => {
+    if (allCollapsed) {
+      setCollapsedIds(new Set());
+    } else {
+      setCollapsedIds(new Set(questions.map((q) => q.id)));
+    }
+  };
+
   const counted = questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
 
   // Detecta el essayMode del template actual (SIMCE / PAES) para restringir tipos.
