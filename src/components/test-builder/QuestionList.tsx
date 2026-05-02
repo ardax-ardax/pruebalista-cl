@@ -109,6 +109,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
     }
   };
 
+  const total = computeTotalPoints(questions);
   const counted = questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
 
   // Detecta el essayMode del template actual (SIMCE / PAES) para restringir tipos.
