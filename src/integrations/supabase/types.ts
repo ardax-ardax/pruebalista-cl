@@ -250,6 +250,7 @@ export type Database = {
       }
       question_bank: {
         Row: {
+          content_hash: string
           created_at: string
           difficulty: string | null
           grade_value: string | null
@@ -264,6 +265,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          content_hash: string
           created_at?: string
           difficulty?: string | null
           grade_value?: string | null
@@ -278,6 +280,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          content_hash?: string
           created_at?: string
           difficulty?: string | null
           grade_value?: string | null
