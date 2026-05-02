@@ -67,6 +67,25 @@ const MisPruebas = () => {
     }
   };
 
+  const handleDuplicate = async (a: Assessment) => {
+    try {
+      const newId = newAssessmentId();
+      const copy: Assessment = {
+        ...a,
+        id: newId,
+        status: "borrador",
+        utpFeedback: null,
+        updatedAt: Date.now(),
+        meta: { ...a.meta, title: `Copia de ${a.meta.title || "Sin título"}` },
+      };
+      await upsertAssessment(copy);
+      toast.success("Prueba duplicada");
+      navigate(`/?id=${newId}`);
+    } catch (e) {
+      toast.error("No se pudo duplicar: " + (e as Error).message);
+    }
+  };
+
   const labelOf = (arr: { value: string; label: string }[], v: string) =>
     arr.find((x) => x.value === v)?.label ?? "—";
 
