@@ -44,7 +44,7 @@ export async function saveQuestionsToBank(
 
   const rows = evaluable.map((q) => ({
     user_id: user.id,
-    question_data: q as unknown as Record<string, unknown>,
+    question_data: JSON.parse(JSON.stringify(q)),
     question_type: q.type,
     subject_value: meta.subjectValue || null,
     grade_value: meta.gradeValue || null,
