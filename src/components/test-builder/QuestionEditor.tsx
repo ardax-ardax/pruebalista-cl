@@ -30,10 +30,14 @@ interface Props {
   onMoveDown: () => void;
   canUp: boolean;
   canDown: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  dragHandleProps?: Record<string, any>;
 }
 
 export const QuestionEditor = ({
   question, visibleNumber, onChange, onDelete, onDuplicate, onMoveUp, onMoveDown, canUp, canDown,
+  collapsed = false, onToggleCollapse, dragHandleProps,
 }: Props) => {
   const update = (patch: Partial<Question>) => onChange({ ...question, ...patch });
 
