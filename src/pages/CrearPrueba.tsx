@@ -186,10 +186,25 @@ const CrearPrueba = () => {
   useEffect(() => {
     if (!assessment || readOnly) return;
     if (editingId) {
-      upsertAssessment(assessment).catch((e) => console.warn("autosave", e));
+      setSaveStatus("saving");
+      clearTimeout(saveTimerRef.current);
+      upsertAssessment(assessment)
+        .then(() => {
+          setSaveStatus("saved");
+          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+        })
+        .catch((e) => {
+          console.warn("autosave", e);
+          setSaveStatus("error");
+          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
+        });
     } else {
       saveDraft(assessment);
+      setSaveStatus("saved");
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
+    return () => clearTimeout(saveTimerRef.current);
   }, [assessment, editingId, readOnly]);
 
   const template = useMemo(
