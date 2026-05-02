@@ -185,6 +185,12 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         essayMode={essayMode}
         onGenerated={(q) => onChange([...questions, q])}
       />
+
+      <QuestionBankDialog
+        open={bankOpen}
+        onOpenChange={setBankOpen}
+        onImport={(qs) => onChange([...questions, ...qs])}
+      />
     </div>
   );
 };
