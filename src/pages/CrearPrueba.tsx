@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
