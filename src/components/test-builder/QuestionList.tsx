@@ -55,6 +55,13 @@ const visibleNumber = (qs: Question[], i: number): number | null => {
 export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
   const [aiOpen, setAiOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
   const add = (type: QuestionType) => onChange([...questions, newQuestion(type)]);
   const update = (i: number, q: Question) => {
     const next = questions.slice();
