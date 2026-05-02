@@ -1,35 +1,65 @@
 
-# Mejoras UX: Drag & Drop, Preguntas Colapsables e Indicador de Autoguardado
+## Control de IA Multinivel para el Administrador
 
-## 1. Drag & Drop para reordenar preguntas
+### ¿Qué se va a construir?
 
-Instalar `@dnd-kit/core` y `@dnd-kit/sortable` para permitir arrastrar y soltar preguntas en lugar de usar solo las flechas arriba/abajo.
+Un sistema que permite al admin activar o desactivar el uso de IA a dos niveles:
 
-**Cambios:**
-- **`QuestionList.tsx`**: Envolver la lista de preguntas con `DndContext` y `SortableContext`. Cada `QuestionEditor` se envuelve en un componente sortable que usa el `id` de la pregunta.
-- **`QuestionEditor.tsx`**: Agregar un asa de arrastre (icono `GripVertical`) a la izquierda de cada pregunta. Los botones de flechas se mantienen como alternativa.
+1. **Global** — Un switch maestro. Si está apagado, nadie en la plataforma puede usar IA.
+2. **Por usuario** — Desactivar IA para profesores específicos, incluso si globalmente está activa.
 
-## 2. Preguntas colapsables
+> **Nota:** El nivel "por institución" queda preparado para el futuro si la plataforma escala a múltiples colegios. Por ahora no aplica porque es un solo colegio.
 
-Permitir colapsar/expandir el contenido de cada pregunta para reducir el ruido visual en pruebas largas.
+### ¿Cómo funciona la lógica?
 
-**Cambios:**
-- **`QuestionEditor.tsx`**: Usar el componente `Collapsible` (ya existe en el proyecto) para envolver el cuerpo de cada pregunta. El encabezado (numero, tipo, botones) siempre visible; el contenido editable se puede colapsar con un click en el encabezado o un botón chevron.
-- **`QuestionList.tsx`**: Agregar un botón "Colapsar todo / Expandir todo" en la barra superior para gestionar todas las preguntas a la vez.
+- **IA global OFF** → Todos los profesores ven el botón de IA deshabilitado con mensaje: *"La generación con IA está deshabilitada por el administrador"*
+- **IA global ON + usuario con IA OFF** → Solo ese profesor ve el mensaje de deshabilitado
+- **IA global ON + usuario con IA ON** → Funciona normal (verifica créditos como ahora)
 
-## 3. Indicador de autoguardado
+### Cambios en la base de datos
 
-Mostrar un estado visual ("Guardando...", "Guardado ✓") para que el usuario sepa que sus cambios se persisten.
+**1. Agregar columna `ai_enabled` a `global_settings`:**
+- Tipo `boolean`, default `true`
+- Controla el switch maestro global
 
-**Cambios:**
-- **`CrearPrueba.tsx`**: Modificar el `useEffect` de autosave (linea ~184) para trackear el estado de guardado (`idle`, `saving`, `saved`, `error`). Mostrar un badge/texto discreto en el header de la página (junto al botón Guardar) con el estado actual. Después de guardar exitosamente, mostrar "Guardado ✓" durante 3 segundos y luego volver a idle.
+**2. Agregar columna `ai_enabled` a `user_usage`:**
+- Tipo `boolean`, default `true`
+- Controla el acceso por usuario individual
 
-## Detalle técnico
+### Cambios en el código
 
-| Mejora | Archivos | Dependencias nuevas |
-|--------|----------|-------------------|
-| Drag & Drop | `QuestionList.tsx`, `QuestionEditor.tsx` | `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` |
-| Colapsables | `QuestionEditor.tsx`, `QuestionList.tsx` | Ninguna (usa `Collapsible` existente) |
-| Autoguardado | `CrearPrueba.tsx` | Ninguna |
+**1. Actualizar `src/lib/global-settings.ts`:**
+- Agregar `ai_enabled` al tipo `GlobalSettings` y a las funciones de carga/actualización
 
-No requiere cambios en base de datos.
+**2. Crear hook `useAIEnabled`:**
+- Consulta `global_settings.ai_enabled` y `user_usage.ai_enabled`
+- Retorna `{ aiEnabled: boolean, reason?: string }` 
+- Combina ambos niveles: si cualquiera es `false`, retorna `false` con el motivo
+
+**3. Actualizar `AIGenerateDialog.tsx`:**
+- Usar el nuevo hook para mostrar/ocultar el botón de generación
+- Si IA está desactivada, mostrar alerta explicativa en vez del formulario
+
+**4. Panel Admin — Sección "Control de IA":**
+- Switch global de IA (ON/OFF) en la configuración general
+- En la lista de usuarios, agregar un toggle individual de IA por profesor
+- Indicador visual: ícono junto al nombre del profesor mostrando si tiene IA activa
+
+### Resumen visual del flujo
+
+```text
+Admin Panel
+├── Configuración General
+│   └── [Toggle] Generación con IA: ON/OFF  ← global_settings.ai_enabled
+│
+└── Gestión de Usuarios
+    └── Lista de profesores
+        ├── Profesor A  [IA: ✓]  ← user_usage.ai_enabled
+        ├── Profesor B  [IA: ✗]
+        └── Profesor C  [IA: ✓]
+```
+
+### Lo que NO cambia
+- El sistema de créditos sigue funcionando igual
+- Los logs de generación (`ai_generation_log`) siguen registrando todo
+- La edge function `generate-question` no necesita cambios (el control es del lado del cliente antes de llamarla)
