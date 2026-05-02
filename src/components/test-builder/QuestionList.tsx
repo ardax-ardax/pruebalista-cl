@@ -82,6 +82,7 @@ const SortableQuestionItem = (props: {
   );
 };
 
+export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
 
   const [aiOpen, setAiOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
