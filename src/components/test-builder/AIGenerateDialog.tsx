@@ -107,7 +107,7 @@ export const AIGenerateDialog = ({
         {!aiEnabled && !aiLoading ? (
           <Alert variant="destructive">
             <Ban className="h-4 w-4" />
-            <AlertDescription>{aiDisabledReason}</AlertDescription>
+            <AlertDescription className="whitespace-pre-wrap">{aiDisabledReason}</AlertDescription>
           </Alert>
         ) : noOA ? (
           <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">

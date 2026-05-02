@@ -166,6 +166,7 @@ export type Database = {
       }
       global_settings: {
         Row: {
+          ai_disabled_reason: string | null
           ai_enabled: boolean
           default_free_credits: number
           enable_payments: boolean
@@ -174,6 +175,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_disabled_reason?: string | null
           ai_enabled?: boolean
           default_free_credits?: number
           enable_payments?: boolean
@@ -182,6 +184,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_disabled_reason?: string | null
           ai_enabled?: boolean
           default_free_credits?: number
           enable_payments?: boolean
@@ -384,7 +387,6 @@ export type Database = {
       }
       user_usage: {
         Row: {
-          ai_enabled: boolean
           created_at: string
           credits_available: number
           id: string
@@ -395,7 +397,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          ai_enabled?: boolean
           created_at?: string
           credits_available?: number
           id?: string
@@ -406,7 +407,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          ai_enabled?: boolean
           created_at?: string
           credits_available?: number
           id?: string

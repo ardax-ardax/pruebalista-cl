@@ -30,7 +30,6 @@ interface UserRow {
   plan_type: string;
   credits_available: number;
   plan_expires_at: string | null;
-  ai_enabled: boolean;
 }
 
 /* ───────── Component ───────── */
@@ -63,7 +62,7 @@ export default function AdminDashboard() {
     setLoadingUsers(true);
     // Join profiles + user_usage
     const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
-    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at, ai_enabled");
+    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at");
 
     if (profiles && usages) {
       const usageMap = new Map(usages.map((u) => [u.user_id, u]));
@@ -76,7 +75,6 @@ export default function AdminDashboard() {
           plan_type: u?.plan_type ?? "free",
           credits_available: u?.credits_available ?? 0,
           plan_expires_at: u?.plan_expires_at ?? null,
-          ai_enabled: u?.ai_enabled ?? true,
         };
       });
       setUsers(merged);
@@ -244,6 +242,19 @@ export default function AdminDashboard() {
                       onCheckedChange={(v) => setSettings({ ...settings, ai_enabled: v })}
                     />
                   </div>
+                  {!settings.ai_enabled && (
+                    <div className="space-y-2 pl-4 border-l-2 border-destructive/30">
+                      <Label className="font-medium">Motivo de desactivación</Label>
+                      <Input
+                        placeholder="Ej: Mantenimiento programado, Período de evaluaciones..."
+                        value={settings.ai_disabled_reason}
+                        onChange={(e) => setSettings({ ...settings, ai_disabled_reason: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Este mensaje será visible para los usuarios cuando intenten usar la IA.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label className="font-medium">Créditos IA iniciales (nuevos usuarios)</Label>
                     <Input
@@ -299,7 +310,6 @@ export default function AdminDashboard() {
                         <TableHead>Email</TableHead>
                         <TableHead>Plan</TableHead>
                         <TableHead className="text-center">Créditos</TableHead>
-                        <TableHead className="text-center">IA</TableHead>
                         <TableHead>Expira</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -322,20 +332,6 @@ export default function AdminDashboard() {
                             </Select>
                           </TableCell>
                           <TableCell className="text-center">{u.credits_available}</TableCell>
-                          <TableCell className="text-center">
-                            <Switch
-                              checked={u.ai_enabled}
-                              onCheckedChange={async (v) => {
-                                const { error } = await supabase
-                                  .from("user_usage")
-                                  .update({ ai_enabled: v })
-                                  .eq("user_id", u.user_id);
-                                if (error) { toast.error(error.message); return; }
-                                toast.success(v ? "IA activada" : "IA desactivada");
-                                loadUsers();
-                              }}
-                            />
-                          </TableCell>
                           <TableCell className="text-sm">
                             {u.plan_expires_at ? format(new Date(u.plan_expires_at), "dd/MM/yyyy") : "—"}
                           </TableCell>
@@ -355,7 +351,7 @@ export default function AdminDashboard() {
                       ))}
                       {filtered.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                             Sin resultados
                           </TableCell>
                         </TableRow>
