@@ -199,7 +199,7 @@ export const AIGenerateDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleGenerate} disabled={loading || noOA}>
+          <Button onClick={handleGenerate} disabled={loading || noOA || !aiEnabled}>
             <Sparkles className="h-4 w-4" /> {loading ? "Generando…" : "Generar"}
           </Button>
         </DialogFooter>
