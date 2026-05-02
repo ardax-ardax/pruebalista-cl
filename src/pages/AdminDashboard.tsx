@@ -232,6 +232,18 @@ export default function AdminDashboard() {
                       onCheckedChange={(v) => setSettings({ ...settings, maintenance_mode: v })}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="font-medium flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" /> Generación con IA
+                      </Label>
+                      <p className="text-sm text-muted-foreground">Activa/desactiva la IA para todos los usuarios de la plataforma</p>
+                    </div>
+                    <Switch
+                      checked={settings.ai_enabled}
+                      onCheckedChange={(v) => setSettings({ ...settings, ai_enabled: v })}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label className="font-medium">Créditos IA iniciales (nuevos usuarios)</Label>
                     <Input
