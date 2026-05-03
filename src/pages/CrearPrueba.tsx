@@ -117,10 +117,12 @@ const CrearPrueba = () => {
   // Si el docente no tiene asignaciones, es autónomo: tampoco restringimos.
   useEffect(() => {
     if (authLoading || !user) return;
-    if (isStaff) { setRestrictedAssignments(null); return; }
-    listAssignmentsForTeacher(user.id).then((a) =>
-      setRestrictedAssignments(a.length > 0 ? a : null)
-    );
+    if (isStaff) { setRestrictedAssignments(null); setAssignmentsLoaded(true); setHasZeroAssignments(false); return; }
+    listAssignmentsForTeacher(user.id).then((a) => {
+      setRestrictedAssignments(a.length > 0 ? a : null);
+      setHasZeroAssignments(a.length === 0);
+      setAssignmentsLoaded(true);
+    });
   }, [user, isStaff, authLoading]);
 
   // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
