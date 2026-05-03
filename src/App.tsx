@@ -28,7 +28,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
+            <Route path="/" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
+            <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
             <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
             <Route path="/cursos" element={<AuthGuard><AdminGuard><Cursos /></AdminGuard></AuthGuard>} />
             <Route path="/configuracion" element={<AuthGuard><AdminGuard><Configuracion /></AdminGuard></AuthGuard>} />
