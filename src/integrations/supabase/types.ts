@@ -259,6 +259,48 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          can_edit_layout: boolean
+          can_export_docx: boolean
+          created_at: string
+          default_credits: number
+          id: string
+          is_default: boolean
+          label: string
+          max_assessments: number | null
+          max_assignments: number | null
+          show_watermark: boolean
+          sort_order: number
+        }
+        Insert: {
+          can_edit_layout?: boolean
+          can_export_docx?: boolean
+          created_at?: string
+          default_credits?: number
+          id: string
+          is_default?: boolean
+          label: string
+          max_assessments?: number | null
+          max_assignments?: number | null
+          show_watermark?: boolean
+          sort_order?: number
+        }
+        Update: {
+          can_edit_layout?: boolean
+          can_export_docx?: boolean
+          created_at?: string
+          default_credits?: number
+          id?: string
+          is_default?: boolean
+          label?: string
+          max_assessments?: number | null
+          max_assignments?: number | null
+          show_watermark?: boolean
+          sort_order?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
