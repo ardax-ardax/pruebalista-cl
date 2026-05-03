@@ -252,11 +252,6 @@ export default function DashboardDocente() {
                           {ASSESSMENT_STATUS_LABEL[a.status]}
                         </Badge>
                       )}
-                      {!isProfesor && a.status !== "borrador" && (
-                        <Badge className={`text-[10px] ${STATUS_COLOR[a.status]}`}>
-                          {ASSESSMENT_STATUS_LABEL[a.status]}
-                        </Badge>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
