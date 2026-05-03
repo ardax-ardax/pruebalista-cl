@@ -32,7 +32,7 @@ const AuthPage = () => {
     <main className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-card">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Estandarizador de Pruebas</CardTitle>
+          <CardTitle className="text-2xl text-center">Prueba Lista</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {isEmbedded ? (
