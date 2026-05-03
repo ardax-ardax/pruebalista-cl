@@ -543,13 +543,26 @@ const CrearPrueba = () => {
           </Card>
         )}
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList>
-            <TabsTrigger value="meta"><Pencil className="h-4 w-4 mr-1" /> Datos</TabsTrigger>
-            <TabsTrigger value="content"><FileText className="h-4 w-4 mr-1" /> {isDesktop ? "Contenido + Preview" : "Contenido"}</TabsTrigger>
-            {!isDesktop && (
-              <TabsTrigger value="preview"><Eye className="h-4 w-4 mr-1" /> Vista previa</TabsTrigger>
-            )}
+        {(() => {
+          const metaComplete = !!(assessment?.meta.gradeValue && assessment?.meta.subjectValue && assessment?.meta.title?.trim());
+          return (
+            <Tabs value={tab} onValueChange={(v) => {
+              if (!metaComplete && v !== "meta") {
+                toast.error("Completa los datos generales primero (curso, asignatura y título).");
+                return;
+              }
+              setTab(v as typeof tab);
+            }}>
+              <TabsList>
+                <TabsTrigger value="meta"><Pencil className="h-4 w-4 mr-1" /> Datos</TabsTrigger>
+                <TabsTrigger value="content" disabled={!metaComplete} title={!metaComplete ? "Completa curso, asignatura y título primero" : undefined}>
+                  <FileText className="h-4 w-4 mr-1" /> {isDesktop ? "Contenido + Preview" : "Contenido"}
+                </TabsTrigger>
+                {!isDesktop && (
+                  <TabsTrigger value="preview" disabled={!metaComplete} title={!metaComplete ? "Completa curso, asignatura y título primero" : undefined}>
+                    <Eye className="h-4 w-4 mr-1" /> Vista previa
+                  </TabsTrigger>
+                )}
           </TabsList>
           <TabsContent value="meta" className="mt-4">
             <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
