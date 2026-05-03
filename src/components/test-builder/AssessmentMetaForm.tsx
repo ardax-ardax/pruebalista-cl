@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AssessmentMeta, PaesVariant } from "@/lib/assessment-schema";
+import type { AssessmentMeta, PaesVariant, OaPosition } from "@/lib/assessment-schema";
 import { PAES_VARIANTS } from "@/lib/assessment-schema";
 import {
   getAxesFor,
