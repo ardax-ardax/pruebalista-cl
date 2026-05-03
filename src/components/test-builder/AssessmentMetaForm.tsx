@@ -143,6 +143,8 @@ export const AssessmentMetaForm = ({
         <CardTitle>Datos generales</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* === Campos generales (readonly al editar para docentes) === */}
+        <div className={readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Plantilla institucional</Label>
@@ -237,6 +239,39 @@ export const AssessmentMetaForm = ({
             placeholder="Lee atentamente cada pregunta. Marca solo una alternativa…"
             rows={3}
           />
+        </div>
+        </div>{/* fin readOnlyExceptOA wrapper */}
+
+        {/* === Cantidad de alternativas por tipo de pregunta === */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Alternativas (Selección múltiple)</Label>
+            <Select
+              value={String(meta.defaultMcOptions ?? 4)}
+              onValueChange={(v) => set("defaultMcOptions", Number(v))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3 alternativas</SelectItem>
+                <SelectItem value="4">4 alternativas</SelectItem>
+                <SelectItem value="5">5 alternativas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Afirmaciones (Verdadero / Falso)</Label>
+            <Select
+              value={String(meta.defaultTfStatements ?? 3)}
+              onValueChange={(v) => set("defaultTfStatements", Number(v))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">2 afirmaciones</SelectItem>
+                <SelectItem value="3">3 afirmaciones</SelectItem>
+                <SelectItem value="4">4 afirmaciones</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* === Modo Ensayo PAES: variante + (módulo Ciencias) + eje temático === */}
