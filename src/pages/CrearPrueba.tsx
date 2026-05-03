@@ -461,8 +461,8 @@ const CrearPrueba = () => {
           </div>
         </div>
 
-        {/* Read-only banner for teachers */}
-        {readOnly && (
+        {/* Read-only banner for institutional teachers (hidden for autonomous) */}
+        {readOnly && !isAutonomous && (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Prueba en modo lectura</AlertTitle>
