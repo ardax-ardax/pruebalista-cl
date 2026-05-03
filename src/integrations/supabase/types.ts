@@ -101,6 +101,33 @@ export type Database = {
         }
         Relationships: []
       }
+      colegios: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          logo_url: string | null
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          logo_url?: string | null
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          logo_url?: string | null
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           created_at: string
@@ -196,6 +223,7 @@ export type Database = {
       }
       pending_invitations: {
         Row: {
+          colegio_id: string | null
           consumed_at: string | null
           created_at: string
           email: string
@@ -204,6 +232,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }
         Insert: {
+          colegio_id?: string | null
           consumed_at?: string | null
           created_at?: string
           email: string
@@ -212,6 +241,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Update: {
+          colegio_id?: string | null
           consumed_at?: string | null
           created_at?: string
           email?: string
@@ -219,11 +249,20 @@ export type Database = {
           invited_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pending_invitations_colegio_id_fkey"
+            columns: ["colegio_id"]
+            isOneToOne: false
+            referencedRelation: "colegios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           avatar_url: string | null
+          colegio_id: string | null
           created_at: string
           custom_institution_name: string | null
           custom_logo_url: string | null
@@ -234,6 +273,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          colegio_id?: string | null
           created_at?: string
           custom_institution_name?: string | null
           custom_logo_url?: string | null
@@ -244,6 +284,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          colegio_id?: string | null
           created_at?: string
           custom_institution_name?: string | null
           custom_logo_url?: string | null
@@ -252,7 +293,15 @@ export type Database = {
           id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_colegio_id_fkey"
+            columns: ["colegio_id"]
+            isOneToOne: false
+            referencedRelation: "colegios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       question_bank: {
         Row: {
@@ -260,6 +309,7 @@ export type Database = {
           created_at: string
           difficulty: string | null
           grade_value: string | null
+          hidden_by_users: string[]
           id: string
           oa_code: string | null
           prompt_preview: string | null
@@ -275,6 +325,7 @@ export type Database = {
           created_at?: string
           difficulty?: string | null
           grade_value?: string | null
+          hidden_by_users?: string[]
           id?: string
           oa_code?: string | null
           prompt_preview?: string | null
@@ -290,6 +341,7 @@ export type Database = {
           created_at?: string
           difficulty?: string | null
           grade_value?: string | null
+          hidden_by_users?: string[]
           id?: string
           oa_code?: string | null
           prompt_preview?: string | null
@@ -431,10 +483,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_same_colegio: {
+        Args: { _staff_id: string; _target_user_id: string }
+        Returns: boolean
+      }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user" | "utp_head"
+      app_role: "admin" | "utp_head" | "docente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -562,7 +618,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "utp_head"],
+      app_role: ["admin", "utp_head", "docente"],
     },
   },
 } as const
