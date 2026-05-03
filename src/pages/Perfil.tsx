@@ -50,7 +50,7 @@ export default function Perfil() {
     (a) => a.grade_value === selectedGrade && a.subject_value === selectedSubject
   );
 
-  const isDocente = role === "docente";
+  const isDocente = !isStaff && role !== null;
 
   useEffect(() => {
     getMyProfile().then((p) => {
