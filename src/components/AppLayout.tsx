@@ -122,6 +122,19 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                         {user.email}
                       </div>
                     )}
+                    {!usageLoading && (
+                      <div className="pt-1">
+                        {effectivePlan === "free" && (
+                          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">Plan Free</Badge>
+                        )}
+                        {effectivePlan === "pro" && (
+                          <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Plan Pro</Badge>
+                        )}
+                        {effectivePlan === "institucional" && (
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Plan Institucional</Badge>
+                        )}
+                      </div>
+                    )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/perfil")} className="gap-2">
