@@ -112,6 +112,8 @@ export const LAYOUT_LIMITS = {
   spacingMaxPt: 28,
 } as const;
 
+export type OaPosition = "before-title" | "after-instructions";
+
 export interface AssessmentMeta {
   templateId: string; // id de FormatTemplate (banner-evaluacion / banner-guia / ...)
   title: string;
@@ -125,7 +127,11 @@ export interface AssessmentMeta {
   studentName?: string;
   linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
   showOaInHeader?: boolean; // si true, imprime los OAs bajo las instrucciones de la prueba
+  oaPosition?: OaPosition; // dónde mostrar OAs: antes del título o después de instrucciones (default)
   layout?: AssessmentLayout; // optimización de espacio (papel)
+  // === Cantidad de alternativas por tipo ===
+  defaultMcOptions?: number; // 3-5, default 4
+  defaultTfStatements?: number; // 2-4, default 3
   // === Modo Ensayo PAES ===
   paesVariant?: PaesVariant;
   paesAxis?: string; // Eje temático / habilidad (catálogo oficial DEMRE)
