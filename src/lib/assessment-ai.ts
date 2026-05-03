@@ -52,8 +52,8 @@ export async function generateQuestion(params: GenerateQuestionParams): Promise<
   return q;
 }
 
-export function coerceGeneratedQuestion(raw: RawGenerated, type: GenerateQuestionParams["questionType"]): Question {
-  const base = newQuestion(type);
+export function coerceGeneratedQuestion(raw: RawGenerated, type: GenerateQuestionParams["questionType"], opts?: { optionCount?: number; statementCount?: number }): Question {
+  const base = newQuestion(type, { mcOptions: opts?.optionCount, tfStatements: opts?.statementCount });
   base.prompt = (raw.prompt ?? "").toString().trim() || base.prompt;
   if (raw.title) base.title = String(raw.title).trim();
   if (raw.difficulty && ["baja", "media", "alta"].includes(raw.difficulty)) {
