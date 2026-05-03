@@ -94,10 +94,11 @@ const CrearPrueba = () => {
     if (!user) { setCurrentProfile(null); return; }
     getMyProfile().then((p) => {
       setCurrentProfile(p);
-      // Si el usuario NO es staff y tiene branding personalizado, usarlo
+      // Si el usuario NO es staff, usar branding personalizado del perfil.
+      // Si no tiene branding configurado, dejar vacío (no usar defaults institucionales).
       if (!isStaff && p) {
-        if (p.customInstitutionName) setInstitutionName(p.customInstitutionName);
-        if (p.customLogoUrl) setLogo(p.customLogoUrl);
+        setInstitutionName(p.customInstitutionName ?? "");
+        setLogo(p.customLogoUrl ?? null);
       }
     });
   }, [user?.id, isStaff]);
@@ -122,15 +123,18 @@ const CrearPrueba = () => {
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
-    // Branding: caché local primero (rápido), luego backend (autoritativo y compartido).
-    setLogo(loadLogo());
-    setInstitutionName(loadInstitutionName() || "New Little College La Florida");
-    loadAppSettings()
-      .then(async (s) => {
-        setLogo(s.institution_logo || await loadDefaultInstitutionLogo());
-        setInstitutionName(s.institution_name || "New Little College La Florida");
-      })
-      .catch(() => {/* keep local */});
+    // Branding: solo staff usa branding institucional del backend.
+    // Docentes autónomos usan su perfil (cargado en otro useEffect).
+    if (isStaff) {
+      setLogo(loadLogo());
+      setInstitutionName(loadInstitutionName() || "New Little College La Florida");
+      loadAppSettings()
+        .then(async (s) => {
+          setLogo(s.institution_logo || await loadDefaultInstitutionLogo());
+          setInstitutionName(s.institution_name || "New Little College La Florida");
+        })
+        .catch(() => {/* keep local */});
+    }
 
     // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
     (async () => {
@@ -154,6 +158,7 @@ const CrearPrueba = () => {
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el
   // último logo guardado en Configuración).
   useEffect(() => {
+    if (!isStaff) return; // Docentes autónomos usan su propio branding del perfil
     const refreshBranding = () => {
       setLogo(loadLogo());
       setInstitutionName(loadInstitutionName() || "New Little College La Florida");
@@ -170,8 +175,11 @@ const CrearPrueba = () => {
       window.removeEventListener("storage", refreshBranding);
       window.removeEventListener("focus", refreshBranding);
     };
-  }, []);
+  }, [isStaff]);
 
+
+  // Docente autónomo: sin asignaciones UTP y no es staff → no pasa por flujo de revisión.
+  const isAutonomous = !isStaff && restrictedAssignments === null;
 
   // Determina si la prueba es de solo lectura para el docente
   const isOwnAssessment = !ownerId || ownerId === user?.id;
@@ -180,7 +188,9 @@ const CrearPrueba = () => {
     if (!assessment) return false;
     // Staff siempre puede editar
     if (isStaff) return false;
-    // Docente: solo puede editar en borrador o rechazado
+    // Docentes autónomos siempre pueden editar sus pruebas
+    if (isAutonomous) return false;
+    // Docente institucional: solo puede editar en borrador o rechazado
     return assessmentStatus === "pendiente_revision" || assessmentStatus === "aprobado";
   })();
 
@@ -389,7 +399,7 @@ const CrearPrueba = () => {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
               {editingId ? "Editar prueba" : "Crear prueba"}
-              {editingId && (
+              {editingId && !isAutonomous && (
                 <Badge className={`text-xs ${
                   assessmentStatus === "borrador" ? "bg-muted text-muted-foreground" :
                   assessmentStatus === "pendiente_revision" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" :
@@ -447,8 +457,8 @@ const CrearPrueba = () => {
                 <Download className="h-4 w-4" /> {exporting ? "Generando…" : "Descargar .docx"}
               </Button>
             )}
-            {/* Docente: enviar a revisión */}
-            {!isStaff && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
+            {/* Docente institucional: enviar a revisión (oculto para autónomos) */}
+            {!isStaff && !isAutonomous && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
               <Button size="sm" variant="default" onClick={handleSubmitForReview}>
                 <Send className="h-4 w-4" /> Enviar a Revisión UTP
               </Button>
@@ -456,8 +466,8 @@ const CrearPrueba = () => {
           </div>
         </div>
 
-        {/* Read-only banner for teachers */}
-        {readOnly && (
+        {/* Read-only banner for institutional teachers (hidden for autonomous) */}
+        {readOnly && !isAutonomous && (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Prueba en modo lectura</AlertTitle>
@@ -469,8 +479,8 @@ const CrearPrueba = () => {
           </Alert>
         )}
 
-        {/* Feedback UTP when rejected */}
-        {assessmentStatus === "rechazado" && assessment.utpFeedback && (
+        {/* Feedback UTP when rejected (hidden for autonomous) */}
+        {!isAutonomous && assessmentStatus === "rechazado" && assessment.utpFeedback && (
           <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
             <AlertTitle>Evaluación rechazada por UTP</AlertTitle>
