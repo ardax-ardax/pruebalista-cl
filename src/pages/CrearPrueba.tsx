@@ -394,7 +394,7 @@ const CrearPrueba = () => {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
               {editingId ? "Editar prueba" : "Crear prueba"}
-              {editingId && (
+              {editingId && !isAutonomous && (
                 <Badge className={`text-xs ${
                   assessmentStatus === "borrador" ? "bg-muted text-muted-foreground" :
                   assessmentStatus === "pendiente_revision" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" :
