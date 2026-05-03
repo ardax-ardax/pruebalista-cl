@@ -1,23 +1,38 @@
 
-## Simplificar control de IA: solo switch global con mensaje de motivo
+## Objetivo
 
-### Cambios en la base de datos
+Restringir las secciones de Configuración y navegación para que cada rol vea solo lo que le corresponde:
 
-1. **Agregar campo `ai_disabled_reason`** a `global_settings` (texto, nullable) — para que el admin escriba el motivo al desactivar la IA
-2. **Eliminar columna `ai_enabled`** de `user_usage` — ya no se necesita el control individual (los créditos ya cumplen esa función)
+- **Admin**: Datos del colegio, Gestión de Personal, Gestión Curricular, Plantillas de formato (editar las 5 base).
+- **UTP**: Asignaturas/cursos/docentes, Política de asignación, Visibilidad de créditos IA, Consumo de IA por docente, Importación masiva, Asignación docente-curso-asignatura.
 
-### Cambios en el código
+---
 
-**1. `src/lib/global-settings.ts`:**
-- Agregar `ai_disabled_reason` al tipo e incluirlo en carga/guardado
+## Cambios
 
-**2. `src/hooks/useAIEnabled.ts`:**
-- Simplificar: solo consulta `global_settings.ai_enabled` y `ai_disabled_reason`
-- Ya no consulta `user_usage`
+### 1. `src/components/AppLayout.tsx`
+- Cambiar el menú "Cursos" de `isStaff` a `isUtpHead` (solo UTP lo necesita).
 
-**3. `src/pages/AdminDashboard.tsx`:**
-- Quitar la columna "IA" y el switch por usuario de la tabla de usuarios
-- Agregar un campo de texto para el motivo debajo del switch global de IA en Ajustes (se habilita cuando la IA está desactivada)
+### 2. `src/pages/Configuracion.tsx`
+Envolver secciones con condicionales de rol (usando `isAdmin` e `isUtpHead` del hook `useAuth`):
 
-**4. `src/components/test-builder/AIGenerateDialog.tsx`:**
-- Mostrar el motivo del admin en la alerta cuando la IA está desactivada, junto con el mensaje de que los créditos no se pierden
+| Sección | Visible para |
+|---|---|
+| Datos del colegio (logo, nombre) | Admin |
+| Asignaturas, cursos y docentes | UTP |
+| Política de asignación de docentes | UTP |
+| Visibilidad de créditos IA | UTP |
+| Consumo de IA por Docente | UTP |
+| Gestión de Personal | Admin |
+| Gestión Curricular | Admin |
+| Plantillas de formato (edición de base) | Admin |
+
+Cambios concretos:
+- Línea 63: agregar `isUtpHead` del destructuring de `useAuth()`
+- Líneas 351-389 (Asignaturas, cursos y docentes): envolver con `{isUtpHead && ...}`
+- Líneas 391-416 (Política de asignación): cambiar `isAdmin` a `isUtpHead`
+- Líneas 418-443 (Visibilidad créditos): ya usa `isStaff`, cambiar a `isUtpHead`
+- Línea 446 (Consumo IA): cambiar `isStaff` a `isUtpHead`
+- Plantillas: mantener visibles pero restringir edición/duplicación/creación a `isAdmin`
+
+No se requieren cambios en base de datos.
