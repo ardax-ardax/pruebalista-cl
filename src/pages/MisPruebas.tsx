@@ -30,6 +30,20 @@ const MisPruebas = () => {
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
+  const [isAutonomous, setIsAutonomous] = useState(true); // default true until checked
+
+  // Check if user is autonomous (no colegio_id)
+  useEffect(() => {
+    if (!user || isStaff) { setIsAutonomous(!isStaff); return; }
+    supabase
+      .from("profiles")
+      .select("colegio_id")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
+      });
+  }, [user?.id, isStaff]);
 
   const refresh = async () => {
     const all = await listAssessmentsWithOwner();
