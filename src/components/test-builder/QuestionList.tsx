@@ -272,6 +272,8 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         onGenerated={(q) => onChange([...questions, q])}
         creditsAvailable={creditsAvailable}
         onCreditsUsed={onCreditsUsed}
+        defaultMcOptions={mcOpts}
+        defaultTfStatements={tfStmts}
       />
 
       <QuestionBankDialog
