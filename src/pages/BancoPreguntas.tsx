@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { searchBank, deleteFromBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
+import { searchBank, deleteFromBank, hideFromBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
 import { loadSubjects, loadGrades } from "@/lib/catalog";
 import { QUESTION_TYPE_LABEL, type QuestionType, type Question } from "@/lib/assessment-schema";
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
@@ -144,13 +144,24 @@ export default function BancoPreguntas() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta pregunta del banco?")) return;
-    const ok = await deleteFromBank(id);
-    if (ok) {
-      setRows((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Pregunta eliminada");
+    if (isAdmin) {
+      if (!confirm("¿Eliminar esta pregunta del banco permanentemente?")) return;
+      const ok = await deleteFromBank(id);
+      if (ok) {
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        toast.success("Pregunta eliminada");
+      } else {
+        toast.error("No se pudo eliminar");
+      }
     } else {
-      toast.error("No se pudo eliminar");
+      if (!confirm("¿Ocultar esta pregunta de tu banco?")) return;
+      const ok = await hideFromBank(id, user!.id);
+      if (ok) {
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        toast.success("Pregunta ocultada de tu banco");
+      } else {
+        toast.error("No se pudo ocultar");
+      }
     }
   };
 
