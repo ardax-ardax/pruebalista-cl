@@ -91,14 +91,23 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
     setPages(pagesHtml);
   }, [html, geom.usableHeightPx, geom.usableWidthPx]);
 
+  // Recalcular escala para fit-to-width
+  const updateScale = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const available = el.clientWidth - 48; // p-6 = 24px * 2
+    setScale(Math.min(1, available / geom.widthPx));
+  }, [geom.widthPx]);
+
   useEffect(() => {
-    const handle = () => setPages((p) => [...p]);
+    updateScale();
+    const handle = () => { setPages((p) => [...p]); updateScale(); };
     window.addEventListener("resize", handle);
     return () => window.removeEventListener("resize", handle);
-  }, []);
+  }, [updateScale]);
 
   return (
-    <div className="overflow-auto rounded-md border border-border bg-muted p-6">
+    <div ref={containerRef} className="overflow-hidden rounded-md border border-border bg-muted p-6">
       <style>{ASSESSMENT_CSS}</style>
       <div
         ref={measureRef}
