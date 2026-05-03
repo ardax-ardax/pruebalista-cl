@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
 
 const FREE_MAX_ASSIGNMENTS = 5;
 
@@ -171,210 +172,234 @@ export default function Perfil() {
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <User className="h-5 w-5" /> Datos personales
-            </CardTitle>
-            <CardDescription>Tu información de cuenta (no editable aquí)</CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center gap-4">
-            <Avatar className="h-14 w-14">
-              {(meta.avatar_url || meta.picture) && (
-                <AvatarImage src={(meta.avatar_url as string) || (meta.picture as string)} alt={displayName} />
-              )}
-              <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-medium">{displayName}</div>
-              <div className="text-sm text-muted-foreground">{user?.email}</div>
-            </div>
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="datos" className="w-full">
+          <TabsList className={`grid w-full ${isDocente ? "grid-cols-3" : "grid-cols-2"}`}>
+            <TabsTrigger value="datos" className="flex items-center gap-1.5">
+              <User className="h-4 w-4" /> Datos
+            </TabsTrigger>
+            {isDocente && (
+              <TabsTrigger value="cursos" className="flex items-center gap-1.5">
+                <BookOpen className="h-4 w-4" /> Mis cursos
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="branding" className="flex items-center gap-1.5">
+              <Palette className="h-4 w-4" /> Branding
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Asignaciones de cursos — solo para docentes */}
-        {isDocente && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BookOpen className="h-5 w-5" /> Mis cursos y asignaturas
-              </CardTitle>
-              <CardDescription>
-                Selecciona los cursos y asignaturas a los que preparas pruebas. Al crear una prueba, solo verás estas opciones.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Counter */}
-              <div className="flex items-center gap-2 text-sm">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                {isFree ? (
-                  <span className="text-muted-foreground">
-                    {assignments.length} de {FREE_MAX_ASSIGNMENTS} asignaciones
-                    <span className="ml-1 text-xs">(plan free)</span>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {assignments.length} asignaciones <span className="ml-1 text-xs">(sin límite)</span>
-                  </span>
-                )}
-              </div>
-
-              {/* Current assignments */}
-              {loadingAssignments ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
-                </div>
-              ) : assignments.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {assignments.map((a) => (
-                    <Badge key={a.id} variant="secondary" className="flex items-center gap-1 py-1.5 px-3 text-sm">
-                      {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
-                      <button
-                        onClick={() => handleRemoveAssignment(a.id)}
-                        className="ml-1 hover:text-destructive transition-colors"
-                        title="Eliminar"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  No tienes asignaciones. Agrega cursos y asignaturas para filtrar al crear pruebas.
-                </p>
-              )}
-
-              {/* Add new assignment */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
-                <Select
-                  value={selectedGrade}
-                  onValueChange={(v) => { setSelectedGrade(v); setSelectedSubject(""); }}
-                  disabled={!canAddMore}
-                >
-                  <SelectTrigger className="sm:w-[180px]">
-                    <SelectValue placeholder="Curso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {grades.map((g) => (
-                      <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={selectedSubject}
-                  onValueChange={setSelectedSubject}
-                  disabled={!selectedGrade || !canAddMore}
-                >
-                  <SelectTrigger className="sm:w-[240px]">
-                    <SelectValue placeholder="Asignatura" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredSubjects.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  size="sm"
-                  onClick={handleAddAssignment}
-                  disabled={!selectedGrade || !selectedSubject || addingAssignment || !canAddMore || alreadyExists}
-                >
-                  {addingAssignment ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-1" />
+          {/* Tab: Datos personales */}
+          <TabsContent value="datos">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="h-5 w-5" /> Datos personales
+                </CardTitle>
+                <CardDescription>Tu información de cuenta (no editable aquí)</CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center gap-4">
+                <Avatar className="h-14 w-14">
+                  {(meta.avatar_url || meta.picture) && (
+                    <AvatarImage src={(meta.avatar_url as string) || (meta.picture as string)} alt={displayName} />
                   )}
-                  Agregar
-                </Button>
-              </div>
+                  <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-medium">{displayName}</div>
+                  <div className="text-sm text-muted-foreground">{user?.email}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              {!canAddMore && (
-                <p className="text-xs text-amber-600">
-                  Has alcanzado el límite de {FREE_MAX_ASSIGNMENTS} asignaciones del plan free. Elimina una para agregar otra, o actualiza tu plan.
-                </p>
-              )}
-              {alreadyExists && selectedGrade && selectedSubject && (
-                <p className="text-xs text-amber-600">
-                  Esta combinación ya está en tus asignaciones.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Branding de evaluaciones</CardTitle>
-            <CardDescription>
-              Estos datos reemplazan el encabezado del colegio por defecto en tus pruebas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="inst-name">Nombre de tu colegio</Label>
-              <Input
-                id="inst-name"
-                placeholder="Ej: Colegio San Patricio"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Si lo dejas vacío, se usará el nombre predeterminado del sistema.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Logo de tu colegio</Label>
-              <div className="flex items-center gap-4">
-                {logoUrl ? (
-                  <img
-                    src={logoUrl}
-                    alt="Logo"
-                    className="h-16 w-16 rounded-lg border border-border object-contain bg-background p-1"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30">
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+          {/* Tab: Mis cursos y asignaturas (solo docentes) */}
+          {isDocente && (
+            <TabsContent value="cursos">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" /> Mis cursos y asignaturas
+                  </CardTitle>
+                  <CardDescription>
+                    Selecciona los cursos y asignaturas a los que preparas pruebas. Al crear una prueba, solo verás estas opciones.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Counter */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                    {isFree ? (
+                      <span className="text-muted-foreground">
+                        {assignments.length} de {FREE_MAX_ASSIGNMENTS} asignaciones
+                        <span className="ml-1 text-xs">(plan free)</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {assignments.length} asignaciones <span className="ml-1 text-xs">(sin límite)</span>
+                      </span>
+                    )}
                   </div>
-                )}
-                <div className="flex flex-col gap-2">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleUploadLogo}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ImagePlus className="h-4 w-4 mr-1" />}
-                    {logoUrl ? "Cambiar logo" : "Subir logo"}
-                  </Button>
-                  {logoUrl && (
-                    <Button variant="ghost" size="sm" className="text-destructive" onClick={handleRemoveLogo}>
-                      <Trash2 className="h-4 w-4 mr-1" /> Quitar logo
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Formato JPG o PNG, máximo 2 MB. Se mostrará en el encabezado de tus pruebas.
-              </p>
-            </div>
 
-            <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-              Guardar cambios
-            </Button>
-          </CardContent>
-        </Card>
+                  {/* Current assignments */}
+                  {loadingAssignments ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                    </div>
+                  ) : assignments.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {assignments.map((a) => (
+                        <Badge key={a.id} variant="secondary" className="flex items-center gap-1 py-1.5 px-3 text-sm">
+                          {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
+                          <button
+                            onClick={() => handleRemoveAssignment(a.id)}
+                            className="ml-1 hover:text-destructive transition-colors"
+                            title="Eliminar"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No tienes asignaciones. Agrega cursos y asignaturas para filtrar al crear pruebas.
+                    </p>
+                  )}
+
+                  {/* Add new assignment */}
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
+                    <Select
+                      value={selectedGrade}
+                      onValueChange={(v) => { setSelectedGrade(v); setSelectedSubject(""); }}
+                      disabled={!canAddMore}
+                    >
+                      <SelectTrigger className="sm:w-[180px]">
+                        <SelectValue placeholder="Curso" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {grades.map((g) => (
+                          <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={selectedSubject}
+                      onValueChange={setSelectedSubject}
+                      disabled={!selectedGrade || !canAddMore}
+                    >
+                      <SelectTrigger className="sm:w-[240px]">
+                        <SelectValue placeholder="Asignatura" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredSubjects.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      size="sm"
+                      onClick={handleAddAssignment}
+                      disabled={!selectedGrade || !selectedSubject || addingAssignment || !canAddMore || alreadyExists}
+                    >
+                      {addingAssignment ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-1" />
+                      )}
+                      Agregar
+                    </Button>
+                  </div>
+
+                  {!canAddMore && (
+                    <p className="text-xs text-amber-600">
+                      Has alcanzado el límite de {FREE_MAX_ASSIGNMENTS} asignaciones del plan free. Elimina una para agregar otra, o actualiza tu plan.
+                    </p>
+                  )}
+                  {alreadyExists && selectedGrade && selectedSubject && (
+                    <p className="text-xs text-amber-600">
+                      Esta combinación ya está en tus asignaciones.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Tab: Branding */}
+          <TabsContent value="branding">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Branding de evaluaciones</CardTitle>
+                <CardDescription>
+                  Estos datos reemplazan el encabezado del colegio por defecto en tus pruebas.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="inst-name">Nombre de tu colegio</Label>
+                  <Input
+                    id="inst-name"
+                    placeholder="Ej: Colegio San Patricio"
+                    value={institutionName}
+                    onChange={(e) => setInstitutionName(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Si lo dejas vacío, se usará el nombre predeterminado del sistema.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Logo de tu colegio</Label>
+                  <div className="flex items-center gap-4">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Logo"
+                        className="h-16 w-16 rounded-lg border border-border object-contain bg-background p-1"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30">
+                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleUploadLogo}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ImagePlus className="h-4 w-4 mr-1" />}
+                        {logoUrl ? "Cambiar logo" : "Subir logo"}
+                      </Button>
+                      {logoUrl && (
+                        <Button variant="ghost" size="sm" className="text-destructive" onClick={handleRemoveLogo}>
+                          <Trash2 className="h-4 w-4 mr-1" /> Quitar logo
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Formato JPG o PNG, máximo 2 MB. Se mostrará en el encabezado de tus pruebas.
+                  </p>
+                </div>
+
+                <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                  Guardar cambios
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
