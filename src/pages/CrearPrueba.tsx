@@ -474,8 +474,8 @@ const CrearPrueba = () => {
           </Alert>
         )}
 
-        {/* Feedback UTP when rejected */}
-        {assessmentStatus === "rechazado" && assessment.utpFeedback && (
+        {/* Feedback UTP when rejected (hidden for autonomous) */}
+        {!isAutonomous && assessmentStatus === "rechazado" && assessment.utpFeedback && (
           <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
             <AlertTitle>Evaluación rechazada por UTP</AlertTitle>
