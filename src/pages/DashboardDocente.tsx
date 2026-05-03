@@ -179,7 +179,7 @@ export default function DashboardDocente() {
 
       {/* Acciones rápidas */}
       <section className="flex flex-wrap gap-3 mb-8">
-        <Button onClick={() => navigate("/crear-prueba")} className="gap-2">
+        <Button onClick={() => navigate("/crear-prueba?new=1")} className="gap-2">
           <FilePlus2 className="h-4 w-4" />
           Crear nueva prueba
         </Button>
@@ -212,7 +212,7 @@ export default function DashboardDocente() {
             <CardContent className="py-12 text-center">
               <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">Aún no has creado pruebas.</p>
-              <Button onClick={() => navigate("/crear-prueba")} className="mt-4 gap-2" size="sm">
+              <Button onClick={() => navigate("/crear-prueba?new=1")} className="mt-4 gap-2" size="sm">
                 <FilePlus2 className="h-4 w-4" />
                 Crear mi primera prueba
               </Button>

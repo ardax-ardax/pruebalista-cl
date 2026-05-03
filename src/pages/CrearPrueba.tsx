@@ -145,7 +145,8 @@ const CrearPrueba = () => {
         .catch(() => {/* keep local */});
     }
 
-    // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
+    // Si hay ?id=, cargar esa prueba; si ?new=1, empezar desde cero; si no, borrador.
+    const isNew = searchParams.get("new") === "1";
     (async () => {
       if (editingId) {
         const found = await getAssessment(editingId);
@@ -155,6 +156,9 @@ const CrearPrueba = () => {
           toast.error("No se encontró la prueba");
           setAssessment(emptyAssessment(t[0].id));
         }
+      } else if (isNew) {
+        clearDraft();
+        if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
       } else {
         const draft = loadDraft();
         if (draft) setAssessment(draft);
