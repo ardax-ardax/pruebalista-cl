@@ -40,10 +40,10 @@ type AppRole = "admin" | "utp_head" | "docente";
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",
   utp_head: "Jefe UTP",
-  user: "Docente",
+  docente: "Docente",
 };
 
-const ROLE_PRIORITY: Record<AppRole, number> = { admin: 3, utp_head: 2, user: 1 };
+const ROLE_PRIORITY: Record<AppRole, number> = { admin: 3, utp_head: 2, docente: 1 };
 
 const topRole = (roles: AppRole[]): AppRole | null => {
   if (roles.length === 0) return null;
@@ -72,7 +72,7 @@ export const StaffManager = () => {
   // Invitaciones masivas
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [bulkText, setBulkText] = useState("");
-  const [bulkRole, setBulkRole] = useState<InvitationRole>("user");
+  const [bulkRole, setBulkRole] = useState<InvitationRole>("docente");
   const [importing, setImporting] = useState(false);
 
   const refresh = async () => {
@@ -282,7 +282,7 @@ export const StaffManager = () => {
                 </thead>
                 <tbody>
                   {profiles.map((p) => {
-                    const current = (rolesByUser.get(p.id) ?? "user") as AppRole;
+                    const current = (rolesByUser.get(p.id) ?? "docente") as AppRole;
                     return (
                       <tr key={p.id} className="border-t border-border">
                         <td className="px-3 py-1.5">
@@ -306,7 +306,7 @@ export const StaffManager = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="user">Docente</SelectItem>
+                              <SelectItem value="docente">Docente</SelectItem>
                               <SelectItem value="utp_head">Jefe UTP</SelectItem>
                               <SelectItem value="admin">Administrador</SelectItem>
                             </SelectContent>
@@ -422,7 +422,7 @@ export const StaffManager = () => {
               <Select value={bulkRole} onValueChange={(v) => setBulkRole(v as InvitationRole)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Docente</SelectItem>
+                  <SelectItem value="docente">Docente</SelectItem>
                   <SelectItem value="utp_head">Jefe UTP</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
