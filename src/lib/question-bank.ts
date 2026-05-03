@@ -111,3 +111,30 @@ export async function deleteFromBank(id: string): Promise<boolean> {
   }
   return true;
 }
+
+/**
+ * Soft-delete: oculta la pregunta para el docente sin eliminarla del banco general.
+ */
+export async function hideFromBank(id: string, userId: string): Promise<boolean> {
+  // Use raw SQL via rpc or update the array
+  const { data, error: fetchErr } = await supabase
+    .from("question_bank")
+    .select("hidden_by_users")
+    .eq("id", id)
+    .single();
+  if (fetchErr || !data) {
+    console.error("hideFromBank fetch", fetchErr);
+    return false;
+  }
+  const current = (data as Record<string, unknown>).hidden_by_users as string[] ?? [];
+  if (current.includes(userId)) return true;
+  const { error } = await supabase
+    .from("question_bank")
+    .update({ hidden_by_users: [...current, userId] })
+    .eq("id", id);
+  if (error) {
+    console.error("hideFromBank", error);
+    return false;
+  }
+  return true;
+}
