@@ -79,10 +79,13 @@ const CrearPrueba = () => {
   }, []);
 
   // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
+  // Si el docente no tiene asignaciones, es autónomo: tampoco restringimos.
   useEffect(() => {
     if (authLoading || !user) return;
     if (isStaff) { setRestrictedAssignments(null); return; }
-    listAssignmentsForTeacher(user.id).then(setRestrictedAssignments);
+    listAssignmentsForTeacher(user.id).then((a) =>
+      setRestrictedAssignments(a.length > 0 ? a : null)
+    );
   }, [user, isStaff, authLoading]);
 
   // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
