@@ -231,14 +231,17 @@ Deno.serve(async (req) => {
 
     const tool = pickTool(body);
 
+    const mcCount = Math.max(3, Math.min(5, body.optionCount ?? 4));
+    const tfCount = Math.max(2, Math.min(4, body.statementCount ?? 3));
+
     const systemPrompt = `Eres un docente experto del sistema escolar chileno. Diseñas evaluaciones alineadas a las Bases Curriculares (Mineduc).
 Reglas estrictas:
 - Redacta en español de Chile, claro y libre de ambigüedades.
 - Adapta la complejidad al curso indicado.
 - Las preguntas deben evaluar exactamente el OA entregado.
 - Si se entregan Indicadores de Evaluación específicos, la pregunta debe enfocarse en ellos prioritariamente, sin perder alineación con el OA.
-- En selección múltiple: 4 alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
-- En V/F: afirmaciones bien formuladas, mezcla equilibrada de V y F.
+- En selección múltiple: exactamente ${mcCount} alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
+- En V/F: exactamente ${tfCount} afirmaciones bien formuladas, mezcla equilibrada de V y F.
 - No incluyas la respuesta dentro del enunciado.
 - Estima la dificultad ("baja", "media" o "alta") según el curso.
 - Entrega siempre 'rubricExplanation': respuesta correcta detallada y criterios de corrección para la pauta.
