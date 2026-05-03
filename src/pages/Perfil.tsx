@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
 
 const FREE_MAX_ASSIGNMENTS = 5;
 
