@@ -3,7 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 
-export type AppRole = "admin" | "utp_head" | "user";
+export type AppRole = "admin" | "utp_head" | "docente";
 
 interface AuthContextValue {
   user: User | null;
@@ -20,7 +20,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const ROLE_PRIORITY: Record<AppRole, number> = { admin: 3, utp_head: 2, user: 1 };
+const ROLE_PRIORITY: Record<AppRole, number> = { admin: 3, utp_head: 2, docente: 1 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);

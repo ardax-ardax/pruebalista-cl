@@ -91,7 +91,7 @@ export default function Perfil() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Mi Perfil</h1>
           <p className="text-sm text-muted-foreground">
-            Personaliza tu nombre de institución y logo. Estos datos aparecerán en el encabezado de tus evaluaciones.
+            Personaliza el nombre de tu colegio y logo. Estos datos aparecerán en el encabezado de tus evaluaciones.
           </p>
         </div>
 
@@ -120,12 +120,12 @@ export default function Perfil() {
           <CardHeader>
             <CardTitle className="text-lg">Branding de evaluaciones</CardTitle>
             <CardDescription>
-              Estos datos reemplazan el encabezado institucional por defecto en tus pruebas.
+              Estos datos reemplazan el encabezado del colegio por defecto en tus pruebas.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="inst-name">Nombre de tu institución</Label>
+              <Label htmlFor="inst-name">Nombre de tu colegio</Label>
               <Input
                 id="inst-name"
                 placeholder="Ej: Colegio San Patricio"
@@ -138,7 +138,7 @@ export default function Perfil() {
             </div>
 
             <div className="space-y-2">
-              <Label>Logo de tu institución</Label>
+              <Label>Logo de tu colegio</Label>
               <div className="flex items-center gap-4">
                 {logoUrl ? (
                   <img
