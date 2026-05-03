@@ -1,41 +1,29 @@
-## Problema
 
-El `useBlocker` agregado en CrearPrueba se activa porque el autosave pone `isDirty = true` en cada cambio de `assessment`, incluyendo la carga inicial. Aunque para borradores locales se resetea inmediatamente, React puede renderizar con `shouldBlock = true` antes del reset. Esto puede causar que al navegar desde CrearPrueba (o al volver) el blocker interfiera, mostrando el confirm dialog inesperadamente o dejando la página en blanco.
+# Límite de 5 asignaciones para plan free
 
-## Solución
+## Para el usuario
+Los docentes podrán seleccionar sus cursos y asignaturas desde su perfil. En plan free, el máximo es 5 combinaciones. Pueden agregar y eliminar libremente, pero no exceder el límite. Al crear una prueba, solo verán los cursos/asignaturas que seleccionaron.
 
-### 1. Evitar que el blocker se active en la carga inicial (`CrearPrueba.tsx`)
+## Cambios
 
-- Agregar un `initialLoadRef = useRef(true)` que se pone en `false` después del primer render del assessment.
-- Cambiar `shouldBlock` a: `isDirty && !editingId && !initialLoadRef.current`
-- En el autosave effect, después de la primera ejecución, poner `initialLoadRef.current = false`.
+### 1. Migración de base de datos
+- Crear función `validate_teacher_assignment_limit()` que verifica el plan del docente en `user_usage`. Si es free y ya tiene 5, rechaza el insert.
+- Crear trigger `BEFORE INSERT` en `teacher_assignments` que ejecuta esa validación.
+- Agregar 2 políticas RLS en `teacher_assignments`:
+  - Docentes pueden insertar sus propias asignaciones
+  - Docentes pueden eliminar sus propias asignaciones
 
-### 2. No marcar `isDirty` en el autosave de borradores locales (`CrearPrueba.tsx`)
+### 2. Perfil.tsx — Nueva card "Mis cursos y asignaturas"
+- Solo visible para docentes (no staff).
+- Muestra contador: "3 de 5 asignaciones (plan free)" o "N asignaciones (sin límite)".
+- Lista de asignaciones actuales con badges y botón X para eliminar.
+- Selectores de Curso → Asignatura (filtrado por nivel) → botón Agregar.
+- Mensaje de límite alcanzado cuando hay 5 en plan free.
+- Validación de duplicados antes de agregar.
 
-- Para borradores locales (sin `editingId`), el autosave ya guarda y resetea `isDirty` inmediatamente. Pero no debería marcar `isDirty = true` en primer lugar si es la carga inicial.
-- Mover el `setIsDirty(true)` para que solo se ejecute después de la carga inicial.
+### 3. CrearPrueba.tsx — Sin cambios
+Ya carga las asignaciones del docente y las pasa a `AssessmentMetaForm` como `restrictedAssignments`. Si el docente tiene asignaciones, solo ve esos cursos/asignaturas al crear prueba.
 
-### Cambios concretos
-
-**Archivo: `src/pages/CrearPrueba.tsx`**
-
-1. Agregar `const initialLoadRef = useRef(true);` junto a `saveTimerRef`.
-
-2. En el autosave effect (línea ~230), después de guardar borrador local, agregar:
-   ```ts
-   initialLoadRef.current = false;
-   ```
-
-3. Cambiar `shouldBlock` (línea 79) a:
-   ```ts
-   const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
-   ```
-
-4. Para robustez adicional, cambiar el blocker a usar la función callback form:
-   ```ts
-   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-     shouldBlock && currentLocation.pathname !== nextLocation.pathname
-   );
-   ```
-
-Esto asegura que el blocker solo se active cuando hay una navegación real a otra página y el usuario ha hecho ediciones reales (no la carga inicial).
+### Archivos afectados
+- `supabase/migrations/` — nueva migración SQL
+- `src/pages/Perfil.tsx` — agregar card de asignaciones
