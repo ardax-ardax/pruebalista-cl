@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useSearchParams, useBlocker } from "react-router-dom";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,8 +74,7 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  // Navigation guard: warn on unsaved changes
-  const blocker = useBlocker(isDirty);
+  // Navigation guard: warn on unsaved changes (browser close/refresh only)
 
   useEffect(() => {
     if (!isDirty) return;
@@ -625,22 +623,6 @@ const CrearPrueba = () => {
           assessment={assessment}
           institutionName={institutionName}
         />
-
-        {/* Navigation blocker dialog */}
-        <Dialog open={blocker.state === "blocked"} onOpenChange={() => blocker.state === "blocked" && blocker.reset?.()}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>¿Salir sin guardar?</DialogTitle>
-              <DialogDescription>
-                Tienes cambios sin guardar en esta prueba. Si sales ahora, podrías perder los cambios.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => blocker.reset?.()}>Quedarme</Button>
-              <Button variant="destructive" onClick={() => blocker.proceed?.()}>Salir sin guardar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );

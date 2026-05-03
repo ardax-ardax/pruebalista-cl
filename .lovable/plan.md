@@ -1,8 +1,15 @@
-# Plan completado
 
-## Cambios implementados
+## Problem
 
-1. **Créditos visibles en generación IA** — `AIGenerateDialog` muestra créditos disponibles, deshabilita si 0, y refresca tras generar.
-2. **Preview paginación corregida** — `PaginatedAssessmentPreview` ahora descompone `.pa-content` en bloques individuales para paginar correctamente.
-3. **Guardado con indicador y protección de navegación** — Indicador permanente de estado (Al día / Sin guardar / Guardando / Error), `beforeunload` y `useBlocker` con diálogo de confirmación.
-4. **Banco de preguntas con detalle expandible** — Cada pregunta se puede expandir para ver enunciado completo, alternativas con correcta marcada, afirmaciones V/F, y metadata.
+The page is blank because `useBlocker` from react-router-dom requires a **data router** (created via `createBrowserRouter`), but the app uses the traditional `<BrowserRouter>`. This causes a runtime crash that breaks the entire page.
+
+## Fix (src/pages/CrearPrueba.tsx)
+
+1. **Remove `useBlocker` import** — change `import { useSearchParams, useBlocker } from "react-router-dom"` back to `import { useSearchParams } from "react-router-dom"`.
+2. **Remove the `Dialog` import** added for the blocker dialog (keep only if used elsewhere — it's not).
+3. **Remove the `const blocker = useBlocker(isDirty)` line**.
+4. **Remove the blocker dialog JSX** at the bottom of the return.
+5. **Keep the `beforeunload` listener** — it works for browser tab close/refresh and doesn't require a data router.
+6. **Keep the `isDirty` state and save status indicator** — these are fine and useful.
+
+No other files need changes. This single fix restores the page.
