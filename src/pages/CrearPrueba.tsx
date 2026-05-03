@@ -310,6 +310,7 @@ const CrearPrueba = () => {
         setSearchParams({ id: saved.id });
         clearDraft();
       }
+      setIsDirty(false);
       toast.success("Prueba guardada");
     } catch (e) {
       toast.error("No se pudo guardar: " + (e as Error).message);
