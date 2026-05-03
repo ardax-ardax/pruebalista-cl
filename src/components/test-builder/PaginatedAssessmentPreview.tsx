@@ -126,42 +126,55 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
       />
 
       <div className="flex flex-col items-center gap-6">
-        {pages.map((pageHtml, idx) => (
-          <div key={idx} className="flex flex-col items-center">
-            <div
-              style={{
-                background: "white",
-                color: "black",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
-                width: geom.widthPx,
-                minHeight: geom.heightPx,
-                height: isEssay ? "auto" : geom.heightPx,
-                paddingTop: geom.padTopPx,
-                paddingRight: geom.padRightPx,
-                paddingBottom: geom.padBottomPx,
-                paddingLeft: geom.padLeftPx,
-                boxSizing: "border-box",
-                overflow: "hidden",
-              }}
-            >
-              {isEssay ? (
+        {pages.map((pageHtml, idx) => {
+          const pageH = isEssay ? geom.heightPx : geom.heightPx;
+          return (
+            <div key={idx} className="flex flex-col items-center" style={{ width: geom.widthPx * scale }}>
+              <div
+                style={{
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top center",
+                  width: geom.widthPx,
+                  height: isEssay ? "auto" : pageH,
+                  marginBottom: isEssay ? 0 : (pageH * scale - pageH),
+                }}
+              >
                 <div
-                  style={{ width: "100%", height: "100%" }}
-                  dangerouslySetInnerHTML={{ __html: pageHtml }}
-                />
-              ) : (
-                <div
-                  className="pa-page"
-                  style={{ width: "100%", height: "100%" }}
-                  dangerouslySetInnerHTML={{ __html: pageHtml }}
-                />
-              )}
+                  style={{
+                    background: "white",
+                    color: "black",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
+                    width: geom.widthPx,
+                    minHeight: geom.heightPx,
+                    height: isEssay ? "auto" : geom.heightPx,
+                    paddingTop: geom.padTopPx,
+                    paddingRight: geom.padRightPx,
+                    paddingBottom: geom.padBottomPx,
+                    paddingLeft: geom.padLeftPx,
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                  }}
+                >
+                  {isEssay ? (
+                    <div
+                      style={{ width: "100%", height: "100%" }}
+                      dangerouslySetInnerHTML={{ __html: pageHtml }}
+                    />
+                  ) : (
+                    <div
+                      className="pa-page"
+                      style={{ width: "100%", height: "100%" }}
+                      dangerouslySetInnerHTML={{ __html: pageHtml }}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {isEssay ? "Vista previa (modo ensayo · columnas automáticas)" : `Página ${idx + 1} de ${pages.length}`}
+              </div>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {isEssay ? "Vista previa (modo ensayo · columnas automáticas)" : `Página ${idx + 1} de ${pages.length}`}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
