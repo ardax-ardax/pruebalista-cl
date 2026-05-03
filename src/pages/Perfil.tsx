@@ -22,7 +22,7 @@ const FREE_MAX_ASSIGNMENTS = 5;
 
 export default function Perfil() {
   const { user, role, isStaff } = useAuth();
-  const { effectivePlan } = useUserUsage();
+  const { effectivePlan, maxAssignments, planLabel } = useUserUsage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [institutionName, setInstitutionName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -44,9 +44,9 @@ export default function Perfil() {
     [selectedGrade, allSubjects, grades]
   );
 
-  const isFree = effectivePlan === "free";
-  const maxAssignments = isFree ? FREE_MAX_ASSIGNMENTS : Infinity;
-  const canAddMore = assignments.length < maxAssignments;
+  const hasLimit = maxAssignments !== null;
+  const maxAssign = maxAssignments ?? Infinity;
+  const canAddMore = assignments.length < maxAssign;
   const alreadyExists = assignments.some(
     (a) => a.grade_value === selectedGrade && a.subject_value === selectedSubject
   );
