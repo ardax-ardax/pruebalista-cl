@@ -121,12 +121,13 @@ export default function AdminDashboard() {
 
   /* --- Inline plan change --- */
   const handlePlanChange = async (userId: string, newPlan: string) => {
+    const planConfig = getPlan(newPlan);
     const { error } = await supabase
       .from("user_usage")
-      .update({ plan_type: newPlan })
+      .update({ plan_type: newPlan, credits_available: planConfig.default_credits })
       .eq("user_id", userId);
     if (error) { toast.error(error.message); return; }
-    toast.success("Plan actualizado");
+    toast.success(`Plan actualizado a ${planConfig.label} (${planConfig.default_credits} créditos)`);
     loadUsers();
   };
 
@@ -171,13 +172,13 @@ export default function AdminDashboard() {
     if (selectedUsers.size === 0) return;
     setBulkLoading(true);
     const ids = Array.from(selectedUsers);
+    const planConfig = getPlan(bulkPlan);
     const promises = ids.map((uid) =>
-      supabase.from("user_usage").update({ plan_type: bulkPlan }).eq("user_id", uid),
+      supabase.from("user_usage").update({ plan_type: bulkPlan, credits_available: planConfig.default_credits }).eq("user_id", uid),
     );
     await Promise.all(promises);
     setBulkLoading(false);
-    const label = getPlan(bulkPlan).label;
-    toast.success(`${ids.length} usuario(s) actualizados a ${label}`);
+    toast.success(`${ids.length} usuario(s) actualizados a ${planConfig.label} (${planConfig.default_credits} créditos)`);
     setSelectedUsers(new Set());
     loadUsers();
   };
