@@ -44,7 +44,7 @@ export async function generateQuestion(params: GenerateQuestionParams): Promise<
   if (!data || (data as { error?: string }).error) {
     throw new Error((data as { error?: string })?.error || "Respuesta vacía de la IA");
   }
-  const q = coerceGeneratedQuestion(data as RawGenerated, params.questionType);
+  const q = coerceGeneratedQuestion(data as RawGenerated, params.questionType, { optionCount: params.optionCount, statementCount: params.statementCount });
   q.sourceOA = params.oaCode;
   if (params.indicators && params.indicators.length > 0) {
     q.sourceIndicators = params.indicators.map((i) => i.code);
