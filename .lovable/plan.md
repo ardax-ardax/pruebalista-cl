@@ -1,38 +1,47 @@
 
-## Objetivo
+## Problema
 
-Tres mejoras:
-1. Permitir que docentes no institucionales (sin asignaciones UTP) creen pruebas libremente.
-2. Preview de prueba con escala automática (sin barras de scroll).
-3. Confirmar que el banco de preguntas muestra solo las preguntas propias para docentes.
+El docente no institucional actualmente:
+1. Ve botones de "Enviar a Revisión UTP" y estados de borrador/pendiente/rechazado/aprobado, que no aplican a un usuario autónomo.
+2. No tiene dónde configurar su propio nombre de colegio y logo (solo existe en Perfil, pero no se conecta bien al flujo de creación).
+3. Puede editar las plantillas base del admin, y no tiene forma clara de crear plantillas propias sin tocar las base.
 
 ---
 
-## Cambios
+## Solución
 
-### 1. Docente autónomo — `src/pages/CrearPrueba.tsx`
+### 1. Eliminar flujo UTP para docentes autónomos (`CrearPrueba.tsx`)
 
-Actualmente, si un docente no tiene `teacher_assignments`, el array queda vacío y bloquea la selección de asignaturas/niveles.
+Un docente sin asignaciones UTP (`restrictedAssignments === null` y `!isStaff`) es autónomo. Para estos usuarios:
 
-- Modificar el `useEffect` que carga asignaciones (línea ~82-86): si el resultado es un array vacío, setear `restrictedAssignments(null)` en lugar de un array vacío. Esto desbloquea todos los catálogos para docentes sin asignaciones.
-- Lógica: `if (isStaff) null; else if (assignments.length === 0) null; else assignments;`
+- **Ocultar** el botón "Enviar a Revisión UTP" (línea ~451).
+- **Ocultar** el banner read-only de "pendiente de revisión" y "aprobada" (línea ~460).
+- **Ocultar** el badge de estado (borrador/pendiente/aprobado/rechazado) en el título (línea ~392).
+- **Ocultar** el banner de "Evaluación rechazada por UTP" (línea ~473).
+- Las pruebas del docente autónomo se guardan siempre como `borrador` y se pueden editar/exportar libremente sin pasar por ningún flujo de aprobación.
 
-### 2. Perfil del docente — acceso a branding personalizado en `src/pages/Perfil.tsx`
+Se añade una variable `isAutonomous = !isStaff && restrictedAssignments === null` para simplificar las condiciones.
 
-- Agregar campos editables para "Nombre de institución" y "Logo" en la página de perfil, usando los campos existentes `custom_institution_name` y `custom_logo_url` de la tabla `profiles`.
-- Solo visible para docentes no institucionales (rol `user`).
+### 2. Branding del docente en Perfil (`Perfil.tsx`) — ya funciona
 
-### 3. Preview con escala automática — `src/components/test-builder/PaginatedAssessmentPreview.tsx`
+La página de Perfil ya permite al docente editar `custom_institution_name` y `custom_logo_url`. Y `CrearPrueba.tsx` (líneas 96-101) ya aplica ese branding personalizado al preview/export cuando el usuario no es staff.
 
-- Envolver el contenedor de páginas en un `div` con `ref` que mida su ancho disponible.
-- Calcular `scale = Math.min(1, containerWidth / geom.widthPx)`.
-- Aplicar `transform: scale(${scale})` con `transform-origin: top center` al contenedor de cada página.
-- Ajustar la altura del wrapper con `height * scale` para evitar espacio vacío.
-- Escuchar `resize` para recalcular.
+**Ajuste menor**: si el docente no tiene branding configurado, los campos del encabezado de la prueba deben quedar vacíos (no mostrar "New Little College La Florida"). Se modifica la lógica de fallback en `CrearPrueba.tsx` para que docentes autónomos arranquen con nombre vacío y sin logo si no tienen datos propios — así los formatos "vienen vacíos" como se requiere.
 
-### 4. Banco de preguntas — sin cambios necesarios
+### 3. Plantillas: solo lectura para docentes, crear personalizadas (`Configuracion.tsx`)
 
-El RLS ya restringe correctamente: docentes ven solo sus preguntas, admin/staff ve todas. El frontend en `BancoPreguntas.tsx` ya usa `isAdmin` para control de eliminación. No requiere modificaciones.
+Actualmente las plantillas solo se muestran al admin en Configuración. El docente necesita:
+
+- **Ver** las plantillas base (las 5 built-in) en modo solo lectura — sin botones de Editar, Eliminar ni Restaurar.
+- **Poder duplicar** una plantilla base para crear una personalizada propia.
+- **Poder crear, editar y eliminar** solo sus plantillas personalizadas (las que tienen `isBuiltIn: false`).
+
+**Implementación**: en `Configuracion.tsx`, se agrega una sección de plantillas visible también para docentes (`!isAdmin && !isUtpHead`). En esta sección:
+- Las plantillas built-in se muestran como tarjetas de solo lectura con un botón "Duplicar" únicamente.
+- Las plantillas custom del usuario se muestran con Editar/Eliminar.
+- Se mantiene el botón "Nueva plantilla" para crear desde cero.
+
+Nota: las plantillas se guardan en `localStorage`, por lo que cada usuario ya tiene su propia copia local. No hay conflicto entre admin y docente.
 
 ---
 
@@ -40,8 +49,7 @@ El RLS ya restringe correctamente: docentes ven solo sus preguntas, admin/staff 
 
 | Archivo | Cambio |
 |---|---|
-| `src/pages/CrearPrueba.tsx` | Desbloquear catálogos para docentes sin asignaciones |
-| `src/pages/Perfil.tsx` | Campos de branding personalizado para docentes |
-| `src/components/test-builder/PaginatedAssessmentPreview.tsx` | Escala automática fit-to-width |
+| `src/pages/CrearPrueba.tsx` | Variable `isAutonomous`; ocultar botón UTP, badges de estado y banners de revisión para docentes autónomos; fallback de branding vacío para autónomos |
+| `src/pages/Configuracion.tsx` | Sección de plantillas visible para docentes: solo lectura en built-in, CRUD en personalizadas |
 
 No se requieren migraciones de base de datos.
