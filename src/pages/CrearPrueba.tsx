@@ -455,15 +455,20 @@ const CrearPrueba = () => {
               </span>
             ) : saveStatus === "saved" ? (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                <Check className="h-3.5 w-3.5" /> Guardado
+                {editingId ? <Cloud className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                {editingId ? "Guardado en la nube" : "Borrador local"}
               </span>
             ) : isDirty ? (
               <span className="inline-flex items-center gap-1 text-xs text-amber-500">
                 <CloudOff className="h-3.5 w-3.5" /> Cambios sin guardar
               </span>
-            ) : (
+            ) : editingId ? (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                <Check className="h-3.5 w-3.5" /> Guardado
+                <Cloud className="h-3.5 w-3.5" /> Guardado en la nube
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <CloudOff className="h-3.5 w-3.5" /> No guardado en la nube
               </span>
             )}
             <Button variant="outline" size="sm" onClick={handleNew}>
