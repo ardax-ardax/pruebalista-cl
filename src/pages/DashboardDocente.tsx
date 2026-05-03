@@ -38,6 +38,14 @@ export default function DashboardDocente() {
   const subjects = loadSubjects();
   const grades = loadGrades();
 
+  const navigateToCreate = () => {
+    if (effectivePlan === "free" && assessments.length >= 10) {
+      toast.error("Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan.");
+      return;
+    }
+    navigate("/crear-prueba?new=1");
+  };
+
   useEffect(() => {
     if (!user) return;
 
