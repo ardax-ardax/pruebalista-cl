@@ -560,6 +560,7 @@ const CrearPrueba = () => {
                 canChooseTeacher={canChooseTeacher}
                 lockedTeacherLabel={lockedTeacherLabel}
                 allowSelfAssignment={appSettings.allow_self_assignment}
+                readOnlyExceptOA={!isStaff && !!editingId && !readOnly}
               />
             </div>
           </TabsContent>
