@@ -17,8 +17,9 @@ export interface GenerateQuestionParams {
   gradeLabel: string;
   subjectLabel: string;
   questionType: Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
-  /** Indicadores específicos a evaluar (opcional). Si vienen, la pregunta se enfoca en ellos. */
   indicators?: { code: string; description: string }[];
+  optionCount?: number; // 3-5 for MC
+  statementCount?: number; // 2-4 for TF
 }
 
 interface RawGenerated {
