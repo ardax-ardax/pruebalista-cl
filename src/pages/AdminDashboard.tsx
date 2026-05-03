@@ -277,6 +277,11 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
+          {/* ──── Plans Tab ──── */}
+          <TabsContent value="plans" className="space-y-4">
+            <PlansManager />
+          </TabsContent>
+
           {/* ──── Users Tab ──── */}
           <TabsContent value="users" className="space-y-4">
             <Card>
