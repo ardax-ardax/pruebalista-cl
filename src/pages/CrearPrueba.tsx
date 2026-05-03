@@ -94,10 +94,11 @@ const CrearPrueba = () => {
     if (!user) { setCurrentProfile(null); return; }
     getMyProfile().then((p) => {
       setCurrentProfile(p);
-      // Si el usuario NO es staff y tiene branding personalizado, usarlo
+      // Si el usuario NO es staff, usar branding personalizado del perfil.
+      // Si no tiene branding configurado, dejar vacío (no usar defaults institucionales).
       if (!isStaff && p) {
-        if (p.customInstitutionName) setInstitutionName(p.customInstitutionName);
-        if (p.customLogoUrl) setLogo(p.customLogoUrl);
+        setInstitutionName(p.customInstitutionName ?? "");
+        setLogo(p.customLogoUrl ?? null);
       }
     });
   }, [user?.id, isStaff]);
