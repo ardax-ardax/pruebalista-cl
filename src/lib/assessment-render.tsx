@@ -372,7 +372,13 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-watermark">Generado con PruebaLista.cl — Versión Gratuita</div>`
     : "";
 
-  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${title}${instructions}${oaHeader}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>`;
+  // OA position: "before-title" pone OA antes del título; default "after-instructions" después.
+  const oaBeforeTitle = meta.oaPosition === "before-title";
+  const headerOrder = oaBeforeTitle
+    ? `${oaHeader}${title}${instructions}`
+    : `${title}${instructions}${oaHeader}`;
+
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>`;
 
 }
 
