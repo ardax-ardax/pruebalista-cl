@@ -75,7 +75,16 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  // Carga app_settings (modo auto-asignación) al montar.
+  // Navigation guard: warn on unsaved changes
+  const blocker = useBlocker(isDirty);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
   useEffect(() => {
     loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
   }, []);
