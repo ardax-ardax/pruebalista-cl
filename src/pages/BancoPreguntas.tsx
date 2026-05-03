@@ -204,8 +204,8 @@ export default function BancoPreguntas() {
               options={subjects.map((s) => ({ value: s.value, label: s.label }))} />
             <FilterSelect label="Nivel" value={filters.grade_value} onChange={(v) => setFilter("grade_value", v)}
               options={grades.map((g) => ({ value: g.value, label: g.label }))} />
-            <FilterSelect label="Dificultad" value={filters.difficulty} onChange={(v) => setFilter("difficulty", v)}
-              options={DIFFICULTIES} />
+            {isStaff && <FilterSelect label="Dificultad" value={filters.difficulty} onChange={(v) => setFilter("difficulty", v)}
+              options={DIFFICULTIES} />}
             <FilterSelect label="Origen" value={filters.source} onChange={(v) => setFilter("source", v)}
               options={SOURCES} />
             <Button size="sm" onClick={applyFilters}>Buscar</Button>
@@ -237,7 +237,7 @@ export default function BancoPreguntas() {
                           <Badge variant="secondary" className="text-[10px]">
                             {QUESTION_TYPE_LABEL[row.question_type as QuestionType] ?? row.question_type}
                           </Badge>
-                          {row.difficulty && (
+                          {isStaff && row.difficulty && (
                             <Badge variant="outline" className="text-[10px] capitalize">{row.difficulty}</Badge>
                           )}
                           {row.source === "ai" && (
