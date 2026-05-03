@@ -34,7 +34,7 @@ interface Props {
   grades: GradeOption[];
   teachers: TeacherOption[];
   /**
-   * Si viene definido (rol "user") y el modo auto-asignación está OFF,
+   * Si viene definido (rol "docente") y el modo auto-asignación está OFF,
    * restringe Curso y Asignatura a las parejas asignadas a ese docente.
    * Si es null/undefined (admin/UTP) o auto-asignación está ON, catálogo completo.
    */
