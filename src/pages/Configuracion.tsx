@@ -7,6 +7,7 @@ import { TemplateEditor } from "@/components/TemplateEditor";
 import { CatalogManager } from "@/components/CatalogManager";
 import { CurriculumManager } from "@/components/admin/CurriculumManager";
 import { StaffManager } from "@/components/admin/StaffManager";
+import { ColegiosManager } from "@/components/admin/ColegiosManager";
 import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -448,6 +449,9 @@ const Configuracion = () => {
 
       {/* Consumo de IA por docente (solo UTP) */}
       {isUtpHead && <UtpUsageManager />}
+
+      {/* Gestión de Colegios (solo admin) */}
+      {isAdmin && <ColegiosManager />}
 
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}
