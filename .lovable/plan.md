@@ -1,29 +1,19 @@
 
-# Límite de 5 asignaciones para plan free
+# Correcciones: asignaciones docente
 
-## Para el usuario
-Los docentes podrán seleccionar sus cursos y asignaturas desde su perfil. En plan free, el máximo es 5 combinaciones. Pueden agregar y eliminar libremente, pero no exceder el límite. Al crear una prueba, solo verán los cursos/asignaturas que seleccionaron.
+## Problema 1: Card de asignaciones no aparece en perfil
+La condición `role === "docente"` requiere que `role` haya cargado. Como `role` se obtiene de forma asíncrona, puede ser `null` al momento del render inicial. Cambiaremos la condición a `!isStaff && role !== null` para que aparezca para cualquier usuario no-staff una vez que el rol haya cargado.
 
-## Cambios
+**Archivo**: `src/pages/Perfil.tsx` linea 53
+- Cambiar `const isDocente = role === "docente"` a `const isDocente = !isStaff && role !== null`
 
-### 1. Migración de base de datos
-- Crear función `validate_teacher_assignment_limit()` que verifica el plan del docente en `user_usage`. Si es free y ya tiene 5, rechaza el insert.
-- Crear trigger `BEFORE INSERT` en `teacher_assignments` que ejecuta esa validación.
-- Agregar 2 políticas RLS en `teacher_assignments`:
-  - Docentes pueden insertar sus propias asignaciones
-  - Docentes pueden eliminar sus propias asignaciones
+## Problema 2: Docentes sin asignaciones pueden crear pruebas
+Agregar validación en `CrearPrueba.tsx`: si el docente no es staff, tiene asignaciones cargadas (array vacío, no null), y el array está vacío, mostrar un mensaje indicando que debe configurar sus cursos en el perfil antes de crear pruebas.
 
-### 2. Perfil.tsx — Nueva card "Mis cursos y asignaturas"
-- Solo visible para docentes (no staff).
-- Muestra contador: "3 de 5 asignaciones (plan free)" o "N asignaciones (sin límite)".
-- Lista de asignaciones actuales con badges y botón X para eliminar.
-- Selectores de Curso → Asignatura (filtrado por nivel) → botón Agregar.
-- Mensaje de límite alcanzado cuando hay 5 en plan free.
-- Validación de duplicados antes de agregar.
+**Archivo**: `src/pages/CrearPrueba.tsx`
+- Detectar estado "docente sin asignaciones" después de cargar
+- Mostrar mensaje con link a `/perfil` en lugar del formulario de creación
 
-### 3. CrearPrueba.tsx — Sin cambios
-Ya carga las asignaciones del docente y las pasa a `AssessmentMetaForm` como `restrictedAssignments`. Si el docente tiene asignaciones, solo ve esos cursos/asignaturas al crear prueba.
-
-### Archivos afectados
-- `supabase/migrations/` — nueva migración SQL
-- `src/pages/Perfil.tsx` — agregar card de asignaciones
+## Archivos afectados
+- `src/pages/Perfil.tsx` — corregir condición isDocente
+- `src/pages/CrearPrueba.tsx` — bloquear creación sin asignaciones

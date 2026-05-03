@@ -59,6 +59,8 @@ const CrearPrueba = () => {
   const [exporting, setExporting] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
+  const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
+  const [hasZeroAssignments, setHasZeroAssignments] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
@@ -115,10 +117,12 @@ const CrearPrueba = () => {
   // Si el docente no tiene asignaciones, es autónomo: tampoco restringimos.
   useEffect(() => {
     if (authLoading || !user) return;
-    if (isStaff) { setRestrictedAssignments(null); return; }
-    listAssignmentsForTeacher(user.id).then((a) =>
-      setRestrictedAssignments(a.length > 0 ? a : null)
-    );
+    if (isStaff) { setRestrictedAssignments(null); setAssignmentsLoaded(true); setHasZeroAssignments(false); return; }
+    listAssignmentsForTeacher(user.id).then((a) => {
+      setRestrictedAssignments(a.length > 0 ? a : null);
+      setHasZeroAssignments(a.length === 0);
+      setAssignmentsLoaded(true);
+    });
   }, [user, isStaff, authLoading]);
 
   // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
@@ -313,6 +317,24 @@ const CrearPrueba = () => {
     return (
       <AppLayout>
         <div className="text-center py-20 text-muted-foreground">Cargando…</div>
+      </AppLayout>
+    );
+  }
+
+  // Docente sin asignaciones: bloquear creación de pruebas nuevas
+  if (!isStaff && assignmentsLoaded && hasZeroAssignments && !editingId) {
+    return (
+      <AppLayout>
+        <div className="max-w-lg mx-auto text-center py-20 space-y-4">
+          <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
+          <h2 className="text-xl font-semibold">Configura tus cursos primero</h2>
+          <p className="text-muted-foreground">
+            Antes de crear pruebas, debes seleccionar los cursos y asignaturas que impartes desde tu perfil.
+          </p>
+          <Button onClick={() => navigate("/perfil")}>
+            Ir a mi perfil
+          </Button>
+        </div>
       </AppLayout>
     );
   }
