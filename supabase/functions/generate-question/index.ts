@@ -21,6 +21,8 @@ interface Payload {
   subjectLabel: string;
   questionType: "multiple-choice" | "true-false" | "short-answer";
   indicators?: Indicator[];
+  optionCount?: number; // 3-5
+  statementCount?: number; // 2-4
 }
 
 const COMMON_FIELDS = {
