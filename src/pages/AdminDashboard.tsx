@@ -20,8 +20,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, CreditCard, Loader2, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { CalendarIcon, CreditCard, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PlansManager from "@/components/admin/PlansManager";
 
 /* ───────── Types ───────── */
 interface UserRow {
@@ -198,6 +199,7 @@ export default function AdminDashboard() {
         <Tabs defaultValue="settings">
           <TabsList>
             <TabsTrigger value="settings" className="gap-2"><Settings2 className="h-4 w-4" /> Ajustes</TabsTrigger>
+            <TabsTrigger value="plans" className="gap-2"><Package className="h-4 w-4" /> Planes</TabsTrigger>
             <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuarios</TabsTrigger>
             <TabsTrigger value="institutions" className="gap-2"><CreditCard className="h-4 w-4" /> Instituciones</TabsTrigger>
           </TabsList>
