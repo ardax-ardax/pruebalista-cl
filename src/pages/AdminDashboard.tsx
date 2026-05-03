@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlans } from "@/hooks/usePlans";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
 import { toast } from "sonner";
@@ -19,8 +20,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, CreditCard, Loader2, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { CalendarIcon, CreditCard, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PlansManager from "@/components/admin/PlansManager";
 
 /* ───────── Types ───────── */
 interface UserRow {
@@ -35,6 +37,7 @@ interface UserRow {
 /* ───────── Component ───────── */
 export default function AdminDashboard() {
   const { isAdmin } = useAuth();
+  const { plans, getPlan } = usePlans();
 
   /* --- Global settings --- */
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
@@ -143,7 +146,8 @@ export default function AdminDashboard() {
     loadUsers();
   };
 
-  /* --- Bulk institutional --- */
+  /* --- Bulk plan assign --- */
+  const [bulkPlan, setBulkPlan] = useState("institucional");
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -163,27 +167,26 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleBulkInstitutional = async () => {
+  const handleBulkPlanAssign = async () => {
     if (selectedUsers.size === 0) return;
     setBulkLoading(true);
     const ids = Array.from(selectedUsers);
-    // Update each user (supabase JS doesn't support IN for update easily)
     const promises = ids.map((uid) =>
-      supabase.from("user_usage").update({ plan_type: "institucional" }).eq("user_id", uid),
+      supabase.from("user_usage").update({ plan_type: bulkPlan }).eq("user_id", uid),
     );
     await Promise.all(promises);
     setBulkLoading(false);
-    toast.success(`${ids.length} usuario(s) actualizados a plan Institucional`);
+    const label = getPlan(bulkPlan).label;
+    toast.success(`${ids.length} usuario(s) actualizados a ${label}`);
     setSelectedUsers(new Set());
     loadUsers();
   };
 
   if (!isAdmin) return null;
 
-  const planBadge = (plan: string) => {
-    if (plan === "pro") return <Badge className="bg-primary/10 text-primary border-primary/20">Pro</Badge>;
-    if (plan === "institucional") return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Institucional</Badge>;
-    return <Badge variant="outline">Free</Badge>;
+  const planBadge = (planId: string) => {
+    const p = getPlan(planId);
+    return <Badge variant="outline" className="text-[10px]">{p.label}</Badge>;
   };
 
   return (
@@ -197,6 +200,7 @@ export default function AdminDashboard() {
         <Tabs defaultValue="settings">
           <TabsList>
             <TabsTrigger value="settings" className="gap-2"><Settings2 className="h-4 w-4" /> Ajustes</TabsTrigger>
+            <TabsTrigger value="plans" className="gap-2"><Package className="h-4 w-4" /> Planes</TabsTrigger>
             <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuarios</TabsTrigger>
             <TabsTrigger value="institutions" className="gap-2"><CreditCard className="h-4 w-4" /> Instituciones</TabsTrigger>
           </TabsList>
@@ -274,6 +278,11 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
+          {/* ──── Plans Tab ──── */}
+          <TabsContent value="plans" className="space-y-4">
+            <PlansManager />
+          </TabsContent>
+
           {/* ──── Users Tab ──── */}
           <TabsContent value="users" className="space-y-4">
             <Card>
@@ -325,9 +334,9 @@ export default function AdminDashboard() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="free">Free</SelectItem>
-                                <SelectItem value="pro">Pro</SelectItem>
-                                <SelectItem value="institucional">Institucional</SelectItem>
+                                {plans.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -383,13 +392,23 @@ export default function AdminDashboard() {
                       className="pl-9"
                     />
                   </div>
+                  <Select value={bulkPlan} onValueChange={setBulkPlan}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
-                    onClick={handleBulkInstitutional}
+                    onClick={handleBulkPlanAssign}
                     disabled={selectedUsers.size === 0 || bulkLoading}
                     className="gap-2"
                   >
                     {bulkLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Asignar Institucional ({selectedUsers.size})
+                    Asignar plan ({selectedUsers.size})
                   </Button>
                 </div>
                 <Table>

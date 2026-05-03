@@ -18,11 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
 
-const FREE_MAX_ASSIGNMENTS = 5;
+
 
 export default function Perfil() {
   const { user, role, isStaff } = useAuth();
-  const { effectivePlan } = useUserUsage();
+  const { effectivePlan, maxAssignments, planLabel } = useUserUsage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [institutionName, setInstitutionName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -44,9 +44,9 @@ export default function Perfil() {
     [selectedGrade, allSubjects, grades]
   );
 
-  const isFree = effectivePlan === "free";
-  const maxAssignments = isFree ? FREE_MAX_ASSIGNMENTS : Infinity;
-  const canAddMore = assignments.length < maxAssignments;
+  const hasLimit = maxAssignments !== null;
+  const maxAssign = maxAssignments ?? Infinity;
+  const canAddMore = assignments.length < maxAssign;
   const alreadyExists = assignments.some(
     (a) => a.grade_value === selectedGrade && a.subject_value === selectedSubject
   );
@@ -125,7 +125,7 @@ export default function Perfil() {
   const handleAddAssignment = async () => {
     if (!user || !selectedGrade || !selectedSubject) return;
     if (!canAddMore) {
-      toast.error(`El plan free permite máximo ${FREE_MAX_ASSIGNMENTS} asignaciones`);
+      toast.error(`Tu plan permite máximo ${maxAssign} asignaciones`);
       return;
     }
     if (alreadyExists) {
@@ -227,10 +227,10 @@ export default function Perfil() {
                   {/* Counter */}
                   <div className="flex items-center gap-2 text-sm">
                     <Info className="h-4 w-4 text-muted-foreground" />
-                    {isFree ? (
+                    {hasLimit ? (
                       <span className="text-muted-foreground">
-                        {assignments.length} de {FREE_MAX_ASSIGNMENTS} asignaciones
-                        <span className="ml-1 text-xs">(plan free)</span>
+                        {assignments.length} de {maxAssign} asignaciones
+                        <span className="ml-1 text-xs">({planLabel})</span>
                       </span>
                     ) : (
                       <span className="text-muted-foreground">
@@ -313,7 +313,7 @@ export default function Perfil() {
 
                   {!canAddMore && (
                     <p className="text-xs text-amber-600">
-                      Has alcanzado el límite de {FREE_MAX_ASSIGNMENTS} asignaciones del plan free. Elimina una para agregar otra, o actualiza tu plan.
+                      Has alcanzado el límite de {maxAssign} asignaciones de tu plan. Elimina una para agregar otra, o actualiza tu plan.
                     </p>
                   )}
                   {alreadyExists && selectedGrade && selectedSubject && (

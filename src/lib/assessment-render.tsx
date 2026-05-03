@@ -17,7 +17,8 @@ export interface RenderContext {
   subjectLabel: string;
   gradeLabel: string;
   teacherLabel: string;
-  planType?: "free" | "pro" | "institucional";
+  planType?: string;
+  showWatermark?: boolean;
 }
 
 // === CSS común para preview y print ===
@@ -367,8 +368,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `<div class="pa-footer">${escape(footerParts.join(" · "))}</div>`
     : "";
 
-  // Marca de agua solo para plan free
-  const watermark = ctx.planType === "free"
+  // Marca de agua según configuración del plan
+  const watermark = (ctx.showWatermark ?? ctx.planType === "free")
     ? `<div class="pa-watermark">Generado con PruebaLista.cl — Versión Gratuita</div>`
     : "";
 

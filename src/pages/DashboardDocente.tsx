@@ -25,7 +25,7 @@ const STATUS_COLOR: Record<AssessmentStatus, string> = {
 
 export default function DashboardDocente() {
   const { user } = useAuth();
-  const { effectivePlan, creditsAvailable, loading: usageLoading } = useUserUsage();
+  const { effectivePlan, creditsAvailable, loading: usageLoading, maxAssessments, planLabel } = useUserUsage();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -39,8 +39,8 @@ export default function DashboardDocente() {
   const grades = loadGrades();
 
   const navigateToCreate = () => {
-    if (effectivePlan === "free" && assessments.length >= 10) {
-      toast.error("Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan.");
+    if (maxAssessments !== null && assessments.length >= maxAssessments) {
+      toast.error(`Has alcanzado el límite de ${maxAssessments} pruebas en tu plan. Elimina una prueba existente o actualiza tu plan.`);
       return;
     }
     navigate("/crear-prueba?new=1");

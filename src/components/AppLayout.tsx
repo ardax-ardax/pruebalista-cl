@@ -20,7 +20,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
-  const { effectivePlan, creditsAvailable, loading: usageLoading } = useUserUsage();
+  const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
   const [hideCredits, setHideCredits] = useState(false);
@@ -88,16 +88,10 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             {user && !usageLoading && shouldHideCredits && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Plan Institucional</Badge>
             )}
-            {user && !usageLoading && !shouldHideCredits && effectivePlan === "free" && (
+            {user && !usageLoading && !shouldHideCredits && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
-                <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
+                <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA · {planLabel}
               </Badge>
-            )}
-            {user && !usageLoading && !shouldHideCredits && effectivePlan === "pro" && (
-              <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
-            )}
-            {user && !usageLoading && !shouldHideCredits && effectivePlan === "institucional" && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
             )}
             {user && (
               <DropdownMenu>
@@ -124,15 +118,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     )}
                     {!usageLoading && (
                       <div className="pt-1">
-                        {effectivePlan === "free" && (
-                          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">Plan Free</Badge>
-                        )}
-                        {effectivePlan === "pro" && (
-                          <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Plan Pro</Badge>
-                        )}
-                        {effectivePlan === "institucional" && (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Plan Institucional</Badge>
-                        )}
+                        <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{planLabel}</Badge>
                       </div>
                     )}
                   </DropdownMenuLabel>

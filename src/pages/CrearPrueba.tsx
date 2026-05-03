@@ -74,7 +74,7 @@ const CrearPrueba = () => {
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
-  const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
+  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, canExportDocx, showWatermark, canEditLayout, planLabel } = useUserUsage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
@@ -311,6 +311,7 @@ const CrearPrueba = () => {
       gradeLabel,
       teacherLabel,
       planType: effectivePlan,
+      showWatermark,
     };
   }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan]);
 
@@ -354,11 +355,11 @@ const CrearPrueba = () => {
   const handleSave = async () => {
     const err = validate();
     if (err) { toast.error(err); return; }
-    // Límite de 10 pruebas para plan Free (solo al crear nueva, no al editar)
-    if (!editingId && effectivePlan === "free") {
+    // Límite de pruebas según plan (solo al crear nueva, no al editar)
+    if (!editingId && maxAssessments !== null) {
       const existing = await listAssessments();
-      if (existing.length >= 10) {
-        toast.error("Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan.");
+      if (existing.length >= maxAssessments) {
+        toast.error(`Has alcanzado el límite de ${maxAssessments} pruebas en tu plan. Elimina una prueba existente o actualiza tu plan.`);
         return;
       }
     }
@@ -535,9 +536,9 @@ const CrearPrueba = () => {
                 <Printer className="h-4 w-4" /> Hoja OMR
               </Button>
             )}
-            {effectivePlan === "free" ? (
-              <Button size="sm" variant="secondary" disabled title="Disponible en plan Pro">
-                <Download className="h-4 w-4" /> .docx (Pro)
+            {!canExportDocx ? (
+              <Button size="sm" variant="secondary" disabled title="Disponible en un plan superior">
+                <Download className="h-4 w-4" /> .docx
               </Button>
             ) : (
               <Button size="sm" onClick={handleExportDocx} disabled={exporting}>
@@ -661,7 +662,7 @@ const CrearPrueba = () => {
                   <PreviewLayoutToolbar
                     meta={assessment.meta}
                     onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
-                    canEdit={isStaff || effectivePlan !== "institucional"}
+                    canEdit={isStaff || canEditLayout}
                   />
                   <Card className="shadow-card">
                     <CardContent className="p-0">
@@ -689,7 +690,7 @@ const CrearPrueba = () => {
               <PreviewLayoutToolbar
                 meta={assessment.meta}
                 onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
-                canEdit={isStaff || effectivePlan !== "institucional"}
+                canEdit={isStaff || canEditLayout}
               />
               <Card className="shadow-card">
                 <CardContent className="p-0">
