@@ -97,7 +97,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
     useSensor(KeyboardSensor),
   );
 
-  const add = (type: QuestionType) => onChange([...questions, newQuestion(type)]);
+  const add = (type: QuestionType) => onChange([...questions, newQuestion(type, { mcOptions: mcOpts, tfStatements: tfStmts })]);
   const update = (i: number, q: Question) => {
     const next = questions.slice();
     next[i] = q;
