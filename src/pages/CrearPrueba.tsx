@@ -115,16 +115,16 @@ const CrearPrueba = () => {
   }, []);
 
   // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
-  // Si el docente no tiene asignaciones, es autónomo: tampoco restringimos.
+  // Si el docente no tiene asignaciones, se bloquea la creación de pruebas nuevas.
   useEffect(() => {
     if (authLoading || !user) return;
-    if (isStaff) { setRestrictedAssignments(null); setAssignmentsLoaded(true); setHasZeroAssignments(false); return; }
+    if (!isDocente) { setRestrictedAssignments(null); setAssignmentsLoaded(true); setHasZeroAssignments(false); return; }
     listAssignmentsForTeacher(user.id).then((a) => {
       setRestrictedAssignments(a.length > 0 ? a : null);
       setHasZeroAssignments(a.length === 0);
       setAssignmentsLoaded(true);
     });
-  }, [user, isStaff, authLoading]);
+  }, [user, isDocente, authLoading]);
 
   // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
   // y para aplicar branding personalizado para usuarios individuales).
@@ -323,7 +323,7 @@ const CrearPrueba = () => {
   }
 
   // Docente sin asignaciones: bloquear creación de pruebas nuevas
-  if (!isStaff && assignmentsLoaded && hasZeroAssignments && !editingId) {
+  if (isDocente && assignmentsLoaded && hasZeroAssignments && !editingId) {
     return (
       <AppLayout>
         <div className="max-w-lg mx-auto text-center py-20 space-y-4">
