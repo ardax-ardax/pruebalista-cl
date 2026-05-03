@@ -76,13 +76,30 @@ const CrearPrueba = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Navigation guard: warn on unsaved changes (browser close/refresh only)
+  const shouldBlock = isDirty && !editingId;
 
   useEffect(() => {
-    if (!isDirty) return;
+    if (!shouldBlock) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
+  }, [shouldBlock]);
+
+  // Navigation guard: warn on in-app navigation when test not saved to cloud
+  const blocker = useBlocker(shouldBlock);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      const leave = window.confirm(
+        "Tu prueba aún no está guardada en la nube. Si sales, se perderán los cambios.\n\n¿Deseas salir de todas formas?"
+      );
+      if (leave) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker.state]);
 
   useEffect(() => {
     loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
