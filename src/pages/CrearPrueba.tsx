@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useBlocker } from "react-router-dom";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,6 +66,7 @@ const CrearPrueba = () => {
   const [rejectFeedback, setRejectFeedback] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [isDirty, setIsDirty] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
@@ -73,7 +75,16 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  // Carga app_settings (modo auto-asignación) al montar.
+  // Navigation guard: warn on unsaved changes
+  const blocker = useBlocker(isDirty);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
   useEffect(() => {
     loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
   }, []);
@@ -198,12 +209,14 @@ const CrearPrueba = () => {
   // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
     if (!assessment || readOnly) return;
+    setIsDirty(true);
     if (editingId) {
       setSaveStatus("saving");
       clearTimeout(saveTimerRef.current);
       upsertAssessment(assessment)
         .then(() => {
           setSaveStatus("saved");
+          setIsDirty(false);
           saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
         })
         .catch((e) => {
@@ -214,6 +227,7 @@ const CrearPrueba = () => {
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
+      setIsDirty(false);
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
@@ -296,6 +310,7 @@ const CrearPrueba = () => {
         setSearchParams({ id: saved.id });
         clearDraft();
       }
+      setIsDirty(false);
       toast.success("Prueba guardada");
     } catch (e) {
       toast.error("No se pudo guardar: " + (e as Error).message);
@@ -419,19 +434,25 @@ const CrearPrueba = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {saveStatus === "saving" && (
+            {saveStatus === "saving" ? (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground animate-pulse">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…
               </span>
-            )}
-            {saveStatus === "saved" && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                <Check className="h-3.5 w-3.5" /> Guardado ✓
-              </span>
-            )}
-            {saveStatus === "error" && (
+            ) : saveStatus === "error" ? (
               <span className="inline-flex items-center gap-1 text-xs text-destructive">
                 <CloudOff className="h-3.5 w-3.5" /> Error al guardar
+              </span>
+            ) : saveStatus === "saved" ? (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                <Cloud className="h-3.5 w-3.5" /> Guardado ✓
+              </span>
+            ) : isDirty ? (
+              <span className="inline-flex items-center gap-1 text-xs text-amber-500">
+                <CloudOff className="h-3.5 w-3.5" /> Sin guardar
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Cloud className="h-3.5 w-3.5" /> Al día
               </span>
             )}
             <Button variant="outline" size="sm" onClick={handleNew}>
@@ -552,6 +573,8 @@ const CrearPrueba = () => {
                     meta={assessment.meta}
                     gradeLabel={renderCtx.gradeLabel}
                     subjectLabel={renderCtx.subjectLabel}
+                    creditsAvailable={creditsAvailable}
+                    onCreditsUsed={refreshUsage}
                   />
                 </div>
                 <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
@@ -575,6 +598,8 @@ const CrearPrueba = () => {
                   meta={assessment.meta}
                   gradeLabel={renderCtx.gradeLabel}
                   subjectLabel={renderCtx.subjectLabel}
+                  creditsAvailable={creditsAvailable}
+                  onCreditsUsed={refreshUsage}
                 />
               </div>
             )}
@@ -600,6 +625,22 @@ const CrearPrueba = () => {
           assessment={assessment}
           institutionName={institutionName}
         />
+
+        {/* Navigation blocker dialog */}
+        <Dialog open={blocker.state === "blocked"} onOpenChange={() => blocker.state === "blocked" && blocker.reset?.()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Salir sin guardar?</DialogTitle>
+              <DialogDescription>
+                Tienes cambios sin guardar en esta prueba. Si sales ahora, podrías perder los cambios.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => blocker.reset?.()}>Quedarme</Button>
+              <Button variant="destructive" onClick={() => blocker.proceed?.()}>Salir sin guardar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

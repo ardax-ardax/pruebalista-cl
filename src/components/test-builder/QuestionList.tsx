@@ -26,6 +26,8 @@ interface Props {
   meta: AssessmentMeta;
   gradeLabel: string;
   subjectLabel: string;
+  creditsAvailable?: number;
+  onCreditsUsed?: () => void;
 }
 
 const ADDABLE: { type: QuestionType; label: string; icon: typeof Plus }[] = [
@@ -82,7 +84,7 @@ const SortableQuestionItem = (props: {
   );
 };
 
-export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel }: Props) => {
+export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel, creditsAvailable, onCreditsUsed }: Props) => {
 
   const [aiOpen, setAiOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
@@ -266,6 +268,8 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         subjectLabel={subjectLabel}
         essayMode={essayMode}
         onGenerated={(q) => onChange([...questions, q])}
+        creditsAvailable={creditsAvailable}
+        onCreditsUsed={onCreditsUsed}
       />
 
       <QuestionBankDialog
