@@ -1,47 +1,46 @@
 
-## Problema
+## Problemas y soluciones
 
-El docente no institucional actualmente:
-1. Ve botones de "Enviar a Revisión UTP" y estados de borrador/pendiente/rechazado/aprobado, que no aplican a un usuario autónomo.
-2. No tiene dónde configurar su propio nombre de colegio y logo (solo existe en Perfil, pero no se conecta bien al flujo de creación).
-3. Puede editar las plantillas base del admin, y no tiene forma clara de crear plantillas propias sin tocar las base.
+### 1. Créditos no visibles al generar preguntas con IA
+
+**Problema**: El diálogo de generación IA (`AIGenerateDialog.tsx`) no muestra cuántos créditos tiene el docente ni indica que se descuenta uno por pregunta generada.
+
+**Solución**: Pasar `creditsAvailable` y `effectivePlan` como props al `AIGenerateDialog`. Mostrar un texto informativo tipo "Créditos disponibles: X" y tras generar, llamar `refreshUsage()` para actualizar el contador. Si los créditos son 0, deshabilitar el botón de generar con mensaje explicativo.
 
 ---
 
-## Solución
+### 2. Preview: preguntas se mueven todas a la segunda hoja
 
-### 1. Eliminar flujo UTP para docentes autónomos (`CrearPrueba.tsx`)
+**Problema**: En `PaginatedAssessmentPreview.tsx`, la medición de bloques para paginación usa `getBoundingClientRect()` sobre un contenedor oculto cuyo ancho es `geom.usableWidthPx`. Si el encabezado del template (logo, nombre, datos) ocupa espacio pero no se contabiliza en la primera página, todos los bloques de contenido "no caben" y se desplazan a la página 2. Además, el contenedor de medición solo tiene el ancho de contenido útil pero el render real incluye paddings, lo que puede causar diferencias en el cálculo de alturas.
 
-Un docente sin asignaciones UTP (`restrictedAssignments === null` y `!isStaff`) es autónomo. Para estos usuarios:
+**Solución**: Revisar la lógica de paginación para que el encabezado se incluya como parte del contenido de la primera página (restando su altura del espacio disponible). Asegurar que el contenedor de medición replica fielmente las condiciones del render final (mismo ancho, mismos estilos). Si el encabezado es generado por `renderAssessmentHtml`, verificar que sus bloques hijo se midan correctamente.
 
-- **Ocultar** el botón "Enviar a Revisión UTP" (línea ~451).
-- **Ocultar** el banner read-only de "pendiente de revisión" y "aprobada" (línea ~460).
-- **Ocultar** el badge de estado (borrador/pendiente/aprobado/rechazado) en el título (línea ~392).
-- **Ocultar** el banner de "Evaluación rechazada por UTP" (línea ~473).
-- Las pruebas del docente autónomo se guardan siempre como `borrador` y se pueden editar/exportar libremente sin pasar por ningún flujo de aprobación.
+---
 
-Se añade una variable `isAutonomous = !isStaff && restrictedAssignments === null` para simplificar las condiciones.
+### 3. Sin aviso al cambiar de página con cambios sin guardar
 
-### 2. Branding del docente en Perfil (`Perfil.tsx`) — ya funciona
+**Problema**: No existe ningún mecanismo que avise al docente cuando navega fuera de la página de edición con cambios pendientes. El autosave actual solo funciona para pruebas ya guardadas en la nube (`editingId`); para pruebas nuevas solo guarda en localStorage.
 
-La página de Perfil ya permite al docente editar `custom_institution_name` y `custom_logo_url`. Y `CrearPrueba.tsx` (líneas 96-101) ya aplica ese branding personalizado al preview/export cuando el usuario no es staff.
+**Solución**:
+- Agregar un indicador visual permanente del estado de guardado (ya existe parcialmente con `saveStatus`, pero solo aparece brevemente).
+- Implementar `beforeunload` para el navegador (cierre de pestaña).
+- Usar `useBlocker` de react-router para interceptar la navegación interna y mostrar un diálogo de confirmación cuando hay cambios sin guardar.
+- Hacer el indicador de guardado siempre visible: icono de nube con estado (guardado/pendiente/error).
 
-**Ajuste menor**: si el docente no tiene branding configurado, los campos del encabezado de la prueba deben quedar vacíos (no mostrar "New Little College La Florida"). Se modifica la lógica de fallback en `CrearPrueba.tsx` para que docentes autónomos arranquen con nombre vacío y sin logo si no tienen datos propios — así los formatos "vienen vacíos" como se requiere.
+---
 
-### 3. Plantillas: solo lectura para docentes, crear personalizadas (`Configuracion.tsx`)
+### 4. Banco de preguntas: no se ven preguntas completas ni alternativas
 
-Actualmente las plantillas solo se muestran al admin en Configuración. El docente necesita:
+**Problema**: En `QuestionBankDialog.tsx`, cada pregunta se muestra con `truncate` (una línea truncada) y solo el `prompt_preview` (máximo 120 caracteres). No se ven las alternativas, enunciado completo, ni datos de V/F.
 
-- **Ver** las plantillas base (las 5 built-in) en modo solo lectura — sin botones de Editar, Eliminar ni Restaurar.
-- **Poder duplicar** una plantilla base para crear una personalizada propia.
-- **Poder crear, editar y eliminar** solo sus plantillas personalizadas (las que tienen `isBuiltIn: false`).
+**Solución**: Agregar un panel de detalle expandible (acordeón o panel lateral) dentro del diálogo. Al hacer clic en una pregunta (o un botón "Ver"), se expande para mostrar:
+- Enunciado completo (`question_data.prompt`)
+- Alternativas con indicador de correcta (para selección múltiple)
+- Afirmaciones V/F (para verdadero/falso)
+- Líneas de respuesta (para desarrollo)
+- Dificultad y OA asociado
 
-**Implementación**: en `Configuracion.tsx`, se agrega una sección de plantillas visible también para docentes (`!isAdmin && !isUtpHead`). En esta sección:
-- Las plantillas built-in se muestran como tarjetas de solo lectura con un botón "Duplicar" únicamente.
-- Las plantillas custom del usuario se muestran con Editar/Eliminar.
-- Se mantiene el botón "Nueva plantilla" para crear desde cero.
-
-Nota: las plantillas se guardan en `localStorage`, por lo que cada usuario ya tiene su propia copia local. No hay conflicto entre admin y docente.
+Se quita el `truncate` del prompt y se permite ver el texto completo.
 
 ---
 
@@ -49,7 +48,9 @@ Nota: las plantillas se guardan en `localStorage`, por lo que cada usuario ya ti
 
 | Archivo | Cambio |
 |---|---|
-| `src/pages/CrearPrueba.tsx` | Variable `isAutonomous`; ocultar botón UTP, badges de estado y banners de revisión para docentes autónomos; fallback de branding vacío para autónomos |
-| `src/pages/Configuracion.tsx` | Sección de plantillas visible para docentes: solo lectura en built-in, CRUD en personalizadas |
+| `src/components/test-builder/AIGenerateDialog.tsx` | Recibir props de créditos, mostrar contador, deshabilitar si créditos = 0, callback para refresh |
+| `src/pages/CrearPrueba.tsx` | Pasar créditos al AIGenerateDialog, agregar `useBlocker` + `beforeunload`, indicador de guardado persistente |
+| `src/components/test-builder/PaginatedAssessmentPreview.tsx` | Corregir medición de bloques para incluir encabezado en primera página |
+| `src/components/test-builder/QuestionBankDialog.tsx` | Agregar vista expandida de preguntas con enunciado completo y alternativas |
 
 No se requieren migraciones de base de datos.
