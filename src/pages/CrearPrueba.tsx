@@ -173,6 +173,9 @@ const CrearPrueba = () => {
   }, []);
 
 
+  // Docente autónomo: sin asignaciones UTP y no es staff → no pasa por flujo de revisión.
+  const isAutonomous = !isStaff && restrictedAssignments === null;
+
   // Determina si la prueba es de solo lectura para el docente
   const isOwnAssessment = !ownerId || ownerId === user?.id;
   const assessmentStatus = assessment?.status ?? "borrador";
@@ -180,7 +183,9 @@ const CrearPrueba = () => {
     if (!assessment) return false;
     // Staff siempre puede editar
     if (isStaff) return false;
-    // Docente: solo puede editar en borrador o rechazado
+    // Docentes autónomos siempre pueden editar sus pruebas
+    if (isAutonomous) return false;
+    // Docente institucional: solo puede editar en borrador o rechazado
     return assessmentStatus === "pendiente_revision" || assessmentStatus === "aprobado";
   })();
 
