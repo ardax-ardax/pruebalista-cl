@@ -422,7 +422,7 @@ const CrearPrueba = () => {
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Construye una evaluación estandarizada. El formato institucional se aplica automáticamente al exportar.
+              Construye una evaluación estandarizada. El formato del colegio se aplica automáticamente al exportar.
             </p>
             {isStaff && ownerId && ownerId !== user?.id && (
               <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs text-amber-900">
