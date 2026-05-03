@@ -455,7 +455,7 @@ const Configuracion = () => {
       {/* Gestión Curricular (solo admin) */}
       {isAdmin && <CurriculumManager />}
 
-      {/* Plantillas (solo admin puede editar) */}
+      {/* Plantillas (solo admin puede editar built-in) */}
       {isAdmin && (
       <>
       <div className="flex items-center justify-between mb-4">
@@ -527,6 +527,93 @@ const Configuracion = () => {
                 </div>
               </CardHeader>
               {isEditing && editing && (
+                <CardContent className="space-y-4">
+                  <TemplateEditor template={editing} onChange={setEditing} />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={cancelEdit}>Cancelar</Button>
+                    <Button onClick={saveEdit} className="gap-2">
+                      <Save className="h-4 w-4" />
+                      Guardar cambios
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+      </>
+      )}
+
+      {/* Plantillas para docentes (no admin, no UTP): solo lectura en built-in, CRUD en personalizadas */}
+      {!isAdmin && !isUtpHead && (
+      <>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">Plantillas de formato</h2>
+          <p className="text-sm text-muted-foreground">
+            Puedes duplicar las plantillas base para crear tus propias versiones personalizadas.
+          </p>
+        </div>
+        <Button onClick={handleNew} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Nueva plantilla
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        {templates.map((t) => {
+          const isEditing = editingId === t.id;
+          return (
+            <Card key={t.id} className="shadow-card">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                <div className="flex-1 min-w-0">
+                  {isEditing && !t.isBuiltIn ? (
+                    <Input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="font-semibold"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base">{t.name}</CardTitle>
+                      {t.isBuiltIn ? (
+                        <Badge variant="secondary" className="text-[10px]">Plantilla base · Solo lectura</Badge>
+                      ) : (
+                        <Badge className="bg-accent text-accent-foreground text-[10px]">Personalizada</Badge>
+                      )}
+                    </div>
+                  )}
+                  <CardDescription className="mt-1.5">{t.description}</CardDescription>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!isEditing && (
+                    <>
+                      {/* Built-in: solo duplicar */}
+                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(t)} title="Duplicar">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      {/* Custom: editar y eliminar */}
+                      {!t.isBuiltIn && (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => startEdit(t)}>
+                            Editar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setConfirmDeleteId(t.id)}
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </CardHeader>
+              {isEditing && !t.isBuiltIn && editing && (
                 <CardContent className="space-y-4">
                   <TemplateEditor template={editing} onChange={setEditing} />
                   <div className="flex justify-end gap-2">
