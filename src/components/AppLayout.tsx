@@ -20,7 +20,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
-  const { effectivePlan, creditsAvailable } = useUserUsage();
+  const { effectivePlan, creditsAvailable, loading: usageLoading } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
   const [hideCredits, setHideCredits] = useState(false);
@@ -84,18 +84,18 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && shouldHideCredits && (
+            {user && !usageLoading && shouldHideCredits && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Plan Institucional</Badge>
             )}
-            {user && !shouldHideCredits && effectivePlan === "free" && (
+            {user && !usageLoading && !shouldHideCredits && effectivePlan === "free" && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA
               </Badge>
             )}
-            {user && !shouldHideCredits && effectivePlan === "pro" && (
+            {user && !usageLoading && !shouldHideCredits && effectivePlan === "pro" && (
               <Badge className="bg-primary/10 text-primary text-[10px] font-medium border-primary/20">Pro</Badge>
             )}
-            {user && !shouldHideCredits && effectivePlan === "institucional" && (
+            {user && !usageLoading && !shouldHideCredits && effectivePlan === "institucional" && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Institucional</Badge>
             )}
             {user && (
