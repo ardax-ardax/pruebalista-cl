@@ -1,15 +1,24 @@
 ## Cambios
 
-### 1. Crear prueba siempre empieza desde cero
+### 1. Indicador de plan en el menú del avatar
 
-**Archivos:** `DashboardDocente.tsx`, `CrearPrueba.tsx`
+**Archivo:** `src/components/AppLayout.tsx`
 
-- En `DashboardDocente.tsx`: cambiar los `navigate("/crear-prueba")` a `navigate("/crear-prueba?new=1")` (líneas 182 y 215).
-- En `CrearPrueba.tsx`: cuando `searchParams` contenga `new=1`, llamar `clearDraft()` y crear un `emptyAssessment()` limpio, ignorando cualquier borrador previo.
-- Deshabilitar las pestañas "Contenido" y "Vista previa" hasta que los campos obligatorios (curso, asignatura, título) estén completos, mostrando un tooltip indicando qué falta.
+- En el `DropdownMenuLabel` del avatar (donde se muestra el nombre y email), agregar un badge debajo del email indicando el plan actual:
+  - **Free**: Badge gris con texto "Plan Free"
+  - **Pro**: Badge azul/primario con texto "Plan Pro"
+  - **Institucional**: Badge verde con texto "Plan Institucional"
+- Se usa `effectivePlan` que ya está disponible en el componente.
 
-### 2. Rango de afirmaciones V/F: 3 a 5
+### 2. Límite de 10 pruebas guardadas para plan Free
 
-**Archivo:** `AssessmentMetaForm.tsx`
+**Archivo:** `src/pages/CrearPrueba.tsx` (o donde se llama a `upsertAssessment`)
 
-- Cambiar las opciones del selector de Verdadero/Falso de `[2, 3, 4]` a `[3, 4, 5]` afirmaciones, alineándolo con el selector de alternativas múltiples.
+- Antes de guardar una prueba nueva, si `effectivePlan === "free"`, contar las pruebas existentes del usuario con `listAssessments()`.
+- Si ya tiene 10 o más, mostrar un toast de error: "Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan."
+- Si es una edición de prueba existente (ya tiene ID guardado), permitir guardar sin restricción.
+- Pro e Institucional: sin límite.
+
+**Archivo:** `src/pages/DashboardDocente.tsx`
+
+- Aplicar la misma validación al presionar "Crear Prueba": si ya tiene 10, mostrar el mensaje y no navegar.

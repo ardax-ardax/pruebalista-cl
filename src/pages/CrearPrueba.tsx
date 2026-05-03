@@ -28,6 +28,7 @@ import {
 import {
   clearDraft,
   getAssessment,
+  listAssessments,
   loadDraft,
   saveDraft,
   upsertAssessment,
@@ -305,6 +306,14 @@ const CrearPrueba = () => {
   const handleSave = async () => {
     const err = validate();
     if (err) { toast.error(err); return; }
+    // Límite de 10 pruebas para plan Free (solo al crear nueva, no al editar)
+    if (!editingId && effectivePlan === "free") {
+      const existing = await listAssessments();
+      if (existing.length >= 10) {
+        toast.error("Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan.");
+        return;
+      }
+    }
     try {
       const saved = await upsertAssessment(assessment);
       setAssessment(saved);

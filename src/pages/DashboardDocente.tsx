@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FilePlus2, Library, FileText, Sparkles, ArrowRight, Clock } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
 import { getMyProfile, type Profile } from "@/lib/profiles";
@@ -36,6 +37,14 @@ export default function DashboardDocente() {
 
   const subjects = loadSubjects();
   const grades = loadGrades();
+
+  const navigateToCreate = () => {
+    if (effectivePlan === "free" && assessments.length >= 10) {
+      toast.error("Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan.");
+      return;
+    }
+    navigate("/crear-prueba?new=1");
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -179,7 +188,7 @@ export default function DashboardDocente() {
 
       {/* Acciones rápidas */}
       <section className="flex flex-wrap gap-3 mb-8">
-        <Button onClick={() => navigate("/crear-prueba?new=1")} className="gap-2">
+        <Button onClick={navigateToCreate} className="gap-2">
           <FilePlus2 className="h-4 w-4" />
           Crear nueva prueba
         </Button>
@@ -212,7 +221,7 @@ export default function DashboardDocente() {
             <CardContent className="py-12 text-center">
               <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">Aún no has creado pruebas.</p>
-              <Button onClick={() => navigate("/crear-prueba?new=1")} className="mt-4 gap-2" size="sm">
+              <Button onClick={navigateToCreate} className="mt-4 gap-2" size="sm">
                 <FilePlus2 className="h-4 w-4" />
                 Crear mi primera prueba
               </Button>
