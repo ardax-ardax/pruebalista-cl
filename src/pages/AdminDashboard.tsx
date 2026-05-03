@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlans } from "@/hooks/usePlans";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ interface UserRow {
 /* ───────── Component ───────── */
 export default function AdminDashboard() {
   const { isAdmin } = useAuth();
+  const { plans, getPlan } = usePlans();
 
   /* --- Global settings --- */
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
@@ -180,10 +182,9 @@ export default function AdminDashboard() {
 
   if (!isAdmin) return null;
 
-  const planBadge = (plan: string) => {
-    if (plan === "pro") return <Badge className="bg-primary/10 text-primary border-primary/20">Pro</Badge>;
-    if (plan === "institucional") return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Institucional</Badge>;
-    return <Badge variant="outline">Free</Badge>;
+  const planBadge = (planId: string) => {
+    const p = getPlan(planId);
+    return <Badge variant="outline" className="text-[10px]">{p.label}</Badge>;
   };
 
   return (
@@ -325,9 +326,9 @@ export default function AdminDashboard() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="free">Free</SelectItem>
-                                <SelectItem value="pro">Pro</SelectItem>
-                                <SelectItem value="institucional">Institucional</SelectItem>
+                                {plans.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </TableCell>
