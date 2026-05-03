@@ -252,7 +252,7 @@ export const newStatement = (answer: "V" | "F" = "V"): TfStatement => ({
   points: 1,
 });
 
-export const newQuestion = (type: QuestionType): Question => {
+export const newQuestion = (type: QuestionType, opts?: { mcOptions?: number; tfStatements?: number }): Question => {
   const base: Question = {
     id: newId(),
     type,
@@ -260,14 +260,16 @@ export const newQuestion = (type: QuestionType): Question => {
     points: type === "info-block" || type === "section-title" || type === "true-false" ? undefined : 1,
   };
   if (type === "multiple-choice") {
-    base.options = ["a", "b", "c", "d"].map((_, i) => ({
+    const count = Math.max(3, Math.min(5, opts?.mcOptions ?? 4));
+    base.options = Array.from({ length: count }, (_, i) => ({
       id: newId(),
       text: "",
       correct: i === 0,
     }));
   }
   if (type === "true-false") {
-    base.statements = [newStatement("V")];
+    const count = Math.max(2, Math.min(4, opts?.tfStatements ?? 3));
+    base.statements = Array.from({ length: count }, (_, i) => newStatement(i % 2 === 0 ? "V" : "F"));
   }
   if (type === "short-answer") {
     base.answerLines = 3;
