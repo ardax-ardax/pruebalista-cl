@@ -46,7 +46,9 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
   const html = useMemo(() => renderAssessmentHtml(ctx), [ctx]);
   const geom = useMemo(() => geomFromTemplate(ctx), [ctx]);
   const measureRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState<string[]>([html]);
+  const [scale, setScale] = useState(1);
   const isEssay = !!ctx.template.essayMode;
 
   useLayoutEffect(() => {
