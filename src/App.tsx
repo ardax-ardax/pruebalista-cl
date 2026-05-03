@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { UserUsageProvider } from "@/hooks/useUserUsage";
+import { PlansProvider } from "@/hooks/usePlans";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
@@ -27,6 +28,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <PlansProvider>
           <UserUsageProvider>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
@@ -41,6 +43,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </UserUsageProvider>
+          </PlansProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
