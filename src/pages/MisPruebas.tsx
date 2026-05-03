@@ -220,7 +220,9 @@ const MisPruebas = () => {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">
                         {a.meta.title || "Sin título"}
-                        <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
+                        {(!isAutonomous || isStaff) && (
+                          <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                         <span>{labelOf(subjects, a.meta.subjectValue)}</span>
