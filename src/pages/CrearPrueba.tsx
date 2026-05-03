@@ -123,15 +123,18 @@ const CrearPrueba = () => {
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
-    // Branding: caché local primero (rápido), luego backend (autoritativo y compartido).
-    setLogo(loadLogo());
-    setInstitutionName(loadInstitutionName() || "New Little College La Florida");
-    loadAppSettings()
-      .then(async (s) => {
-        setLogo(s.institution_logo || await loadDefaultInstitutionLogo());
-        setInstitutionName(s.institution_name || "New Little College La Florida");
-      })
-      .catch(() => {/* keep local */});
+    // Branding: solo staff usa branding institucional del backend.
+    // Docentes autónomos usan su perfil (cargado en otro useEffect).
+    if (isStaff) {
+      setLogo(loadLogo());
+      setInstitutionName(loadInstitutionName() || "New Little College La Florida");
+      loadAppSettings()
+        .then(async (s) => {
+          setLogo(s.institution_logo || await loadDefaultInstitutionLogo());
+          setInstitutionName(s.institution_name || "New Little College La Florida");
+        })
+        .catch(() => {/* keep local */});
+    }
 
     // Si hay ?id=, cargar esa prueba; si no, borrador o nueva.
     (async () => {
