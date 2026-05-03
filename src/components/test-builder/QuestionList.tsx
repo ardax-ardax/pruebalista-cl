@@ -26,6 +26,8 @@ interface Props {
   meta: AssessmentMeta;
   gradeLabel: string;
   subjectLabel: string;
+  creditsAvailable?: number;
+  onCreditsUsed?: () => void;
 }
 
 const ADDABLE: { type: QuestionType; label: string; icon: typeof Plus }[] = [
