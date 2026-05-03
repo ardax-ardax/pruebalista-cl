@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadGrades, loadSubjects } from "@/lib/catalog";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
 import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Item { assessment: Assessment; userId: string; }
 
