@@ -74,8 +74,7 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  // Navigation guard: warn on unsaved changes
-  const blocker = useBlocker(isDirty);
+  // Navigation guard: warn on unsaved changes (browser close/refresh only)
 
   useEffect(() => {
     if (!isDirty) return;
