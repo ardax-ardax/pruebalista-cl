@@ -33,23 +33,18 @@ interface Props {
   subjects: SubjectOption[];
   grades: GradeOption[];
   teachers: TeacherOption[];
-  /**
-   * Si viene definido (rol "docente") y el modo auto-asignación está OFF,
-   * restringe Curso y Asignatura a las parejas asignadas a ese docente.
-   * Si es null/undefined (admin/UTP) o auto-asignación está ON, catálogo completo.
-   */
   restrictedAssignments?: TeacherAssignment[] | null;
-  /** True para admin/utp_head: pueden cambiar libremente el docente. */
   canChooseTeacher?: boolean;
-  /** Etiqueta para mostrar como docente bloqueado cuando no es staff. */
   lockedTeacherLabel?: string;
-  /** Si es true, ignora restrictedAssignments (modo auto-asignación). */
   allowSelfAssignment?: boolean;
+  /** Cuando true, todos los campos son readonly excepto OA y cantidad de alternativas */
+  readOnlyExceptOA?: boolean;
 }
 
 export const AssessmentMetaForm = ({
   meta, onChange, templates, subjects, grades, teachers, restrictedAssignments,
   canChooseTeacher = true, lockedTeacherLabel, allowSelfAssignment = false,
+  readOnlyExceptOA = false,
 }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
 
