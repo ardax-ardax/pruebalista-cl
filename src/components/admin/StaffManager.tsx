@@ -35,7 +35,7 @@ import {
   type SubjectOption,
 } from "@/lib/catalog";
 
-type AppRole = "admin" | "utp_head" | "user";
+type AppRole = "admin" | "utp_head" | "docente";
 
 const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",

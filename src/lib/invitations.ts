@@ -2,7 +2,7 @@
 // por primera vez, el trigger handle_new_user le aplicará el rol indicado.
 import { supabase } from "@/integrations/supabase/client";
 
-export type InvitationRole = "admin" | "utp_head" | "user";
+export type InvitationRole = "admin" | "utp_head" | "docente";
 
 export interface PendingInvitation {
   id: string;

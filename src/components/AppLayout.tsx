@@ -49,7 +49,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Si hide_credits está activo y el usuario es docente (rol user), ocultar créditos y mostrar badge institucional
-  const isTeacher = role === "user" || (!role && !isStaff && !isAdmin);
+  const isTeacher = role === "docente" || (!role && !isStaff && !isAdmin);
   const shouldHideCredits = hideCredits && isTeacher;
 
   return (
