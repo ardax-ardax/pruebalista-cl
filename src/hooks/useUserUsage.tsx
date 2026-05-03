@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
@@ -25,16 +25,27 @@ const DEFAULT_USAGE: UserUsage = {
 
 function computeEffectivePlan(planType: PlanType, expiresAt: string | null): PlanType {
   if (planType === "free") return "free";
-  if (!expiresAt) return planType; // no expiry → active forever
+  if (!expiresAt) return planType;
   return new Date(expiresAt) > new Date() ? planType : "free";
 }
 
-export function useUserUsage() {
+interface UserUsageContextType extends UserUsage {
+  loading: boolean;
+  refresh: () => Promise<void>;
+}
+
+const UserUsageContext = createContext<UserUsageContextType>({
+  ...DEFAULT_USAGE,
+  loading: true,
+  refresh: async () => {},
+});
+
+export function UserUsageProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [usage, setUsage] = useState<UserUsage>(DEFAULT_USAGE);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("user_usage")
@@ -53,12 +64,20 @@ export function useUserUsage() {
       });
     }
     setLoading(false);
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     refresh();
-  }, [user?.id]);
+  }, [user?.id, refresh]);
 
-  return { ...usage, loading, refresh };
+  return (
+    <UserUsageContext.Provider value={{ ...usage, loading, refresh }}>
+      {children}
+    </UserUsageContext.Provider>
+  );
+}
+
+export function useUserUsage() {
+  return useContext(UserUsageContext);
 }

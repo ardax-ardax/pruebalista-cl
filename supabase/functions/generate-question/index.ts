@@ -21,6 +21,8 @@ interface Payload {
   subjectLabel: string;
   questionType: "multiple-choice" | "true-false" | "short-answer";
   indicators?: Indicator[];
+  optionCount?: number; // 3-5
+  statementCount?: number; // 2-4
 }
 
 const COMMON_FIELDS = {
@@ -111,9 +113,40 @@ const TOOL_SA = {
   },
 };
 
-function pickTool(t: Payload["questionType"]) {
-  if (t === "multiple-choice") return TOOL_MC;
-  if (t === "true-false") return TOOL_TF;
+function pickTool(body: Payload) {
+  const t = body.questionType;
+  if (t === "multiple-choice") {
+    const count = Math.max(3, Math.min(5, body.optionCount ?? 4));
+    return {
+      ...TOOL_MC,
+      function: {
+        ...TOOL_MC.function,
+        parameters: {
+          ...TOOL_MC.function.parameters,
+          properties: {
+            ...TOOL_MC.function.parameters.properties,
+            options: { ...TOOL_MC.function.parameters.properties.options, minItems: count, maxItems: count },
+          },
+        },
+      },
+    };
+  }
+  if (t === "true-false") {
+    const count = Math.max(2, Math.min(4, body.statementCount ?? 3));
+    return {
+      ...TOOL_TF,
+      function: {
+        ...TOOL_TF.function,
+        parameters: {
+          ...TOOL_TF.function.parameters,
+          properties: {
+            ...TOOL_TF.function.parameters.properties,
+            statements: { ...TOOL_TF.function.parameters.properties.statements, minItems: count, maxItems: count },
+          },
+        },
+      },
+    };
+  }
   return TOOL_SA;
 }
 
@@ -196,7 +229,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const tool = pickTool(body.questionType);
+    const tool = pickTool(body);
+
+    const mcCount = Math.max(3, Math.min(5, body.optionCount ?? 4));
+    const tfCount = Math.max(2, Math.min(4, body.statementCount ?? 3));
 
     const systemPrompt = `Eres un docente experto del sistema escolar chileno. Diseñas evaluaciones alineadas a las Bases Curriculares (Mineduc).
 Reglas estrictas:
@@ -204,8 +240,8 @@ Reglas estrictas:
 - Adapta la complejidad al curso indicado.
 - Las preguntas deben evaluar exactamente el OA entregado.
 - Si se entregan Indicadores de Evaluación específicos, la pregunta debe enfocarse en ellos prioritariamente, sin perder alineación con el OA.
-- En selección múltiple: 4 alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
-- En V/F: afirmaciones bien formuladas, mezcla equilibrada de V y F.
+- En selección múltiple: exactamente ${mcCount} alternativas plausibles, exactamente 1 correcta, distractores realistas (no obvios ni absurdos).
+- En V/F: exactamente ${tfCount} afirmaciones bien formuladas, mezcla equilibrada de V y F.
 - No incluyas la respuesta dentro del enunciado.
 - Estima la dificultad ("baja", "media" o "alta") según el curso.
 - Entrega siempre 'rubricExplanation': respuesta correcta detallada y criterios de corrección para la pauta.

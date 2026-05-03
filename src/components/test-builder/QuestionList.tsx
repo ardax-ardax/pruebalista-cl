@@ -85,6 +85,8 @@ const SortableQuestionItem = (props: {
 };
 
 export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel, creditsAvailable, onCreditsUsed }: Props) => {
+  const mcOpts = meta.defaultMcOptions ?? 4;
+  const tfStmts = meta.defaultTfStatements ?? 3;
 
   const [aiOpen, setAiOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
@@ -95,7 +97,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
     useSensor(KeyboardSensor),
   );
 
-  const add = (type: QuestionType) => onChange([...questions, newQuestion(type)]);
+  const add = (type: QuestionType) => onChange([...questions, newQuestion(type, { mcOptions: mcOpts, tfStatements: tfStmts })]);
   const update = (i: number, q: Question) => {
     const next = questions.slice();
     next[i] = q;
@@ -270,6 +272,8 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         onGenerated={(q) => onChange([...questions, q])}
         creditsAvailable={creditsAvailable}
         onCreditsUsed={onCreditsUsed}
+        defaultMcOptions={mcOpts}
+        defaultTfStatements={tfStmts}
       />
 
       <QuestionBankDialog

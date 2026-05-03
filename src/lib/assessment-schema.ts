@@ -112,6 +112,8 @@ export const LAYOUT_LIMITS = {
   spacingMaxPt: 28,
 } as const;
 
+export type OaPosition = "before-title" | "after-instructions";
+
 export interface AssessmentMeta {
   templateId: string; // id de FormatTemplate (banner-evaluacion / banner-guia / ...)
   title: string;
@@ -125,7 +127,11 @@ export interface AssessmentMeta {
   studentName?: string;
   linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
   showOaInHeader?: boolean; // si true, imprime los OAs bajo las instrucciones de la prueba
+  oaPosition?: OaPosition; // dónde mostrar OAs: antes del título o después de instrucciones (default)
   layout?: AssessmentLayout; // optimización de espacio (papel)
+  // === Cantidad de alternativas por tipo ===
+  defaultMcOptions?: number; // 3-5, default 4
+  defaultTfStatements?: number; // 2-4, default 3
   // === Modo Ensayo PAES ===
   paesVariant?: PaesVariant;
   paesAxis?: string; // Eje temático / habilidad (catálogo oficial DEMRE)
@@ -246,7 +252,7 @@ export const newStatement = (answer: "V" | "F" = "V"): TfStatement => ({
   points: 1,
 });
 
-export const newQuestion = (type: QuestionType): Question => {
+export const newQuestion = (type: QuestionType, opts?: { mcOptions?: number; tfStatements?: number }): Question => {
   const base: Question = {
     id: newId(),
     type,
@@ -254,14 +260,16 @@ export const newQuestion = (type: QuestionType): Question => {
     points: type === "info-block" || type === "section-title" || type === "true-false" ? undefined : 1,
   };
   if (type === "multiple-choice") {
-    base.options = ["a", "b", "c", "d"].map((_, i) => ({
+    const count = Math.max(3, Math.min(5, opts?.mcOptions ?? 4));
+    base.options = Array.from({ length: count }, (_, i) => ({
       id: newId(),
       text: "",
       correct: i === 0,
     }));
   }
   if (type === "true-false") {
-    base.statements = [newStatement("V")];
+    const count = Math.max(2, Math.min(4, opts?.tfStatements ?? 3));
+    base.statements = Array.from({ length: count }, (_, i) => newStatement(i % 2 === 0 ? "V" : "F"));
   }
   if (type === "short-answer") {
     base.answerLines = 3;

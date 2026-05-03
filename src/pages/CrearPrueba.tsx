@@ -442,15 +442,15 @@ const CrearPrueba = () => {
               </span>
             ) : saveStatus === "saved" ? (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                <Cloud className="h-3.5 w-3.5" /> Guardado ✓
+                <Check className="h-3.5 w-3.5" /> Guardado
               </span>
             ) : isDirty ? (
               <span className="inline-flex items-center gap-1 text-xs text-amber-500">
-                <CloudOff className="h-3.5 w-3.5" /> Sin guardar
+                <CloudOff className="h-3.5 w-3.5" /> Cambios sin guardar
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Cloud className="h-3.5 w-3.5" /> Al día
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                <Check className="h-3.5 w-3.5" /> Guardado
               </span>
             )}
             <Button variant="outline" size="sm" onClick={handleNew}>
@@ -560,6 +560,7 @@ const CrearPrueba = () => {
                 canChooseTeacher={canChooseTeacher}
                 lockedTeacherLabel={lockedTeacherLabel}
                 allowSelfAssignment={appSettings.allow_self_assignment}
+                readOnlyExceptOA={!isStaff && !!editingId && !readOnly}
               />
             </div>
           </TabsContent>

@@ -17,8 +17,9 @@ export interface GenerateQuestionParams {
   gradeLabel: string;
   subjectLabel: string;
   questionType: Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
-  /** Indicadores específicos a evaluar (opcional). Si vienen, la pregunta se enfoca en ellos. */
   indicators?: { code: string; description: string }[];
+  optionCount?: number; // 3-5 for MC
+  statementCount?: number; // 2-4 for TF
 }
 
 interface RawGenerated {
@@ -43,7 +44,7 @@ export async function generateQuestion(params: GenerateQuestionParams): Promise<
   if (!data || (data as { error?: string }).error) {
     throw new Error((data as { error?: string })?.error || "Respuesta vacía de la IA");
   }
-  const q = coerceGeneratedQuestion(data as RawGenerated, params.questionType);
+  const q = coerceGeneratedQuestion(data as RawGenerated, params.questionType, { optionCount: params.optionCount, statementCount: params.statementCount });
   q.sourceOA = params.oaCode;
   if (params.indicators && params.indicators.length > 0) {
     q.sourceIndicators = params.indicators.map((i) => i.code);
@@ -51,8 +52,8 @@ export async function generateQuestion(params: GenerateQuestionParams): Promise<
   return q;
 }
 
-export function coerceGeneratedQuestion(raw: RawGenerated, type: GenerateQuestionParams["questionType"]): Question {
-  const base = newQuestion(type);
+export function coerceGeneratedQuestion(raw: RawGenerated, type: GenerateQuestionParams["questionType"], opts?: { optionCount?: number; statementCount?: number }): Question {
+  const base = newQuestion(type, { mcOptions: opts?.optionCount, tfStatements: opts?.statementCount });
   base.prompt = (raw.prompt ?? "").toString().trim() || base.prompt;
   if (raw.title) base.title = String(raw.title).trim();
   if (raw.difficulty && ["baja", "media", "alta"].includes(raw.difficulty)) {

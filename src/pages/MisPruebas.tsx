@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadGrades, loadSubjects } from "@/lib/catalog";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
 import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Item { assessment: Assessment; userId: string; }
 
@@ -29,6 +30,20 @@ const MisPruebas = () => {
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
+  const [isAutonomous, setIsAutonomous] = useState(true); // default true until checked
+
+  // Check if user is autonomous (no colegio_id)
+  useEffect(() => {
+    if (!user || isStaff) { setIsAutonomous(!isStaff); return; }
+    supabase
+      .from("profiles")
+      .select("colegio_id")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
+      });
+  }, [user?.id, isStaff]);
 
   const refresh = async () => {
     const all = await listAssessmentsWithOwner();
@@ -80,7 +95,7 @@ const MisPruebas = () => {
       };
       await upsertAssessment(copy);
       toast.success("Prueba duplicada");
-      navigate(`/?id=${newId}`);
+      navigate(`/crear-prueba?id=${newId}`);
     } catch (e) {
       toast.error("No se pudo duplicar: " + (e as Error).message);
     }
@@ -154,18 +169,20 @@ const MisPruebas = () => {
                 </SelectContent>
               </Select>
             )}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[200px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos los estados</SelectItem>
-                <SelectItem value="borrador">Borrador</SelectItem>
-                <SelectItem value="pendiente_revision">Pendiente de Revisión</SelectItem>
-                <SelectItem value="aprobado">Aprobado</SelectItem>
-                <SelectItem value="rechazado">Rechazado</SelectItem>
-              </SelectContent>
-            </Select>
+            {(!isAutonomous || isStaff) && (
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[200px]">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todos los estados</SelectItem>
+                  <SelectItem value="borrador">Borrador</SelectItem>
+                  <SelectItem value="pendiente_revision">Pendiente de Revisión</SelectItem>
+                  <SelectItem value="aprobado">Aprobado</SelectItem>
+                  <SelectItem value="rechazado">Rechazado</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Button asChild size="sm">
               <Link to="/crear-prueba"><FilePlus2 className="h-4 w-4" /> Nueva prueba</Link>
             </Button>
@@ -203,7 +220,9 @@ const MisPruebas = () => {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">
                         {a.meta.title || "Sin título"}
-                        <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
+                        {(!isAutonomous || isStaff) && (
+                          <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                         <span>{labelOf(subjects, a.meta.subjectValue)}</span>
@@ -216,7 +235,7 @@ const MisPruebas = () => {
                         {authorLabel && (<><span>·</span><span className="font-medium">{authorLabel}</span></>)}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/?id=${a.id}`)}>
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/crear-prueba?id=${a.id}`)}>
                       <Pencil className="h-4 w-4" /> Editar
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleDuplicate(a)}>

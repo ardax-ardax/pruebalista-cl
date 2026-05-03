@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AssessmentMeta, PaesVariant } from "@/lib/assessment-schema";
+import type { AssessmentMeta, PaesVariant, OaPosition } from "@/lib/assessment-schema";
 import { PAES_VARIANTS } from "@/lib/assessment-schema";
 import {
   getAxesFor,
@@ -33,23 +33,18 @@ interface Props {
   subjects: SubjectOption[];
   grades: GradeOption[];
   teachers: TeacherOption[];
-  /**
-   * Si viene definido (rol "docente") y el modo auto-asignación está OFF,
-   * restringe Curso y Asignatura a las parejas asignadas a ese docente.
-   * Si es null/undefined (admin/UTP) o auto-asignación está ON, catálogo completo.
-   */
   restrictedAssignments?: TeacherAssignment[] | null;
-  /** True para admin/utp_head: pueden cambiar libremente el docente. */
   canChooseTeacher?: boolean;
-  /** Etiqueta para mostrar como docente bloqueado cuando no es staff. */
   lockedTeacherLabel?: string;
-  /** Si es true, ignora restrictedAssignments (modo auto-asignación). */
   allowSelfAssignment?: boolean;
+  /** Cuando true, todos los campos son readonly excepto OA y cantidad de alternativas */
+  readOnlyExceptOA?: boolean;
 }
 
 export const AssessmentMetaForm = ({
   meta, onChange, templates, subjects, grades, teachers, restrictedAssignments,
   canChooseTeacher = true, lockedTeacherLabel, allowSelfAssignment = false,
+  readOnlyExceptOA = false,
 }: Props) => {
   const set = <K extends keyof AssessmentMeta>(k: K, v: AssessmentMeta[K]) => onChange({ ...meta, [k]: v });
 
@@ -148,6 +143,8 @@ export const AssessmentMetaForm = ({
         <CardTitle>Datos generales</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* === Campos generales (readonly al editar para docentes) === */}
+        <div className={readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Plantilla institucional</Label>
@@ -242,6 +239,39 @@ export const AssessmentMetaForm = ({
             placeholder="Lee atentamente cada pregunta. Marca solo una alternativa…"
             rows={3}
           />
+        </div>
+        </div>{/* fin readOnlyExceptOA wrapper */}
+
+        {/* === Cantidad de alternativas por tipo de pregunta === */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Alternativas (Selección múltiple)</Label>
+            <Select
+              value={String(meta.defaultMcOptions ?? 4)}
+              onValueChange={(v) => set("defaultMcOptions", Number(v))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3 alternativas</SelectItem>
+                <SelectItem value="4">4 alternativas</SelectItem>
+                <SelectItem value="5">5 alternativas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Afirmaciones (Verdadero / Falso)</Label>
+            <Select
+              value={String(meta.defaultTfStatements ?? 3)}
+              onValueChange={(v) => set("defaultTfStatements", Number(v))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">2 afirmaciones</SelectItem>
+                <SelectItem value="3">3 afirmaciones</SelectItem>
+                <SelectItem value="4">4 afirmaciones</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* === Modo Ensayo PAES: variante + (módulo Ciencias) + eje temático === */}
@@ -388,7 +418,7 @@ export const AssessmentMetaForm = ({
                 <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
                   <div className="text-xs">
                     <div className="font-medium">¿Mostrar Objetivos (OA) en el encabezado de la prueba?</div>
-                    <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán bajo el título / instrucciones del documento.</div>
+                    <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán en el documento.</div>
                   </div>
                   <Switch
                     checked={!!meta.showOaInHeader}
@@ -396,6 +426,21 @@ export const AssessmentMetaForm = ({
                     disabled={linked.length === 0}
                   />
                 </label>
+                {meta.showOaInHeader && linked.length > 0 && (
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <Label className="text-xs font-medium">Posición del OA en el documento</Label>
+                    <Select
+                      value={meta.oaPosition ?? "after-instructions"}
+                      onValueChange={(v) => set("oaPosition", v as OaPosition)}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="before-title">Antes del título e instrucciones</SelectItem>
+                        <SelectItem value="after-instructions">Después del título e instrucciones</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </>
             )}
           </div>

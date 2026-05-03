@@ -25,13 +25,15 @@ interface Props {
   onGenerated: (q: Question) => void;
   creditsAvailable?: number;
   onCreditsUsed?: () => void;
+  defaultMcOptions?: number;
+  defaultTfStatements?: number;
 }
 
 type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
 
 export const AIGenerateDialog = ({
   open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, essayMode, onGenerated,
-  creditsAvailable, onCreditsUsed,
+  creditsAvailable, onCreditsUsed, defaultMcOptions = 4, defaultTfStatements = 3,
 }: Props) => {
   const [oaCode, setOaCode] = useState<string>(linkedOA[0] ?? "");
   const [type, setType] = useState<SupportedType>("multiple-choice");
@@ -79,6 +81,8 @@ export const AIGenerateDialog = ({
         subjectLabel,
         questionType: type,
         indicators: chosen.length > 0 ? chosen : undefined,
+        optionCount: type === "multiple-choice" ? defaultMcOptions : undefined,
+        statementCount: type === "true-false" ? defaultTfStatements : undefined,
       });
       onGenerated(q);
       onCreditsUsed?.();
