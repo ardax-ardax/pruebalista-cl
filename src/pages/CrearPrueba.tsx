@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSearchParams, useBlocker } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
@@ -76,7 +76,7 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  // Navigation guard: warn on unsaved changes (browser close/refresh only)
+  // Navigation guard: warn when a new test only exists as a local draft.
   const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
 
   useEffect(() => {
@@ -251,7 +251,7 @@ const CrearPrueba = () => {
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
-      setIsDirty(false);
+      setIsDirty(!isInitial);
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
@@ -476,8 +476,8 @@ const CrearPrueba = () => {
                 <CloudOff className="h-3.5 w-3.5" /> Error al guardar
               </span>
             ) : saveStatus === "saved" ? (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                {editingId ? <Cloud className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+              <span className={`inline-flex items-center gap-1 text-xs ${editingId ? "text-emerald-600" : "text-amber-500"}`}>
+                {editingId ? <Cloud className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}
                 {editingId ? "Guardado en la nube" : "Borrador local"}
               </span>
             ) : isDirty ? (
