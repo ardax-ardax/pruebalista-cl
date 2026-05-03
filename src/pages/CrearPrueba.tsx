@@ -158,6 +158,7 @@ const CrearPrueba = () => {
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el
   // último logo guardado en Configuración).
   useEffect(() => {
+    if (!isStaff) return; // Docentes autónomos usan su propio branding del perfil
     const refreshBranding = () => {
       setLogo(loadLogo());
       setInstitutionName(loadInstitutionName() || "New Little College La Florida");
@@ -174,7 +175,7 @@ const CrearPrueba = () => {
       window.removeEventListener("storage", refreshBranding);
       window.removeEventListener("focus", refreshBranding);
     };
-  }, []);
+  }, [isStaff]);
 
 
   // Docente autónomo: sin asignaciones UTP y no es staff → no pasa por flujo de revisión.
