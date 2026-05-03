@@ -60,7 +60,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 const Configuracion = () => {
-  const { isAdmin, isStaff } = useAuth();
+  const { isAdmin, isUtpHead } = useAuth();
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
@@ -282,7 +282,8 @@ const Configuracion = () => {
         Gestiona el logo del colegio y las plantillas de formato disponibles.
       </p>
 
-      {/* Datos institucionales */}
+      {/* Datos institucionales (solo admin) */}
+      {isAdmin && (
       <Card className="shadow-card mb-8">
         <CardHeader>
           <CardTitle className="text-lg">Datos del colegio</CardTitle>
@@ -347,8 +348,10 @@ const Configuracion = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Asignaturas, cursos y docentes */}
+      {/* Asignaturas, cursos y docentes (solo UTP) */}
+      {isUtpHead && (
       <Card className="shadow-card mb-8">
         <CardHeader>
           <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
@@ -387,9 +390,10 @@ const Configuracion = () => {
           />
         </CardContent>
       </Card>
+      )}
 
-      {/* Modo de auto-asignación (solo admin) */}
-      {isAdmin && (
+      {/* Política de asignación (solo UTP) */}
+      {isUtpHead && (
         <Card className="shadow-card mb-8 border-primary/40">
           <CardHeader>
             <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
@@ -415,8 +419,8 @@ const Configuracion = () => {
         </Card>
       )}
 
-      {/* Toggle ocultar créditos a docentes (staff) */}
-      {isStaff && (
+      {/* Toggle ocultar créditos a docentes (solo UTP) */}
+      {isUtpHead && (
         <Card className="shadow-card mb-8 border-primary/40">
           <CardHeader>
             <CardTitle className="text-lg">Visibilidad de créditos IA</CardTitle>
@@ -442,8 +446,8 @@ const Configuracion = () => {
         </Card>
       )}
 
-      {/* Consumo de IA por docente (staff: UTP + Admin) */}
-      {isStaff && <UtpUsageManager />}
+      {/* Consumo de IA por docente (solo UTP) */}
+      {isUtpHead && <UtpUsageManager />}
 
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}
@@ -451,7 +455,9 @@ const Configuracion = () => {
       {/* Gestión Curricular (solo admin) */}
       {isAdmin && <CurriculumManager />}
 
-      {/* Plantillas */}
+      {/* Plantillas (solo admin puede editar) */}
+      {isAdmin && (
+      <>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Plantillas de formato</h2>
@@ -536,6 +542,8 @@ const Configuracion = () => {
           );
         })}
       </div>
+      </>
+      )}
 
       <AlertDialog open={!!confirmDeleteId} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
         <AlertDialogContent>
