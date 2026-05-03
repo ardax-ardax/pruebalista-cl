@@ -167,7 +167,7 @@ const MisPruebas = () => {
               </SelectContent>
             </Select>
             <Button asChild size="sm">
-              <Link to="/"><FilePlus2 className="h-4 w-4" /> Nueva prueba</Link>
+              <Link to="/crear-prueba"><FilePlus2 className="h-4 w-4" /> Nueva prueba</Link>
             </Button>
           </div>
         </div>

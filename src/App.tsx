@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
+import DashboardDocente from "./pages/DashboardDocente.tsx";
 import MisPruebas from "./pages/MisPruebas.tsx";
 import Configuracion from "./pages/Configuracion.tsx";
 import Cursos from "./pages/Cursos.tsx";
@@ -27,7 +28,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
+            <Route path="/" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
+            <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
             <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
             <Route path="/cursos" element={<AuthGuard><AdminGuard><Cursos /></AdminGuard></AuthGuard>} />
             <Route path="/configuracion" element={<AuthGuard><AdminGuard><Configuracion /></AdminGuard></AuthGuard>} />
