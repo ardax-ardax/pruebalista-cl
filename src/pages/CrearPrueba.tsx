@@ -59,6 +59,8 @@ const CrearPrueba = () => {
   const [exporting, setExporting] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
+  const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
+  const [hasZeroAssignments, setHasZeroAssignments] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<Profile | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
