@@ -56,13 +56,25 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
     if (!root) return;
     const paPage = root.querySelector(".pa-page") as HTMLElement | null;
     if (!paPage) return;
-    // En modo ensayo dejamos al navegador hacer columns y mostramos todo de corrido.
     if (paPage.dataset.essayMode) {
       setPages([html]);
       return;
     }
-    const blocks = Array.from(paPage.children) as HTMLElement[];
-    if (blocks.length === 0) {
+
+    // Flatten: header elements + individual question blocks from .pa-content
+    const headerBlocks: HTMLElement[] = [];
+    const contentBlocks: HTMLElement[] = [];
+    const children = Array.from(paPage.children) as HTMLElement[];
+    for (const child of children) {
+      if (child.classList.contains("pa-content")) {
+        contentBlocks.push(...(Array.from(child.children) as HTMLElement[]));
+      } else {
+        headerBlocks.push(child);
+      }
+    }
+
+    const allBlocks = [...headerBlocks, ...contentBlocks];
+    if (allBlocks.length === 0) {
       setPages([html]);
       return;
     }
@@ -72,7 +84,7 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
     let usedH = 0;
     const limit = geom.usableHeightPx;
 
-    for (const el of blocks) {
+    for (const el of allBlocks) {
       const h = el.getBoundingClientRect().height;
       const margin = parseFloat(getComputedStyle(el).marginTop) + parseFloat(getComputedStyle(el).marginBottom);
       const total = h + (isFinite(margin) ? margin : 0);
