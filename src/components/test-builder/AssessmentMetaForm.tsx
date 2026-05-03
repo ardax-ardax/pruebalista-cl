@@ -242,36 +242,42 @@ export const AssessmentMetaForm = ({
         </div>
         </div>{/* fin readOnlyExceptOA wrapper */}
 
-        {/* === Cantidad de alternativas por tipo de pregunta === */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Alternativas (Selección múltiple)</Label>
-            <Select
-              value={String(meta.defaultMcOptions ?? 4)}
-              onValueChange={(v) => set("defaultMcOptions", Number(v))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">3 alternativas</SelectItem>
-                <SelectItem value="4">4 alternativas</SelectItem>
-                <SelectItem value="5">5 alternativas</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* === Cantidad de alternativas por tipo de pregunta (solo IA) === */}
+        <div className="space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Alternativas (Selección múltiple)</Label>
+              <Select
+                value={String(meta.defaultMcOptions ?? 4)}
+                onValueChange={(v) => set("defaultMcOptions", Number(v))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 alternativas</SelectItem>
+                  <SelectItem value="4">4 alternativas</SelectItem>
+                  <SelectItem value="5">5 alternativas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Afirmaciones (Verdadero / Falso)</Label>
+              <Select
+                value={String(meta.defaultTfStatements ?? 3)}
+                onValueChange={(v) => set("defaultTfStatements", Number(v))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 afirmaciones</SelectItem>
+                  <SelectItem value="4">4 afirmaciones</SelectItem>
+                  <SelectItem value="5">5 afirmaciones</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <Label className="text-xs">Afirmaciones (Verdadero / Falso)</Label>
-            <Select
-              value={String(meta.defaultTfStatements ?? 3)}
-              onValueChange={(v) => set("defaultTfStatements", Number(v))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">3 afirmaciones</SelectItem>
-                <SelectItem value="4">4 afirmaciones</SelectItem>
-                <SelectItem value="5">5 afirmaciones</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Info className="h-3 w-3" />
+            Estas cantidades aplican solo a preguntas generadas por IA. Las preguntas manuales se configuran individualmente.
+          </p>
         </div>
 
         {/* === Modo Ensayo PAES: variante + (módulo Ciencias) + eje temático === */}

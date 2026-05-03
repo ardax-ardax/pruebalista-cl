@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useBlocker } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,13 +76,30 @@ const CrearPrueba = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Navigation guard: warn on unsaved changes (browser close/refresh only)
+  const shouldBlock = isDirty && !editingId;
 
   useEffect(() => {
-    if (!isDirty) return;
+    if (!shouldBlock) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
+  }, [shouldBlock]);
+
+  // Navigation guard: warn on in-app navigation when test not saved to cloud
+  const blocker = useBlocker(shouldBlock);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      const leave = window.confirm(
+        "Tu prueba aún no está guardada en la nube. Si sales, se perderán los cambios.\n\n¿Deseas salir de todas formas?"
+      );
+      if (leave) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker.state]);
 
   useEffect(() => {
     loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
@@ -455,15 +472,20 @@ const CrearPrueba = () => {
               </span>
             ) : saveStatus === "saved" ? (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                <Check className="h-3.5 w-3.5" /> Guardado
+                {editingId ? <Cloud className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                {editingId ? "Guardado en la nube" : "Borrador local"}
               </span>
             ) : isDirty ? (
               <span className="inline-flex items-center gap-1 text-xs text-amber-500">
                 <CloudOff className="h-3.5 w-3.5" /> Cambios sin guardar
               </span>
-            ) : (
+            ) : editingId ? (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                <Check className="h-3.5 w-3.5" /> Guardado
+                <Cloud className="h-3.5 w-3.5" /> Guardado en la nube
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <CloudOff className="h-3.5 w-3.5" /> No guardado en la nube
               </span>
             )}
             <Button variant="outline" size="sm" onClick={handleNew}>
