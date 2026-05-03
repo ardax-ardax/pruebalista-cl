@@ -577,6 +577,8 @@ const CrearPrueba = () => {
                   meta={assessment.meta}
                   gradeLabel={renderCtx.gradeLabel}
                   subjectLabel={renderCtx.subjectLabel}
+                  creditsAvailable={creditsAvailable}
+                  onCreditsUsed={refreshUsage}
                 />
               </div>
             )}
