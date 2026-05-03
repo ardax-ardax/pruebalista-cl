@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const tool = pickTool(body.questionType);
+    const tool = pickTool(body);
 
     const systemPrompt = `Eres un docente experto del sistema escolar chileno. Diseñas evaluaciones alineadas a las Bases Curriculares (Mineduc).
 Reglas estrictas:
