@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
-  const { user, isAdmin, isStaff, role, signOut } = useAuth();
+  const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
   const { effectivePlan, creditsAvailable } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
@@ -69,7 +69,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <NavItem to="/" label="Crear prueba" icon={FilePlus2} />
             <NavItem to="/banco-preguntas" label="Banco" icon={Library} />
             <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
-            {isStaff && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
+            {isUtpHead && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
             {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
