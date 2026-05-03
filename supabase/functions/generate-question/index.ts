@@ -113,9 +113,40 @@ const TOOL_SA = {
   },
 };
 
-function pickTool(t: Payload["questionType"]) {
-  if (t === "multiple-choice") return TOOL_MC;
-  if (t === "true-false") return TOOL_TF;
+function pickTool(body: Payload) {
+  const t = body.questionType;
+  if (t === "multiple-choice") {
+    const count = Math.max(3, Math.min(5, body.optionCount ?? 4));
+    return {
+      ...TOOL_MC,
+      function: {
+        ...TOOL_MC.function,
+        parameters: {
+          ...TOOL_MC.function.parameters,
+          properties: {
+            ...TOOL_MC.function.parameters.properties,
+            options: { ...TOOL_MC.function.parameters.properties.options, minItems: count, maxItems: count },
+          },
+        },
+      },
+    };
+  }
+  if (t === "true-false") {
+    const count = Math.max(2, Math.min(4, body.statementCount ?? 3));
+    return {
+      ...TOOL_TF,
+      function: {
+        ...TOOL_TF.function,
+        parameters: {
+          ...TOOL_TF.function.parameters,
+          properties: {
+            ...TOOL_TF.function.parameters.properties,
+            statements: { ...TOOL_TF.function.parameters.properties.statements, minItems: count, maxItems: count },
+          },
+        },
+      },
+    };
+  }
   return TOOL_SA;
 }
 
