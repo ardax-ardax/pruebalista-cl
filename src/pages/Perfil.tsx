@@ -1,7 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserUsage } from "@/hooks/useUserUsage";
 import { getMyProfile, updateMyProfile, type Profile } from "@/lib/profiles";
+import { listAssignmentsForTeacher, addAssignment, removeAssignment, type TeacherAssignment } from "@/lib/teacher-assignments";
+import { loadGrades, loadSubjects, getSubjectsForGrade } from "@/lib/catalog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -10,16 +13,44 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ImagePlus, Loader2, Save, Trash2, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info } from "lucide-react";
+
+const FREE_MAX_ASSIGNMENTS = 5;
 
 export default function Perfil() {
-  const { user } = useAuth();
+  const { user, role, isStaff } = useAuth();
+  const { effectivePlan } = useUserUsage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [institutionName, setInstitutionName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Assignments state
+  const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
+  const [addingAssignment, setAddingAssignment] = useState(false);
+  const [selectedGrade, setSelectedGrade] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
+
+  const grades = useMemo(() => loadGrades(), []);
+  const allSubjects = useMemo(() => loadSubjects(), []);
+  const filteredSubjects = useMemo(
+    () => selectedGrade ? getSubjectsForGrade(selectedGrade, allSubjects, grades) : [],
+    [selectedGrade, allSubjects, grades]
+  );
+
+  const isFree = effectivePlan === "free";
+  const maxAssignments = isFree ? FREE_MAX_ASSIGNMENTS : Infinity;
+  const canAddMore = assignments.length < maxAssignments;
+  const alreadyExists = assignments.some(
+    (a) => a.grade_value === selectedGrade && a.subject_value === selectedSubject
+  );
+
+  const isDocente = role === "docente";
 
   useEffect(() => {
     getMyProfile().then((p) => {
@@ -30,6 +61,15 @@ export default function Perfil() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setLoadingAssignments(true);
+    listAssignmentsForTeacher(user.id).then((a) => {
+      setAssignments(a);
+      setLoadingAssignments(false);
+    });
+  }, [user]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -68,7 +108,7 @@ export default function Perfil() {
       return;
     }
     const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(path);
-    const url = urlData.publicUrl + "?t=" + Date.now(); // cache bust
+    const url = urlData.publicUrl + "?t=" + Date.now();
     setLogoUrl(url);
     setUploading(false);
     toast.success("Logo subido");
@@ -76,11 +116,47 @@ export default function Perfil() {
 
   const handleRemoveLogo = async () => {
     if (!user) return;
-    // Remove from storage (best-effort)
     await supabase.storage.from("user-logos").remove([`${user.id}/logo.png`, `${user.id}/logo.jpg`, `${user.id}/logo.jpeg`, `${user.id}/logo.webp`]);
     setLogoUrl(null);
     toast.info("Logo eliminado. Recuerda guardar.");
   };
+
+  const handleAddAssignment = async () => {
+    if (!user || !selectedGrade || !selectedSubject) return;
+    if (!canAddMore) {
+      toast.error(`El plan free permite máximo ${FREE_MAX_ASSIGNMENTS} asignaciones`);
+      return;
+    }
+    if (alreadyExists) {
+      toast.error("Esta combinación ya está asignada");
+      return;
+    }
+    setAddingAssignment(true);
+    const res = await addAssignment(user.id, selectedGrade, selectedSubject);
+    if (res.ok) {
+      const updated = await listAssignmentsForTeacher(user.id);
+      setAssignments(updated);
+      setSelectedGrade("");
+      setSelectedSubject("");
+      toast.success("Asignación agregada");
+    } else {
+      toast.error(res.error || "Error al agregar");
+    }
+    setAddingAssignment(false);
+  };
+
+  const handleRemoveAssignment = async (id: string) => {
+    const res = await removeAssignment(id);
+    if (res.ok) {
+      setAssignments((prev) => prev.filter((a) => a.id !== id));
+      toast.success("Asignación eliminada");
+    } else {
+      toast.error(res.error || "Error al eliminar");
+    }
+  };
+
+  const getGradeLabel = (value: string) => grades.find((g) => g.value === value)?.label ?? value;
+  const getSubjectLabel = (value: string) => allSubjects.find((s) => s.value === value)?.label ?? value;
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName = (meta.full_name as string) || (meta.name as string) || user?.email?.split("@")[0] || "Usuario";
@@ -115,6 +191,119 @@ export default function Perfil() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Asignaciones de cursos — solo para docentes */}
+        {isDocente && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BookOpen className="h-5 w-5" /> Mis cursos y asignaturas
+              </CardTitle>
+              <CardDescription>
+                Selecciona los cursos y asignaturas a los que preparas pruebas. Al crear una prueba, solo verás estas opciones.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Counter */}
+              <div className="flex items-center gap-2 text-sm">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                {isFree ? (
+                  <span className="text-muted-foreground">
+                    {assignments.length} de {FREE_MAX_ASSIGNMENTS} asignaciones
+                    <span className="ml-1 text-xs">(plan free)</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {assignments.length} asignaciones <span className="ml-1 text-xs">(sin límite)</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Current assignments */}
+              {loadingAssignments ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                </div>
+              ) : assignments.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {assignments.map((a) => (
+                    <Badge key={a.id} variant="secondary" className="flex items-center gap-1 py-1.5 px-3 text-sm">
+                      {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
+                      <button
+                        onClick={() => handleRemoveAssignment(a.id)}
+                        className="ml-1 hover:text-destructive transition-colors"
+                        title="Eliminar"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No tienes asignaciones. Agrega cursos y asignaturas para filtrar al crear pruebas.
+                </p>
+              )}
+
+              {/* Add new assignment */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
+                <Select
+                  value={selectedGrade}
+                  onValueChange={(v) => { setSelectedGrade(v); setSelectedSubject(""); }}
+                  disabled={!canAddMore}
+                >
+                  <SelectTrigger className="sm:w-[180px]">
+                    <SelectValue placeholder="Curso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grades.map((g) => (
+                      <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={selectedSubject}
+                  onValueChange={setSelectedSubject}
+                  disabled={!selectedGrade || !canAddMore}
+                >
+                  <SelectTrigger className="sm:w-[240px]">
+                    <SelectValue placeholder="Asignatura" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredSubjects.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  size="sm"
+                  onClick={handleAddAssignment}
+                  disabled={!selectedGrade || !selectedSubject || addingAssignment || !canAddMore || alreadyExists}
+                >
+                  {addingAssignment ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-1" />
+                  )}
+                  Agregar
+                </Button>
+              </div>
+
+              {!canAddMore && (
+                <p className="text-xs text-amber-600">
+                  Has alcanzado el límite de {FREE_MAX_ASSIGNMENTS} asignaciones del plan free. Elimina una para agregar otra, o actualiza tu plan.
+                </p>
+              )}
+              {alreadyExists && selectedGrade && selectedSubject && (
+                <p className="text-xs text-amber-600">
+                  Esta combinación ya está en tus asignaciones.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
