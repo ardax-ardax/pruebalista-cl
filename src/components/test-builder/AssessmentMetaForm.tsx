@@ -418,7 +418,7 @@ export const AssessmentMetaForm = ({
                 <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
                   <div className="text-xs">
                     <div className="font-medium">¿Mostrar Objetivos (OA) en el encabezado de la prueba?</div>
-                    <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán bajo el título / instrucciones del documento.</div>
+                    <div className="text-muted-foreground">Si está activo, los códigos de los OA seleccionados aparecerán en el documento.</div>
                   </div>
                   <Switch
                     checked={!!meta.showOaInHeader}
@@ -426,6 +426,21 @@ export const AssessmentMetaForm = ({
                     disabled={linked.length === 0}
                   />
                 </label>
+                {meta.showOaInHeader && linked.length > 0 && (
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <Label className="text-xs font-medium">Posición del OA en el documento</Label>
+                    <Select
+                      value={meta.oaPosition ?? "after-instructions"}
+                      onValueChange={(v) => set("oaPosition", v as OaPosition)}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="before-title">Antes del título e instrucciones</SelectItem>
+                        <SelectItem value="after-instructions">Después del título e instrucciones</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </>
             )}
           </div>
