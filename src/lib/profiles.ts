@@ -7,6 +7,7 @@ export interface Profile {
   avatarUrl: string | null;
   customInstitutionName: string | null;
   customLogoUrl: string | null;
+  colegioId: string | null;
 }
 
 export interface ListProfilesResult {
