@@ -552,6 +552,8 @@ const CrearPrueba = () => {
                     meta={assessment.meta}
                     gradeLabel={renderCtx.gradeLabel}
                     subjectLabel={renderCtx.subjectLabel}
+                    creditsAvailable={creditsAvailable}
+                    onCreditsUsed={refreshUsage}
                   />
                 </div>
                 <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
