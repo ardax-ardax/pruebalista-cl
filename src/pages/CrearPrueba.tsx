@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useSearchParams, useBlocker } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
@@ -72,37 +72,40 @@ const CrearPrueba = () => {
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
-  // Navigation guard: warn on unsaved changes (browser close/refresh only)
+  // Navigation guard: warn when a new test only exists as a local draft.
   const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
 
   useEffect(() => {
     if (!shouldBlock) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [shouldBlock]);
 
-  // Navigation guard: warn on in-app navigation when test not saved to cloud
-  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-    shouldBlock && currentLocation.pathname !== nextLocation.pathname
-  );
-
   useEffect(() => {
-    if (blocker.state === "blocked") {
+    if (!shouldBlock) return;
+    const handler = (event: MouseEvent) => {
+      const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target || event.defaultPrevented) return;
+      const nextUrl = new URL(anchor.href, window.location.href);
+      if (nextUrl.origin !== window.location.origin || nextUrl.pathname === window.location.pathname) return;
+      event.preventDefault();
       const leave = window.confirm(
         "Tu prueba aún no está guardada en la nube. Si sales, se perderán los cambios.\n\n¿Deseas salir de todas formas?"
       );
-      if (leave) {
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    }
-  }, [blocker.state]);
+      if (leave) navigate(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [navigate, shouldBlock]);
 
   useEffect(() => {
     loadAppSettings().then(setAppSettings).catch(() => {/* keep default */});
@@ -251,7 +254,7 @@ const CrearPrueba = () => {
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
-      setIsDirty(false);
+      setIsDirty(!isInitial);
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
@@ -476,8 +479,8 @@ const CrearPrueba = () => {
                 <CloudOff className="h-3.5 w-3.5" /> Error al guardar
               </span>
             ) : saveStatus === "saved" ? (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                {editingId ? <Cloud className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+              <span className={`inline-flex items-center gap-1 text-xs ${editingId ? "text-emerald-600" : "text-amber-500"}`}>
+                {editingId ? <Cloud className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}
                 {editingId ? "Guardado en la nube" : "Borrador local"}
               </span>
             ) : isDirty ? (
