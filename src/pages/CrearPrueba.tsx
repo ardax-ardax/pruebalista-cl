@@ -68,6 +68,7 @@ const CrearPrueba = () => {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isDirty, setIsDirty] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const initialLoadRef = useRef(true);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
