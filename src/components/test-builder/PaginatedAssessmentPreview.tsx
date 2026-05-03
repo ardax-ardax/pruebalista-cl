@@ -61,13 +61,19 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
       return;
     }
 
-    // Flatten: header elements + individual question blocks from .pa-content
+    // Separate: header blocks (before .pa-content), content blocks, footer blocks (after .pa-content)
     const headerBlocks: HTMLElement[] = [];
     const contentBlocks: HTMLElement[] = [];
+    const footerBlocks: HTMLElement[] = [];
     const children = Array.from(paPage.children) as HTMLElement[];
+    let seenContent = false;
     for (const child of children) {
       if (child.classList.contains("pa-content")) {
+        seenContent = true;
         contentBlocks.push(...(Array.from(child.children) as HTMLElement[]));
+      } else if (seenContent) {
+        // Everything after .pa-content is footer (pa-footer, pa-watermark)
+        footerBlocks.push(child);
       } else {
         headerBlocks.push(child);
       }
@@ -78,6 +84,12 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
       setPages([html]);
       return;
     }
+
+    const footerHeight = footerBlocks.reduce((sum, el) => {
+      const h = el.getBoundingClientRect().height;
+      const margin = parseFloat(getComputedStyle(el).marginTop) + parseFloat(getComputedStyle(el).marginBottom);
+      return sum + h + (isFinite(margin) ? margin : 0);
+    }, 0);
 
     const pagesHtml: string[] = [];
     let current: string[] = [];
@@ -99,6 +111,14 @@ export function PaginatedAssessmentPreview({ ctx }: { ctx: RenderContext }) {
     }
     if (current.length > 0) pagesHtml.push(current.join(""));
     if (pagesHtml.length === 0) pagesHtml.push(html);
+
+    // Append footer to the last page only
+    if (footerBlocks.length > 0) {
+      const footerHtml = footerBlocks.map((el) => el.outerHTML).join("");
+      pagesHtml[pagesHtml.length - 1] += footerHtml;
+    }
+
+    setPages(pagesHtml);
 
     setPages(pagesHtml);
   }, [html, geom.usableHeightPx, geom.usableWidthPx]);
