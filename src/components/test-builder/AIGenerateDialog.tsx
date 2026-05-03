@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Sparkles, Ban } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, Ban, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { generateQuestion } from "@/lib/assessment-ai";
 import { findOA } from "@/lib/curriculum-data";
@@ -22,12 +23,15 @@ interface Props {
   subjectLabel: string;
   essayMode?: "simce" | "paes" | null;
   onGenerated: (q: Question) => void;
+  creditsAvailable?: number;
+  onCreditsUsed?: () => void;
 }
 
 type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
 
 export const AIGenerateDialog = ({
   open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, essayMode, onGenerated,
+  creditsAvailable, onCreditsUsed,
 }: Props) => {
   const [oaCode, setOaCode] = useState<string>(linkedOA[0] ?? "");
   const [type, setType] = useState<SupportedType>("multiple-choice");
@@ -41,15 +45,12 @@ export const AIGenerateDialog = ({
   );
   const indicators = oa?.indicators ?? [];
 
-  // Al cambiar de OA, se limpia la selección de indicadores.
   useEffect(() => { setSelectedIndicators([]); }, [oaCode]);
 
-  // Si linkedOA cambia y el actual ya no aplica, reseteamos.
   useEffect(() => {
     if (oaCode && !linkedOA.includes(oaCode)) setOaCode(linkedOA[0] ?? "");
   }, [linkedOA, oaCode]);
 
-  // En modos PAES/SIMCE solo selección múltiple es válida → forzamos.
   useEffect(() => {
     if ((essayMode === "paes" || essayMode === "simce") && type !== "multiple-choice") {
       setType("multiple-choice");
@@ -62,9 +63,12 @@ export const AIGenerateDialog = ({
     );
   };
 
+  const noCredits = creditsAvailable !== undefined && creditsAvailable <= 0;
+
   const handleGenerate = async () => {
     if (!oaCode) { toast.error("Selecciona un OA"); return; }
     if (!oa) { toast.error("OA no encontrado"); return; }
+    if (noCredits) { toast.error("No tienes créditos disponibles"); return; }
     setLoading(true);
     try {
       const chosen = indicators.filter((i) => selectedIndicators.includes(i.code));
@@ -77,10 +81,11 @@ export const AIGenerateDialog = ({
         indicators: chosen.length > 0 ? chosen : undefined,
       });
       onGenerated(q);
+      onCreditsUsed?.();
       toast.success(
         chosen.length > 0
           ? `Pregunta generada (enfoque en ${chosen.length} indicador${chosen.length === 1 ? "" : "es"})`
-          : "Pregunta generada",
+          : "Pregunta generada · Se descontó 1 crédito",
       );
       onOpenChange(false);
     } catch (e) {
@@ -103,6 +108,15 @@ export const AIGenerateDialog = ({
             La IA propone una pregunta alineada al OA seleccionado. Podrás editarla luego.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Créditos disponibles */}
+        {creditsAvailable !== undefined && (
+          <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${noCredits ? "border-destructive bg-destructive/10 text-destructive" : "border-border bg-muted/50 text-muted-foreground"}`}>
+            <Coins className="h-4 w-4" />
+            <span>Créditos disponibles: <strong>{creditsAvailable}</strong></span>
+            {noCredits && <span className="ml-auto text-xs">Necesitas créditos para generar preguntas</span>}
+          </div>
+        )}
 
         {!aiEnabled && !aiLoading ? (
           <Alert variant="destructive">
@@ -199,8 +213,8 @@ export const AIGenerateDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleGenerate} disabled={loading || noOA || !aiEnabled}>
-            <Sparkles className="h-4 w-4" /> {loading ? "Generando…" : "Generar"}
+          <Button onClick={handleGenerate} disabled={loading || noOA || !aiEnabled || noCredits}>
+            <Sparkles className="h-4 w-4" /> {loading ? "Generando…" : noCredits ? "Sin créditos" : "Generar"}
           </Button>
         </DialogFooter>
       </DialogContent>
