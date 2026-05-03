@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `Eres un docente experto del sistema escolar chileno. Diseñas evaluaciones alineadas a las Bases Curriculares (Mineduc).
 Reglas estrictas:
-- Redacta en español de Chile, claro y libre de ambigüedades.
+- IMPORTANTE: Redacta SIEMPRE el enunciado, las alternativas, las afirmaciones y la pauta en español de Chile, incluso si la asignatura es Inglés u otro idioma extranjero. Solo los textos o fragmentos que formen parte del contenido evaluado (por ejemplo, un párrafo en inglés que el alumno debe leer y comprender) pueden estar en otro idioma.
 - Adapta la complejidad al curso indicado.
 - Las preguntas deben evaluar exactamente el OA entregado.
 - Si se entregan Indicadores de Evaluación específicos, la pregunta debe enfocarse en ellos prioritariamente, sin perder alineación con el OA.
