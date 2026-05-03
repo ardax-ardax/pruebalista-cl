@@ -268,6 +268,8 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         subjectLabel={subjectLabel}
         essayMode={essayMode}
         onGenerated={(q) => onChange([...questions, q])}
+        creditsAvailable={creditsAvailable}
+        onCreditsUsed={onCreditsUsed}
       />
 
       <QuestionBankDialog
