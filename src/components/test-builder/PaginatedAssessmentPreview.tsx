@@ -5,7 +5,7 @@
 // En modo "ensayo" (SIMCE/PAES) el HTML usa CSS columns, así que la paginación
 // la hace el motor del navegador y aquí mostramos una sola "vista".
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ASSESSMENT_CSS, effectiveMarginsCm, renderAssessmentHtml, type RenderContext } from "@/lib/assessment-render";
 
 const CM_TO_PX = 37.8; // 1cm ≈ 37.8 px @96dpi
