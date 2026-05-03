@@ -450,6 +450,9 @@ const Configuracion = () => {
       {/* Consumo de IA por docente (solo UTP) */}
       {isUtpHead && <UtpUsageManager />}
 
+      {/* Gestión de Colegios (solo admin) */}
+      {isAdmin && <ColegiosManager />}
+
       {/* Gestión de Personal (solo admin) */}
       {isAdmin && <StaffManager />}
 
