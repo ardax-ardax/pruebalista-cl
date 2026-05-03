@@ -77,7 +77,7 @@ const CrearPrueba = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Navigation guard: warn on unsaved changes (browser close/refresh only)
-  const shouldBlock = isDirty && !editingId;
+  const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
 
   useEffect(() => {
     if (!shouldBlock) return;
@@ -87,7 +87,9 @@ const CrearPrueba = () => {
   }, [shouldBlock]);
 
   // Navigation guard: warn on in-app navigation when test not saved to cloud
-  const blocker = useBlocker(shouldBlock);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    shouldBlock && currentLocation.pathname !== nextLocation.pathname
+  );
 
   useEffect(() => {
     if (blocker.state === "blocked") {
