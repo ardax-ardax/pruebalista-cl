@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
+import DashboardDocente from "./pages/DashboardDocente.tsx";
 import MisPruebas from "./pages/MisPruebas.tsx";
 import Configuracion from "./pages/Configuracion.tsx";
 import Cursos from "./pages/Cursos.tsx";
