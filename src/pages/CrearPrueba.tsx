@@ -232,7 +232,8 @@ const CrearPrueba = () => {
   // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
     if (!assessment || readOnly) return;
-    setIsDirty(true);
+    const isInitial = initialLoadRef.current;
+    if (!isInitial) setIsDirty(true);
     if (editingId) {
       setSaveStatus("saving");
       clearTimeout(saveTimerRef.current);
@@ -254,6 +255,7 @@ const CrearPrueba = () => {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
+    initialLoadRef.current = false;
     return () => clearTimeout(saveTimerRef.current);
   }, [assessment, editingId, readOnly]);
 
