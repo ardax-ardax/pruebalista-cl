@@ -623,22 +623,6 @@ const CrearPrueba = () => {
           assessment={assessment}
           institutionName={institutionName}
         />
-
-        {/* Navigation blocker dialog */}
-        <Dialog open={blocker.state === "blocked"} onOpenChange={() => blocker.state === "blocked" && blocker.reset?.()}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>¿Salir sin guardar?</DialogTitle>
-              <DialogDescription>
-                Tienes cambios sin guardar en esta prueba. Si sales ahora, podrías perder los cambios.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => blocker.reset?.()}>Quedarme</Button>
-              <Button variant="destructive" onClick={() => blocker.proceed?.()}>Salir sin guardar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );
