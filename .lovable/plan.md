@@ -1,38 +1,47 @@
 
 ## Objetivo
 
-Restringir las secciones de Configuración y navegación para que cada rol vea solo lo que le corresponde:
-
-- **Admin**: Datos del colegio, Gestión de Personal, Gestión Curricular, Plantillas de formato (editar las 5 base).
-- **UTP**: Asignaturas/cursos/docentes, Política de asignación, Visibilidad de créditos IA, Consumo de IA por docente, Importación masiva, Asignación docente-curso-asignatura.
+Tres mejoras:
+1. Permitir que docentes no institucionales (sin asignaciones UTP) creen pruebas libremente.
+2. Preview de prueba con escala automática (sin barras de scroll).
+3. Confirmar que el banco de preguntas muestra solo las preguntas propias para docentes.
 
 ---
 
 ## Cambios
 
-### 1. `src/components/AppLayout.tsx`
-- Cambiar el menú "Cursos" de `isStaff` a `isUtpHead` (solo UTP lo necesita).
+### 1. Docente autónomo — `src/pages/CrearPrueba.tsx`
 
-### 2. `src/pages/Configuracion.tsx`
-Envolver secciones con condicionales de rol (usando `isAdmin` e `isUtpHead` del hook `useAuth`):
+Actualmente, si un docente no tiene `teacher_assignments`, el array queda vacío y bloquea la selección de asignaturas/niveles.
 
-| Sección | Visible para |
+- Modificar el `useEffect` que carga asignaciones (línea ~82-86): si el resultado es un array vacío, setear `restrictedAssignments(null)` en lugar de un array vacío. Esto desbloquea todos los catálogos para docentes sin asignaciones.
+- Lógica: `if (isStaff) null; else if (assignments.length === 0) null; else assignments;`
+
+### 2. Perfil del docente — acceso a branding personalizado en `src/pages/Perfil.tsx`
+
+- Agregar campos editables para "Nombre de institución" y "Logo" en la página de perfil, usando los campos existentes `custom_institution_name` y `custom_logo_url` de la tabla `profiles`.
+- Solo visible para docentes no institucionales (rol `user`).
+
+### 3. Preview con escala automática — `src/components/test-builder/PaginatedAssessmentPreview.tsx`
+
+- Envolver el contenedor de páginas en un `div` con `ref` que mida su ancho disponible.
+- Calcular `scale = Math.min(1, containerWidth / geom.widthPx)`.
+- Aplicar `transform: scale(${scale})` con `transform-origin: top center` al contenedor de cada página.
+- Ajustar la altura del wrapper con `height * scale` para evitar espacio vacío.
+- Escuchar `resize` para recalcular.
+
+### 4. Banco de preguntas — sin cambios necesarios
+
+El RLS ya restringe correctamente: docentes ven solo sus preguntas, admin/staff ve todas. El frontend en `BancoPreguntas.tsx` ya usa `isAdmin` para control de eliminación. No requiere modificaciones.
+
+---
+
+## Archivos afectados
+
+| Archivo | Cambio |
 |---|---|
-| Datos del colegio (logo, nombre) | Admin |
-| Asignaturas, cursos y docentes | UTP |
-| Política de asignación de docentes | UTP |
-| Visibilidad de créditos IA | UTP |
-| Consumo de IA por Docente | UTP |
-| Gestión de Personal | Admin |
-| Gestión Curricular | Admin |
-| Plantillas de formato (edición de base) | Admin |
+| `src/pages/CrearPrueba.tsx` | Desbloquear catálogos para docentes sin asignaciones |
+| `src/pages/Perfil.tsx` | Campos de branding personalizado para docentes |
+| `src/components/test-builder/PaginatedAssessmentPreview.tsx` | Escala automática fit-to-width |
 
-Cambios concretos:
-- Línea 63: agregar `isUtpHead` del destructuring de `useAuth()`
-- Líneas 351-389 (Asignaturas, cursos y docentes): envolver con `{isUtpHead && ...}`
-- Líneas 391-416 (Política de asignación): cambiar `isAdmin` a `isUtpHead`
-- Líneas 418-443 (Visibilidad créditos): ya usa `isStaff`, cambiar a `isUtpHead`
-- Línea 446 (Consumo IA): cambiar `isStaff` a `isUtpHead`
-- Plantillas: mantener visibles pero restringir edición/duplicación/creación a `isAdmin`
-
-No se requieren cambios en base de datos.
+No se requieren migraciones de base de datos.
