@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Library, Search } from "lucide-react";
+import { Library, Search, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
 import { searchBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
 import { newId, QUESTION_TYPE_LABEL, type Question, type QuestionType } from "@/lib/assessment-schema";
 import { loadSubjects, loadGrades } from "@/lib/catalog";
@@ -31,6 +31,7 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<BankFilters>({});
   const [searchText, setSearchText] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -44,6 +45,7 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
   useEffect(() => {
     if (open) {
       setSelected(new Set());
+      setExpandedId(null);
       load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,7 +64,7 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
     const picked = rows.filter((r) => selected.has(r.id));
     const questions: Question[] = picked.map((r) => ({
       ...(r.question_data as unknown as Question),
-      id: newId(), // nuevo ID para evitar colisiones
+      id: newId(),
     }));
     onImport(questions);
     onOpenChange(false);
@@ -113,28 +115,96 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Sin resultados</p>
           ) : (
-            rows.map((row) => (
-              <label
-                key={row.id}
-                className="flex items-start gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-              >
-                <Checkbox
-                  checked={selected.has(row.id)}
-                  onCheckedChange={() => toggle(row.id)}
-                  className="mt-0.5"
-                />
-                <div className="flex-1 min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="secondary" className="text-[10px]">
-                      {QUESTION_TYPE_LABEL[row.question_type as QuestionType] ?? row.question_type}
-                    </Badge>
-                    {row.difficulty && <Badge variant="outline" className="text-[10px] capitalize">{row.difficulty}</Badge>}
-                    {row.source === "ai" && <Badge className="bg-primary/10 text-primary text-[10px]">IA</Badge>}
+            rows.map((row) => {
+              const isExpanded = expandedId === row.id;
+              const qData = row.question_data as unknown as Question;
+              return (
+                <div key={row.id} className="rounded-md border transition-colors hover:bg-muted/50">
+                  <div className="flex items-start gap-3 p-3 cursor-pointer" onClick={() => toggle(row.id)}>
+                    <Checkbox
+                      checked={selected.has(row.id)}
+                      onCheckedChange={() => toggle(row.id)}
+                      className="mt-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {QUESTION_TYPE_LABEL[row.question_type as QuestionType] ?? row.question_type}
+                        </Badge>
+                        {row.difficulty && <Badge variant="outline" className="text-[10px] capitalize">{row.difficulty}</Badge>}
+                        {row.source === "ai" && <Badge className="bg-primary/10 text-primary text-[10px]">IA</Badge>}
+                      </div>
+                      <p className="text-sm">{row.title || qData.prompt || row.prompt_preview || "(sin enunciado)"}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 shrink-0"
+                      onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : row.id); }}
+                    >
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <p className="text-sm truncate">{row.title || row.prompt_preview || "(sin enunciado)"}</p>
+
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-0 border-t border-border/50 space-y-2">
+                      {/* Full prompt */}
+                      {qData.prompt && (
+                        <div className="text-sm whitespace-pre-wrap bg-muted/30 rounded p-2">
+                          {qData.prompt}
+                        </div>
+                      )}
+
+                      {/* Multiple choice options */}
+                      {qData.type === "multiple-choice" && qData.options && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Alternativas:</p>
+                          {qData.options.map((opt, i) => (
+                            <div key={i} className={`flex items-start gap-2 text-sm rounded px-2 py-1 ${opt.correct ? "bg-emerald-50 dark:bg-emerald-950/30" : ""}`}>
+                              {opt.correct
+                                ? <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                                : <XCircle className="h-4 w-4 text-muted-foreground/40 mt-0.5 shrink-0" />
+                              }
+                              <span className="font-medium mr-1">{String.fromCharCode(65 + i)})</span>
+                              <span>{opt.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* True/False statements */}
+                      {qData.type === "true-false" && qData.statements && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Afirmaciones:</p>
+                          {qData.statements.map((s, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm rounded px-2 py-1">
+                              <Badge variant={s.answer === "V" ? "default" : "destructive"} className="text-[10px] shrink-0 mt-0.5">
+                                {s.answer}
+                              </Badge>
+                              <span>{s.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Short answer */}
+                      {qData.type === "short-answer" && (
+                        <p className="text-xs text-muted-foreground italic">
+                          Pregunta de desarrollo · {qData.answerLines ?? 4} líneas de respuesta
+                        </p>
+                      )}
+
+                      {/* Extra info */}
+                      <div className="flex gap-2 text-[10px] text-muted-foreground flex-wrap">
+                        {row.oa_code && <span>OA: {row.oa_code}</span>}
+                        {qData.points !== undefined && <span>Pts: {qData.points}</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </label>
-            ))
+              );
+            })
           )}
         </div>
 
