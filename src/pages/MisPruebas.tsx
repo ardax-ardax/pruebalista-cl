@@ -95,7 +95,7 @@ const MisPruebas = () => {
       };
       await upsertAssessment(copy);
       toast.success("Prueba duplicada");
-      navigate(`/?id=${newId}`);
+      navigate(`/crear-prueba?id=${newId}`);
     } catch (e) {
       toast.error("No se pudo duplicar: " + (e as Error).message);
     }
