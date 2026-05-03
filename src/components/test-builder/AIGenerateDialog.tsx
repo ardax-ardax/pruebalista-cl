@@ -81,6 +81,8 @@ export const AIGenerateDialog = ({
         subjectLabel,
         questionType: type,
         indicators: chosen.length > 0 ? chosen : undefined,
+        optionCount: type === "multiple-choice" ? defaultMcOptions : undefined,
+        statementCount: type === "true-false" ? defaultTfStatements : undefined,
       });
       onGenerated(q);
       onCreditsUsed?.();
