@@ -636,7 +636,9 @@ const CrearPrueba = () => {
               </Card>
             </TabsContent>
           )}
-        </Tabs>
+            </Tabs>
+          );
+        })()}
         <OmrSheetDialog
           open={omrOpen}
           onOpenChange={setOmrOpen}
