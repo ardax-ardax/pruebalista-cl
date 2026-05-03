@@ -18,7 +18,7 @@ export interface ListProfilesResult {
 export const listProfiles = async (): Promise<ListProfilesResult> => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url");
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id");
   if (error) {
     console.error("listProfiles", error);
     return { profiles: [], error: error.message };
@@ -30,6 +30,7 @@ export const listProfiles = async (): Promise<ListProfilesResult> => {
     avatarUrl: r.avatar_url,
     customInstitutionName: (r as Record<string, unknown>).custom_institution_name as string | null,
     customLogoUrl: (r as Record<string, unknown>).custom_logo_url as string | null,
+    colegioId: (r as Record<string, unknown>).colegio_id as string | null,
   }));
   return { profiles, error: null };
 };
@@ -39,7 +40,7 @@ export const getMyProfile = async (): Promise<Profile | null> => {
   if (!user) return null;
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url")
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id")
     .eq("id", user.id)
     .maybeSingle();
   if (error || !data) return null;
@@ -50,6 +51,7 @@ export const getMyProfile = async (): Promise<Profile | null> => {
     avatarUrl: data.avatar_url,
     customInstitutionName: (data as Record<string, unknown>).custom_institution_name as string | null,
     customLogoUrl: (data as Record<string, unknown>).custom_logo_url as string | null,
+    colegioId: (data as Record<string, unknown>).colegio_id as string | null,
   };
 };
 
