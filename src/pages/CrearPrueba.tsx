@@ -73,6 +73,7 @@ const CrearPrueba = () => {
   const initialLoadRef = useRef(true);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
+  const isDocente = !!user && !isStaff;
   const { effectivePlan, creditsAvailable, refresh: refreshUsage } = useUserUsage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
