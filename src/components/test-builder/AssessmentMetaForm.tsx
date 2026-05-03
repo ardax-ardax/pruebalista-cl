@@ -266,9 +266,9 @@ export const AssessmentMetaForm = ({
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="2">2 afirmaciones</SelectItem>
                 <SelectItem value="3">3 afirmaciones</SelectItem>
                 <SelectItem value="4">4 afirmaciones</SelectItem>
+                <SelectItem value="5">5 afirmaciones</SelectItem>
               </SelectContent>
             </Select>
           </div>
