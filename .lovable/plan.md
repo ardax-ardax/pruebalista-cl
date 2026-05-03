@@ -1,24 +1,41 @@
-## Cambios
+## Problema
 
-### 1. Indicador de plan en el menú del avatar
+El `useBlocker` agregado en CrearPrueba se activa porque el autosave pone `isDirty = true` en cada cambio de `assessment`, incluyendo la carga inicial. Aunque para borradores locales se resetea inmediatamente, React puede renderizar con `shouldBlock = true` antes del reset. Esto puede causar que al navegar desde CrearPrueba (o al volver) el blocker interfiera, mostrando el confirm dialog inesperadamente o dejando la página en blanco.
 
-**Archivo:** `src/components/AppLayout.tsx`
+## Solución
 
-- En el `DropdownMenuLabel` del avatar (donde se muestra el nombre y email), agregar un badge debajo del email indicando el plan actual:
-  - **Free**: Badge gris con texto "Plan Free"
-  - **Pro**: Badge azul/primario con texto "Plan Pro"
-  - **Institucional**: Badge verde con texto "Plan Institucional"
-- Se usa `effectivePlan` que ya está disponible en el componente.
+### 1. Evitar que el blocker se active en la carga inicial (`CrearPrueba.tsx`)
 
-### 2. Límite de 10 pruebas guardadas para plan Free
+- Agregar un `initialLoadRef = useRef(true)` que se pone en `false` después del primer render del assessment.
+- Cambiar `shouldBlock` a: `isDirty && !editingId && !initialLoadRef.current`
+- En el autosave effect, después de la primera ejecución, poner `initialLoadRef.current = false`.
 
-**Archivo:** `src/pages/CrearPrueba.tsx` (o donde se llama a `upsertAssessment`)
+### 2. No marcar `isDirty` en el autosave de borradores locales (`CrearPrueba.tsx`)
 
-- Antes de guardar una prueba nueva, si `effectivePlan === "free"`, contar las pruebas existentes del usuario con `listAssessments()`.
-- Si ya tiene 10 o más, mostrar un toast de error: "Has alcanzado el límite de 10 pruebas en el plan Free. Elimina una prueba existente o actualiza tu plan."
-- Si es una edición de prueba existente (ya tiene ID guardado), permitir guardar sin restricción.
-- Pro e Institucional: sin límite.
+- Para borradores locales (sin `editingId`), el autosave ya guarda y resetea `isDirty` inmediatamente. Pero no debería marcar `isDirty = true` en primer lugar si es la carga inicial.
+- Mover el `setIsDirty(true)` para que solo se ejecute después de la carga inicial.
 
-**Archivo:** `src/pages/DashboardDocente.tsx`
+### Cambios concretos
 
-- Aplicar la misma validación al presionar "Crear Prueba": si ya tiene 10, mostrar el mensaje y no navegar.
+**Archivo: `src/pages/CrearPrueba.tsx`**
+
+1. Agregar `const initialLoadRef = useRef(true);` junto a `saveTimerRef`.
+
+2. En el autosave effect (línea ~230), después de guardar borrador local, agregar:
+   ```ts
+   initialLoadRef.current = false;
+   ```
+
+3. Cambiar `shouldBlock` (línea 79) a:
+   ```ts
+   const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
+   ```
+
+4. Para robustez adicional, cambiar el blocker a usar la función callback form:
+   ```ts
+   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+     shouldBlock && currentLocation.pathname !== nextLocation.pathname
+   );
+   ```
+
+Esto asegura que el blocker solo se active cuando hay una navegación real a otra página y el usuario ha hecho ediciones reales (no la carga inicial).
