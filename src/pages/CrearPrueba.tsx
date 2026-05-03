@@ -220,8 +220,8 @@ const CrearPrueba = () => {
   }, [isStaff]);
 
 
-  // Docente autónomo: sin asignaciones UTP y no es staff → no pasa por flujo de revisión.
-  const isAutonomous = !isStaff && restrictedAssignments === null;
+  // Docente autónomo: sin colegio_id → no pasa por flujo de revisión UTP.
+  const isAutonomous = !isStaff && !currentProfile?.colegioId;
 
   // Determina si la prueba es de solo lectura para el docente
   const isOwnAssessment = !ownerId || ownerId === user?.id;
