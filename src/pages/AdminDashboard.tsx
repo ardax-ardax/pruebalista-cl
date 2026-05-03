@@ -146,7 +146,8 @@ export default function AdminDashboard() {
     loadUsers();
   };
 
-  /* --- Bulk institutional --- */
+  /* --- Bulk plan assign --- */
+  const [bulkPlan, setBulkPlan] = useState("institucional");
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -166,17 +167,17 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleBulkInstitutional = async () => {
+  const handleBulkPlanAssign = async () => {
     if (selectedUsers.size === 0) return;
     setBulkLoading(true);
     const ids = Array.from(selectedUsers);
-    // Update each user (supabase JS doesn't support IN for update easily)
     const promises = ids.map((uid) =>
-      supabase.from("user_usage").update({ plan_type: "institucional" }).eq("user_id", uid),
+      supabase.from("user_usage").update({ plan_type: bulkPlan }).eq("user_id", uid),
     );
     await Promise.all(promises);
     setBulkLoading(false);
-    toast.success(`${ids.length} usuario(s) actualizados a plan Institucional`);
+    const label = getPlan(bulkPlan).label;
+    toast.success(`${ids.length} usuario(s) actualizados a ${label}`);
     setSelectedUsers(new Set());
     loadUsers();
   };
@@ -391,13 +392,23 @@ export default function AdminDashboard() {
                       className="pl-9"
                     />
                   </div>
+                  <Select value={bulkPlan} onValueChange={setBulkPlan}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
-                    onClick={handleBulkInstitutional}
+                    onClick={handleBulkPlanAssign}
                     disabled={selectedUsers.size === 0 || bulkLoading}
                     className="gap-2"
                   >
                     {bulkLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Asignar Institucional ({selectedUsers.size})
+                    Asignar plan ({selectedUsers.size})
                   </Button>
                 </div>
                 <Table>
