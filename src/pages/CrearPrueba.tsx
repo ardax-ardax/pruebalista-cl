@@ -209,12 +209,14 @@ const CrearPrueba = () => {
   // Si es una nueva, guardamos como borrador local.
   useEffect(() => {
     if (!assessment || readOnly) return;
+    setIsDirty(true);
     if (editingId) {
       setSaveStatus("saving");
       clearTimeout(saveTimerRef.current);
       upsertAssessment(assessment)
         .then(() => {
           setSaveStatus("saved");
+          setIsDirty(false);
           saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
         })
         .catch((e) => {
@@ -225,6 +227,7 @@ const CrearPrueba = () => {
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
+      setIsDirty(false);
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
