@@ -41,7 +41,7 @@ export default function Perfil() {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("A");
 
-  const [grades, setGrades] = useState(() => loadGrades());
+  const { grades } = useAdminCourses();
   const allSubjects = useMemo(() => loadSubjects(), []);
   const filteredSubjects = useMemo(
     () => selectedGrade ? getSubjectsForGrade(selectedGrade, allSubjects, grades) : [],
