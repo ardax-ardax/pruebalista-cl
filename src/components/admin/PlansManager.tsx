@@ -467,6 +467,7 @@ export default function PlansManager() {
                 </div>
               </div>
             </div>
+           </ScrollArea>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
