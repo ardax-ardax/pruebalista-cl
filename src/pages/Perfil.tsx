@@ -256,18 +256,29 @@ export default function Perfil() {
                     </div>
                   ) : assignments.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {assignments.map((a) => (
-                        <Badge key={a.id} variant="secondary" className="flex items-center gap-1 py-1.5 px-3 text-sm">
-                          {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
-                          <button
-                            onClick={() => handleRemoveAssignment(a.id)}
-                            className="ml-1 hover:text-destructive transition-colors"
-                            title="Eliminar"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </Badge>
-                      ))}
+                      {sortedAssignments.map((a) => {
+                        const isBlocked = !activeAssignmentIds.has(a.id);
+                        return (
+                          <Badge key={a.id} variant="secondary" className={`flex items-center gap-1 py-1.5 px-3 text-sm ${isBlocked ? "opacity-50" : ""}`}>
+                            {isBlocked && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Lock className="h-3.5 w-3.5 text-amber-500 mr-1" />
+                                </TooltipTrigger>
+                                <TooltipContent>Excede el límite de tu plan actual</TooltipContent>
+                              </Tooltip>
+                            )}
+                            {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
+                            <button
+                              onClick={() => handleRemoveAssignment(a.id)}
+                              className="ml-1 hover:text-destructive transition-colors"
+                              title="Eliminar"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">
