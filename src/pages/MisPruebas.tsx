@@ -32,6 +32,7 @@ const MisPruebas = () => {
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
+  const { maxAssessments } = useUserUsage();
   const [isAutonomous, setIsAutonomous] = useState(true); // default true until checked
 
   // Check if user is autonomous (no colegio_id)
