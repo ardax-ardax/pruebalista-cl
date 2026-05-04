@@ -16,15 +16,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImagePlus, Loader2, Lock, Save, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
+import { ImagePlus, Loader2, Lock, Save, Sparkles, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 
 export default function Perfil() {
   const { user, role, isStaff } = useAuth();
-  const { effectivePlan, maxAssignments, planLabel } = useUserUsage();
+  const { effectivePlan, maxAssignments, planLabel, creditsAvailable, planExpiresAt, loading: usageLoading } = useUserUsage();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [colegioName, setColegioName] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -64,14 +65,31 @@ export default function Perfil() {
   const isDocente = !!user && !isStaff;
 
   useEffect(() => {
-    getMyProfile().then((p) => {
+    getMyProfile().then(async (p) => {
       if (p) {
         setProfile(p);
         setInstitutionName(p.customInstitutionName ?? "");
         setLogoUrl(p.customLogoUrl);
+        // Load colegio name if linked
+        if (user) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("colegio_id")
+            .eq("id", user.id)
+            .maybeSingle();
+          const cId = (prof as { colegio_id: string | null } | null)?.colegio_id;
+          if (cId) {
+            const { data: col } = await supabase
+              .from("colegios")
+              .select("nombre")
+              .eq("id", cId)
+              .maybeSingle();
+            setColegioName((col as { nombre: string } | null)?.nombre ?? null);
+          }
+        }
       }
     });
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -216,6 +234,46 @@ export default function Perfil() {
                 <div>
                   <div className="font-medium">{displayName}</div>
                   <div className="text-sm text-muted-foreground">{user?.email}</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Plan, rol y colegio */}
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" /> Plan y cuenta
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Plan actual</span>
+                    <div className="font-medium flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline">{planLabel}</Badge>
+                      {planExpiresAt && (
+                        <span className="text-xs text-muted-foreground">
+                          Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Créditos IA</span>
+                    <div className="font-medium mt-0.5">{usageLoading ? "…" : creditsAvailable}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Rol</span>
+                    <div className="font-medium mt-0.5 capitalize">
+                      {colegioName ? "Profesor de colegio" : "Docente autónomo"}
+                    </div>
+                  </div>
+                  {colegioName && (
+                    <div>
+                      <span className="text-muted-foreground">Colegio</span>
+                      <div className="font-medium mt-0.5">{colegioName}</div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

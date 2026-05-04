@@ -20,7 +20,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
-  const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark } = useUserUsage();
+  const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark, planExpiresAt, planType } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
   const [hideCredits, setHideCredits] = useState(false);
@@ -117,8 +117,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                       </div>
                     )}
                     {!usageLoading && (
-                      <div className="pt-1">
+                      <div className="pt-1 space-y-0.5">
                         <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{planLabel}</Badge>
+                        {planExpiresAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </DropdownMenuLabel>
