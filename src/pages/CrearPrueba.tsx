@@ -52,7 +52,7 @@ import { supabase } from "@/integrations/supabase/client";
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [grades, setGrades] = useState<GradeOption[]>([]);
+  const { grades } = useAdminCourses();
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("New Little College La Florida");
