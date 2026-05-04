@@ -209,6 +209,24 @@ const CrearPrueba = () => {
     })();
   }, [editingId, allowedTemplates, isStaff]);
 
+  // Filtrar cursos según los cursos permitidos del plan del docente
+  useEffect(() => {
+    if (isStaff) return; // Staff ve todos los cursos
+    if (!effectivePlan) return;
+    (async () => {
+      // Obtener cursos permitidos para este plan
+      const { data: allowed } = await supabase
+        .from("plan_allowed_courses")
+        .select("course_id, admin_courses!inner(grade_value)")
+        .eq("plan_id", effectivePlan);
+      if (!allowed || allowed.length === 0) return; // Sin restricción
+      const allowedGrades = new Set(
+        allowed.map((a: any) => a.admin_courses?.grade_value).filter(Boolean)
+      );
+      setGrades((prev) => prev.filter((g) => allowedGrades.has(g.value)));
+    })();
+  }, [effectivePlan, isStaff]);
+
   // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el
   // último logo guardado en Configuración).
