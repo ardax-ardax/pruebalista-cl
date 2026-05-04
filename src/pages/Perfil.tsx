@@ -237,6 +237,46 @@ export default function Perfil() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Plan, rol y colegio */}
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" /> Plan y cuenta
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Plan actual</span>
+                    <div className="font-medium flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline">{planLabel}</Badge>
+                      {planExpiresAt && (
+                        <span className="text-xs text-muted-foreground">
+                          Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Créditos IA</span>
+                    <div className="font-medium mt-0.5">{usageLoading ? "…" : creditsAvailable}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Rol</span>
+                    <div className="font-medium mt-0.5 capitalize">
+                      {colegioName ? "Profesor de colegio" : "Docente autónomo"}
+                    </div>
+                  </div>
+                  {colegioName && (
+                    <div>
+                      <span className="text-muted-foreground">Colegio</span>
+                      <div className="font-medium mt-0.5">{colegioName}</div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Tab: Mis cursos y asignaturas (solo docentes) */}
