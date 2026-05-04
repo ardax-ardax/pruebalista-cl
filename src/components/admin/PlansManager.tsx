@@ -425,6 +425,40 @@ export default function PlansManager() {
                     </div>
                   )}
                 </div>
+                {/* Cursos permitidos */}
+                {adminCourses.length > 0 && (
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label>Todos los cursos</Label>
+                    <Switch
+                      checked={editingCourses.length === 0}
+                      onCheckedChange={(v) => setEditingCourses(v ? [] : adminCourses.map((c) => c.id))}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Vacío = sin restricción de cursos</p>
+                  {editingCourses.length > 0 && (
+                    <div className="space-y-1.5 pl-1 max-h-40 overflow-y-auto">
+                      {adminCourses.map((c) => {
+                        const checked = editingCourses.includes(c.id);
+                        return (
+                          <div key={c.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`course-${c.id}`}
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setEditingCourses(
+                                  v ? [...editingCourses, c.id] : editingCourses.filter((x) => x !== c.id)
+                                );
+                              }}
+                            />
+                            <label htmlFor={`course-${c.id}`} className="text-sm cursor-pointer">{c.label}</label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                )}
                 <div className="flex items-center justify-between">
                   <Label>Plan por defecto (nuevos usuarios)</Label>
                   <Switch checked={editing.is_default} onCheckedChange={(v) => setEditing({ ...editing, is_default: v })} />
