@@ -23,7 +23,6 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, GraduationCap, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
-import { DEFAULT_SUBJECTS } from "@/lib/catalog";
 
 interface AdminCourse {
   id: string;
@@ -40,13 +39,15 @@ interface CourseSubject {
   subject_label: string;
 }
 
-const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
+interface AdminSubjectRow {
+  id: string;
+  subject_value: string;
+  subject_label: string;
+  levels: string[];
+  sort_order: number;
+}
 
-const ALL_SUBJECTS = DEFAULT_SUBJECTS.map((s) => ({
-  value: s.value,
-  label: s.label,
-  levels: s.levels,
-}));
+const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
 
 export default function AdminCoursesManager() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
