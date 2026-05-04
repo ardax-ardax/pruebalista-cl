@@ -1,32 +1,33 @@
 
-## Control de Hoja OMR por plan
+## Control de plantillas por plan
 
-### Situación actual
+### Enfoque
 
-- La hoja OMR se muestra a **todos** los usuarios cuando la plantilla es SIMCE o PAES (`essayMode`). No hay control por plan.
-- Las plantillas (Ev. Formativa, Ev. Sumativa, Guía, Ensayo SIMCE, Ensayo PAES) son built-in y se cargan desde `src/lib/templates.ts`. Actualmente no hay control de visibilidad por plan.
+Agregar un campo `allowed_templates` (array de texto) a la tabla `plans`. Cuando es `NULL`, todas las plantillas están disponibles. Cuando tiene valores, solo se muestran las plantillas cuyos IDs estén en el array.
 
-### Propuesta
-
-Agregar un nuevo campo `can_use_omr` (boolean) a la tabla `plans` para que el admin pueda activar/desactivar la hoja OMR por plan. Por defecto `false` para Free y `true` para planes superiores.
+Las 5 plantillas built-in son:
+- `ev-formativa-formal` — Ev. Formativa Formal
+- `ev-sumativa` — Ev. Sumativa
+- `guia-portafolio` — Guía de Portafolio
+- `ensayo-simce` — Ensayo SIMCE
+- `ensayo-paes` — Ensayo PAES
 
 ### Cambios
 
 **1. Migración SQL**
-- Agregar columna `can_use_omr boolean NOT NULL DEFAULT false` a `plans`.
+- Agregar columna `allowed_templates text[] DEFAULT NULL` a `plans`.
+- NULL = todas las plantillas habilitadas.
 
 **2. `src/hooks/usePlans.tsx`**
-- Agregar `can_use_omr` a la interfaz `Plan` y al `DEFAULT_PLAN_LIMITS`.
+- Agregar `allowed_templates: string[] | null` a la interfaz `Plan`.
 
 **3. `src/hooks/useUserUsage.tsx`**
-- Agregar `canUseOmr: boolean` a `UserUsage` y derivarlo del plan efectivo.
+- Agregar `allowedTemplates: string[] | null` derivado del plan efectivo.
 
 **4. `src/pages/CrearPrueba.tsx`**
-- Condicionar el botón "Hoja OMR" a `canUseOmr` además del `essayMode`.
+- Filtrar las plantillas cargadas según `allowedTemplates`. Si es `null`, mostrar todas. Si es un array, solo mostrar las que estén en la lista.
 
 **5. `src/components/admin/PlansManager.tsx`**
-- Agregar switch "Hoja de respuesta OMR" al formulario de edición de plan.
-
-### Sobre las plantillas
-
-Las plantillas actualmente son estáticas (built-in). Controlar qué plantillas ve cada plan requeriría un sistema más complejo (tabla de plantillas en DB + campo de visibilidad por plan). Si quieres avanzar con eso también, lo podemos hacer en un segundo paso. Por ahora el control de OMR es lo más inmediato.
+- Agregar sección de checkboxes con las 5 plantillas built-in al formulario de edición de plan.
+- Cada checkbox activa/desactiva el template ID en el array.
+- Un toggle "Todas las plantillas" para poner NULL (sin restricción).

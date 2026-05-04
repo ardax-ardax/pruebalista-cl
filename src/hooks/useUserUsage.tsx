@@ -21,6 +21,7 @@ export interface UserUsage {
   showWatermark: boolean;
   canEditLayout: boolean;
   canUseOmr: boolean;
+  allowedTemplates: string[] | null;
 }
 
 const DEFAULT_USAGE: UserUsage = {
@@ -37,6 +38,7 @@ const DEFAULT_USAGE: UserUsage = {
   showWatermark: true,
   canEditLayout: true,
   canUseOmr: false,
+  allowedTemplates: null,
 };
 
 function computeEffectivePlan(planType: PlanType, expiresAt: string | null, defaultPlanId: string): PlanType {
@@ -112,6 +114,7 @@ export function UserUsageProvider({ children }: { children: ReactNode }) {
     showWatermark: planConfig.show_watermark,
     canEditLayout: planConfig.can_edit_layout,
     canUseOmr: planConfig.can_use_omr,
+    allowedTemplates: planConfig.allowed_templates,
   };
 
   return (

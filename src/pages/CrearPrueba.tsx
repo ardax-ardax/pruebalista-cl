@@ -74,7 +74,7 @@ const CrearPrueba = () => {
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
-  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, planLabel } = useUserUsage();
+  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, allowedTemplates, planLabel } = useUserUsage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
@@ -165,7 +165,10 @@ const CrearPrueba = () => {
   }, [editingId, isStaff, user?.id]);
 
   useEffect(() => {
-    const t = loadTemplates();
+    let t = loadTemplates();
+    if (!isStaff && allowedTemplates) {
+      t = t.filter((tpl) => allowedTemplates.includes(tpl.id));
+    }
     setTemplates(t);
     setSubjects(loadSubjects());
     setGrades(loadGrades());
@@ -203,7 +206,7 @@ const CrearPrueba = () => {
         else if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
       }
     })();
-  }, [editingId]);
+  }, [editingId, allowedTemplates, isStaff]);
 
   // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el

@@ -261,6 +261,7 @@ export type Database = {
       }
       plans: {
         Row: {
+          allowed_templates: string[] | null
           can_edit_layout: boolean
           can_export_docx: boolean
           can_use_omr: boolean
@@ -275,6 +276,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          allowed_templates?: string[] | null
           can_edit_layout?: boolean
           can_export_docx?: boolean
           can_use_omr?: boolean
@@ -289,6 +291,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          allowed_templates?: string[] | null
           can_edit_layout?: boolean
           can_export_docx?: boolean
           can_use_omr?: boolean
