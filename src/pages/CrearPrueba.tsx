@@ -540,7 +540,7 @@ const CrearPrueba = () => {
             <Button variant="outline" size="sm" onClick={handleExportPdf}>
               <FileDown className="h-4 w-4" /> PDF
             </Button>
-            {(template?.essayMode === "simce" || template?.essayMode === "paes") && (
+            {canUseOmr && (template?.essayMode === "simce" || template?.essayMode === "paes") && (
               <Button variant="outline" size="sm" onClick={() => setOmrOpen(true)}>
                 <Printer className="h-4 w-4" /> Hoja OMR
               </Button>
