@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
@@ -46,6 +46,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage, type PlanType } from "@/hooks/useUserUsage";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
 import { loadAppSettings, loadDefaultInstitutionLogo, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
+import { supabase } from "@/integrations/supabase/client";
 
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
@@ -207,6 +208,24 @@ const CrearPrueba = () => {
       }
     })();
   }, [editingId, allowedTemplates, isStaff]);
+
+  // Filtrar cursos según los cursos permitidos del plan del docente
+  useEffect(() => {
+    if (isStaff) return; // Staff ve todos los cursos
+    if (!effectivePlan) return;
+    (async () => {
+      // Obtener cursos permitidos para este plan
+      const { data: allowed } = await supabase
+        .from("plan_allowed_courses")
+        .select("course_id, admin_courses!inner(grade_value)")
+        .eq("plan_id", effectivePlan);
+      if (!allowed || allowed.length === 0) return; // Sin restricción
+      const allowedGrades = new Set(
+        allowed.map((a: any) => a.admin_courses?.grade_value).filter(Boolean)
+      );
+      setGrades((prev) => prev.filter((g) => allowedGrades.has(g.value)));
+    })();
+  }, [effectivePlan, isStaff]);
 
   // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el
