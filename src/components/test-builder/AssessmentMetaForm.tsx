@@ -228,7 +228,7 @@ export const AssessmentMetaForm = ({
         </div>
 
         <div>
-          <Label className="text-xs">Título de la evaluación</Label>
+          <Label className="text-xs">Título de la evaluación <span className="text-destructive">*</span></Label>
           <Input value={meta.title} onChange={(e) => set("title", e.target.value)} placeholder="Evaluación Sumativa N°1 — Reino Animal" />
         </div>
         <div>
