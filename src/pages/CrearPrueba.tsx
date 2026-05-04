@@ -117,7 +117,6 @@ const CrearPrueba = () => {
   // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
   // Si el docente no tiene asignaciones, se bloquea la creación de pruebas nuevas.
   // If plan has a limit, only the last N assignments (by created_at) are active.
-  const maxAssignments = useUserUsage().maxAssignments;
   useEffect(() => {
     if (authLoading || !user) return;
     if (!isDocente) { setRestrictedAssignments(null); setAssignmentsLoaded(true); setHasZeroAssignments(false); return; }
