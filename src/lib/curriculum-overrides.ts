@@ -1,14 +1,5 @@
-// Capa de overrides curriculares: permite que el administrador edite/agregue
-// OAs e indicadores. La fuente efectiva = base hard-coded + overrides.
-//
-// Persistencia híbrida:
-//   - Lectura: cache en memoria, hidratada al primer acceso desde localStorage.
-//   - Escritura: localStorage SIEMPRE; además sincroniza a Supabase
-//     (`curriculum_base`) si el usuario tiene permisos (RLS lo valida).
-//
-// Las funciones pesadas son async (loadOverridesFromCloud, save, remove).
-// `listOverrides` es síncrono (usa cache) para que `curriculum-data.ts`
-// pueda consumirlo desde getters.
+// CRUD directo contra `curriculum_base`. Sin localStorage ni overrides.
+// Fuente única de verdad: la tabla curriculum_base en Supabase.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Indicator } from "./curriculum-data";
@@ -22,18 +13,11 @@ export interface OverrideOA {
   indicators: Indicator[];
 }
 
-const LS_KEY = "curriculum_overrides_v1";
-
 let cache: OverrideOA[] | null = null;
-// Promesa "in-flight" para deduplicar fetches paralelos y evitar repetir la
-// descarga al cambiar entre cursos. Una vez resuelta, las llamadas siguientes
-// usan la cache en memoria de inmediato.
 let cloudPromise: Promise<{ ok: boolean; count: number; error?: string }> | null = null;
 let cloudHydratedAt = 0;
-const CLOUD_TTL_MS = 5 * 60 * 1000; // 5 min: refresca si pasa más tiempo
+const CLOUD_TTL_MS = 5 * 60 * 1000;
 
-// Natural sort para códigos como "OA 1", "OA 2", ..., "OA 10".
-// Devuelve negativo si a < b. Usa el primer número embebido.
 const naturalCompare = (a: string, b: string): number => {
   const re = /(\d+)/g;
   const ax = a.match(re)?.map(Number) ?? [];
@@ -50,34 +34,8 @@ const naturalCompare = (a: string, b: string): number => {
 export const naturalSortByCode = <T extends { code?: string; oa_code?: string }>(arr: T[]): T[] =>
   [...arr].sort((x, y) => naturalCompare((x.code ?? x.oa_code ?? ""), (y.code ?? y.oa_code ?? "")));
 
-const safeRead = (): OverrideOA[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as OverrideOA[]) : [];
-  } catch {
-    return [];
-  }
-};
-
-const safeWrite = (data: OverrideOA[]) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
-  } catch {
-    /* ignore quota */
-  }
-};
-
-const ensureCache = (): OverrideOA[] => {
-  if (cache === null) cache = safeRead();
-  return cache;
-};
-
 export const listOverrides = (gradeValue?: string, subjectValue?: string): OverrideOA[] => {
-  const all = ensureCache();
+  const all = cache ?? [];
   const filtered = (!gradeValue || !subjectValue)
     ? all
     : all.filter((o) => o.grade_value === gradeValue && o.subject_value === subjectValue);
@@ -89,38 +47,10 @@ export const findOverride = (
   subjectValue: string,
   oaCode: string,
 ): OverrideOA | undefined =>
-  ensureCache().find(
+  (cache ?? []).find(
     (o) => o.grade_value === gradeValue && o.subject_value === subjectValue && o.oa_code === oaCode,
   );
 
-const upsertLocal = (entry: OverrideOA) => {
-  const all = ensureCache();
-  const idx = all.findIndex(
-    (o) =>
-      o.grade_value === entry.grade_value &&
-      o.subject_value === entry.subject_value &&
-      o.oa_code === entry.oa_code,
-  );
-  if (idx >= 0) all[idx] = entry;
-  else all.push(entry);
-  cache = [...all];
-  safeWrite(cache);
-};
-
-const removeLocal = (gradeValue: string, subjectValue: string, oaCode: string) => {
-  const all = ensureCache();
-  cache = all.filter(
-    (o) => !(o.grade_value === gradeValue && o.subject_value === subjectValue && o.oa_code === oaCode),
-  );
-  safeWrite(cache);
-};
-
-// Sincroniza la cache local con la BD. Optimizada:
-//  - Deduplica fetches paralelos (in-flight promise compartida).
-//  - Respeta un TTL (5 min): si la cache ya fue hidratada recientemente,
-//    no vuelve a tocar la red. Esto hace que cambiar de curso/asignatura
-//    sea instantáneo después de la primera carga.
-//  - `force: true` salta el TTL (útil tras guardar un override).
 export const loadOverridesFromCloud = async (
   opts: { force?: boolean } = {},
 ): Promise<{ ok: boolean; count: number; error?: string }> => {
@@ -137,7 +67,8 @@ export const loadOverridesFromCloud = async (
         .select("grade_value, subject_value, oa_code, oa_description, eje, indicators")
         .order("grade_value", { ascending: true })
         .order("subject_value", { ascending: true })
-        .order("oa_code", { ascending: true });
+        .order("oa_code", { ascending: true })
+        .limit(5000);
       if (error) return { ok: false, count: 0, error: error.message };
       const rows = (data ?? []) as Array<{
         grade_value: string;
@@ -155,7 +86,6 @@ export const loadOverridesFromCloud = async (
         eje: r.eje ?? undefined,
         indicators: Array.isArray(r.indicators) ? (r.indicators as Indicator[]) : [],
       }));
-      safeWrite(cache);
       cloudHydratedAt = Date.now();
       return { ok: true, count: cache.length };
     } catch (e) {
@@ -168,39 +98,55 @@ export const loadOverridesFromCloud = async (
   return cloudPromise;
 };
 
-// Guarda (insert/update) un override. Persiste local SIEMPRE; intenta cloud.
 export const saveOverride = async (entry: OverrideOA): Promise<{ cloud: boolean; error?: string }> => {
-  upsertLocal(entry);
   try {
     const { error } = await supabase
       .from("curriculum_base")
       .upsert(
-        [
-          {
-            grade_value: entry.grade_value,
-            subject_value: entry.subject_value,
-            oa_code: entry.oa_code,
-            oa_description: entry.oa_description,
-            eje: entry.eje ?? undefined,
-            indicators: entry.indicators as unknown as never,
-          },
-        ],
+        [{
+          grade_value: entry.grade_value,
+          subject_value: entry.subject_value,
+          oa_code: entry.oa_code,
+          oa_description: entry.oa_description,
+          eje: entry.eje ?? undefined,
+          indicators: entry.indicators as unknown as never,
+        }],
         { onConflict: "grade_value,subject_value,oa_code" },
       );
     if (error) return { cloud: false, error: error.message };
+    await loadOverridesFromCloud({ force: true });
     return { cloud: true };
   } catch (e) {
     return { cloud: false, error: (e as Error).message };
   }
 };
 
-// Elimina el override (restaurar a base). No toca la base hard-coded.
+export const saveBulkOAs = async (entries: OverrideOA[]): Promise<{ cloud: boolean; count: number; error?: string }> => {
+  try {
+    const rows = entries.map((e) => ({
+      grade_value: e.grade_value,
+      subject_value: e.subject_value,
+      oa_code: e.oa_code,
+      oa_description: e.oa_description,
+      eje: e.eje ?? undefined,
+      indicators: e.indicators as unknown as never,
+    }));
+    const { error } = await supabase
+      .from("curriculum_base")
+      .upsert(rows, { onConflict: "grade_value,subject_value,oa_code" });
+    if (error) return { cloud: false, count: 0, error: error.message };
+    await loadOverridesFromCloud({ force: true });
+    return { cloud: true, count: entries.length };
+  } catch (e) {
+    return { cloud: false, count: 0, error: (e as Error).message };
+  }
+};
+
 export const removeOverride = async (
   gradeValue: string,
   subjectValue: string,
   oaCode: string,
 ): Promise<{ cloud: boolean; error?: string }> => {
-  removeLocal(gradeValue, subjectValue, oaCode);
   try {
     const { error } = await supabase
       .from("curriculum_base")
@@ -209,13 +155,13 @@ export const removeOverride = async (
       .eq("subject_value", subjectValue)
       .eq("oa_code", oaCode);
     if (error) return { cloud: false, error: error.message };
+    await loadOverridesFromCloud({ force: true });
     return { cloud: true };
   } catch (e) {
     return { cloud: false, error: (e as Error).message };
   }
 };
 
-// Útil para tests / forzar relectura.
 export const __resetCache = () => {
   cache = null;
   cloudHydratedAt = 0;
