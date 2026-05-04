@@ -212,6 +212,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="plans" className="gap-2"><Package className="h-4 w-4" /> Planes</TabsTrigger>
             <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuarios</TabsTrigger>
             <TabsTrigger value="institutions" className="gap-2"><CreditCard className="h-4 w-4" /> Instituciones</TabsTrigger>
+            <TabsTrigger value="courses" className="gap-2"><GraduationCap className="h-4 w-4" /> Cursos</TabsTrigger>
           </TabsList>
 
           {/* ──── Settings Tab ──── */}
