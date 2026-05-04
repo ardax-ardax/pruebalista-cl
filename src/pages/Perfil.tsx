@@ -363,6 +363,17 @@ export default function Perfil() {
                       </SelectContent>
                     </Select>
 
+                    <Select value={selectedLetter} onValueChange={setSelectedLetter} disabled={!canAddMore}>
+                      <SelectTrigger className="sm:w-[80px]">
+                        <SelectValue placeholder="Letra" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["A", "B", "C", "D", "E", "F"].map((l) => (
+                          <SelectItem key={l} value={l}>{l}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
                     <Select
                       value={selectedSubject}
                       onValueChange={setSelectedSubject}
