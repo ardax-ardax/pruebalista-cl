@@ -162,12 +162,13 @@ export default function Perfil() {
       return;
     }
     setAddingAssignment(true);
-    const res = await addAssignment(user.id, selectedGrade, selectedSubject);
+    const res = await addAssignment(user.id, selectedGrade, selectedSubject, selectedLetter);
     if (res.ok) {
       const updated = await listAssignmentsForTeacher(user.id);
       setAssignments(updated);
       setSelectedGrade("");
       setSelectedSubject("");
+      setSelectedLetter("A");
       toast.success("Asignación agregada");
     } else {
       toast.error(res.error || "Error al agregar");
