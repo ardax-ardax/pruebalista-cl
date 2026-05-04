@@ -13,7 +13,8 @@ import { getMyProfile, type Profile } from "@/lib/profiles";
 import { listAssessments } from "@/lib/assessment-storage";
 import { ASSESSMENT_STATUS_LABEL, type Assessment, type AssessmentStatus } from "@/lib/assessment-schema";
 import { supabase } from "@/integrations/supabase/client";
-import { loadSubjects, loadGrades } from "@/lib/catalog";
+import { loadSubjects } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { loadAppSettings } from "@/lib/app-settings";
 
 const STATUS_COLOR: Record<AssessmentStatus, string> = {

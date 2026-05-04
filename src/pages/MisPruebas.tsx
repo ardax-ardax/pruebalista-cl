@@ -10,7 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
-import { loadGrades, loadSubjects } from "@/lib/catalog";
+import { loadSubjects } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
 import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";

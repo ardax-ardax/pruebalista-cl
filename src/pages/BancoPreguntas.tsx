@@ -9,7 +9,8 @@ import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2 } from "l
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { searchBank, deleteFromBank, hideFromBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
-import { loadSubjects, loadGrades } from "@/lib/catalog";
+import { loadSubjects } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { QUESTION_TYPE_LABEL, type QuestionType, type Question } from "@/lib/assessment-schema";
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 
