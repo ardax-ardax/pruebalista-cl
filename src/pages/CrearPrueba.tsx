@@ -37,7 +37,8 @@ import {
 } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadInstitutionName, loadLogo, loadTemplates, type FormatTemplate } from "@/lib/templates";
-import { loadGrades, loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
+import { loadSubjects, loadTeachers, type GradeOption, type SubjectOption, type TeacherOption } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import type { RenderContext } from "@/lib/assessment-render";
 import { exportAssessmentToPdf } from "@/lib/assessment-pdf";
 import { exportAssessmentToDocx } from "@/lib/assessment-docx";
@@ -51,7 +52,7 @@ import { supabase } from "@/integrations/supabase/client";
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [grades, setGrades] = useState<GradeOption[]>([]);
+  const { grades } = useAdminCourses();
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("New Little College La Florida");
@@ -172,7 +173,7 @@ const CrearPrueba = () => {
     }
     setTemplates(t);
     setSubjects(loadSubjects());
-    setGrades(loadGrades());
+    // grades now loaded via useAdminCourses hook
     setTeachers(loadTeachers());
     // Branding: solo staff usa branding institucional del backend.
     // Docentes autónomos usan su perfil (cargado en otro useEffect).
@@ -209,30 +210,7 @@ const CrearPrueba = () => {
     })();
   }, [editingId, allowedTemplates, isStaff]);
 
-  // Filtrar cursos según los cursos permitidos del plan del docente
-  useEffect(() => {
-    if (isStaff) return; // Staff ve todos los cursos
-    if (!effectivePlan) return;
-    (async () => {
-      // 1. Obtener IDs de cursos permitidos para este plan
-      const { data: allowed } = await supabase
-        .from("plan_allowed_courses")
-        .select("course_id")
-        .eq("plan_id", effectivePlan);
-      if (!allowed || allowed.length === 0) return; // Sin restricción
-
-      // 2. Obtener grade_value de esos cursos
-      const courseIds = allowed.map((a) => a.course_id);
-      const { data: courses } = await supabase
-        .from("admin_courses")
-        .select("grade_value")
-        .in("id", courseIds);
-      if (!courses || courses.length === 0) return;
-
-      const allowedGrades = new Set(courses.map((c) => c.grade_value));
-      setGrades((prev) => prev.filter((g) => allowedGrades.has(g.value)));
-    })();
-  }, [effectivePlan, isStaff]);
+  // Plan filtering is now handled by useAdminCourses hook
 
   // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el

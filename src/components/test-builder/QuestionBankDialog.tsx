@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Library, Search, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
 import { searchBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
 import { newId, QUESTION_TYPE_LABEL, type Question, type QuestionType } from "@/lib/assessment-schema";
-import { loadSubjects, loadGrades } from "@/lib/catalog";
+import { loadSubjects } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 
 interface Props {
   open: boolean;
@@ -24,7 +25,7 @@ const TYPES: { value: string; label: string }[] = [
 
 export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
   const subjects = loadSubjects();
-  const grades = loadGrades();
+  const { grades } = useAdminCourses();
 
   const [rows, setRows] = useState<QuestionBankRow[]>([]);
   const [loading, setLoading] = useState(false);

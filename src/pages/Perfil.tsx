@@ -2,9 +2,10 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { getMyProfile, updateMyProfile, type Profile } from "@/lib/profiles";
 import { listAssignmentsForTeacher, addAssignment, removeAssignment, type TeacherAssignment } from "@/lib/teacher-assignments";
-import { loadGrades, loadSubjects, getSubjectsForGrade } from "@/lib/catalog";
+import { loadSubjects, getSubjectsForGrade } from "@/lib/catalog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -40,7 +41,7 @@ export default function Perfil() {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("A");
 
-  const [grades, setGrades] = useState(() => loadGrades());
+  const { grades } = useAdminCourses();
   const allSubjects = useMemo(() => loadSubjects(), []);
   const filteredSubjects = useMemo(
     () => selectedGrade ? getSubjectsForGrade(selectedGrade, allSubjects, grades) : [],
@@ -65,28 +66,7 @@ export default function Perfil() {
 
   const isDocente = !!user && !isStaff;
 
-  // Filtrar cursos según plan_allowed_courses del plan del docente
-  useEffect(() => {
-    if (isStaff) return;
-    if (!effectivePlan) return;
-    (async () => {
-      const { data: allowed } = await supabase
-        .from("plan_allowed_courses")
-        .select("course_id")
-        .eq("plan_id", effectivePlan);
-      if (!allowed || allowed.length === 0) return; // Sin restricción
-
-      const courseIds = allowed.map((a) => a.course_id);
-      const { data: courses } = await supabase
-        .from("admin_courses")
-        .select("grade_value")
-        .in("id", courseIds);
-      if (!courses || courses.length === 0) return;
-
-      const allowedGrades = new Set(courses.map((c) => c.grade_value));
-      setGrades((prev) => prev.filter((g) => allowedGrades.has(g.value)));
-    })();
-  }, [effectivePlan, isStaff]);
+  // Plan filtering is now handled by useAdminCourses hook
 
   useEffect(() => {
     getMyProfile().then(async (p) => {

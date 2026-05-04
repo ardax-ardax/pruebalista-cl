@@ -10,7 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
-import { loadGrades, loadSubjects } from "@/lib/catalog";
+import { loadSubjects } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
 import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,7 +26,7 @@ const MisPruebas = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subjects] = useState(() => loadSubjects());
-  const [grades] = useState(() => loadGrades());
+  const { grades } = useAdminCourses();
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const [subjectFilter, setSubjectFilter] = useState<string>(ALL);

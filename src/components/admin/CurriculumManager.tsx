@@ -16,7 +16,8 @@ import {
 import { Plus, RotateCcw, Save, Trash2, Pencil, Cloud, CloudOff } from "lucide-react";
 import { toast } from "sonner";
 
-import { loadGrades, loadSubjects, getSubjectsForGrade, type GradeOption, type SubjectOption } from "@/lib/catalog";
+import { loadSubjects, getSubjectsForGrade, type GradeOption, type SubjectOption } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { getOAs, type Indicator, type OA } from "@/lib/curriculum-data";
 import {
   findOverride, loadOverridesFromCloud, removeOverride, saveOverride,
@@ -48,7 +49,7 @@ const blankDraft = (): DraftOA => ({
 });
 
 export const CurriculumManager = () => {
-  const [grades, setGrades] = useState<GradeOption[]>([]);
+  const { grades } = useAdminCourses();
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
@@ -61,7 +62,7 @@ export const CurriculumManager = () => {
 
   // Carga inicial: catálogos + sincroniza overrides desde la nube.
   useEffect(() => {
-    setGrades(loadGrades());
+    // grades loaded via useAdminCourses hook
     setSubjects(loadSubjects());
     loadOverridesFromCloud().then((r) => {
       setCloudOk(r.ok);

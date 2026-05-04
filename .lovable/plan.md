@@ -1,18 +1,30 @@
+
 ## Problema
 
-En la página de Perfil → "Mis cursos", el docente ve todos los cursos disponibles en el dropdown, sin respetar la restricción de cursos del plan (`plan_allowed_courses`). El filtro ya se aplicó en `CrearPrueba.tsx` pero falta replicarlo en `Perfil.tsx`.
+Los cursos de Media aparecen duplicados (A y B) en el perfil docente porque el dropdown se alimenta de `DEFAULT_GRADES` en `catalog.ts`, que tiene entradas como `IMedioA`, `IMedioB`, etc. Pero `admin_courses` en la base de datos define un solo curso por nivel: `IMedio`, `IIMedio`, etc.
+
+El filtro por `plan_allowed_courses` compara `admin_courses.grade_value` ("IMedio") contra el `value` del catálogo ("IMedioA"), no hace match, y las entradas pasan sin filtrar. Resultado: aparecen dos de cada medio (A y B) del catálogo hardcodeado.
 
 ## Solución
 
-### Archivo: `src/pages/Perfil.tsx`
+Reemplazar `loadGrades()` (localStorage/hardcoded) por una carga directa desde `admin_courses` como fuente de verdad en las páginas que muestran el dropdown de cursos. La sección (A-F) ya se maneja por separado con `section_letter` en `teacher_assignments`.
 
-Agregar la misma lógica de filtrado que ya existe en `CrearPrueba.tsx`:
+### Cambios
 
-1. Convertir `grades` de `useMemo` a `useState` (para poder filtrarlo después).
-2. Agregar un `useEffect` que, si el usuario no es staff y tiene un `effectivePlan`:
-   - Consulta `plan_allowed_courses` para obtener los `course_id` permitidos.
-   - Consulta `admin_courses` con esos IDs para obtener los `grade_value`.
-   - Filtra el estado `grades` dejando solo los cursos permitidos.
-   - Si no hay restricciones (`allowed.length === 0`), no filtra (comportamiento actual).
+**1. `src/pages/Perfil.tsx`**
+- Eliminar la importación de `loadGrades` del catálogo.
+- Cargar cursos desde `admin_courses` (ordenados por `sort_order`), mapeando a `{ value: grade_value, label, level }`.
+- Si hay `effectivePlan`, filtrar por `plan_allowed_courses` como ya se hace.
+- El dropdown mostrará exactamente lo que el admin definió (sin duplicados A/B).
 
-No se requieren cambios en base de datos ni en otros archivos.
+**2. `src/pages/CrearPrueba.tsx`**
+- Mismo cambio: reemplazar `loadGrades()` por consulta a `admin_courses`.
+- El filtro por plan ya existente seguirá funcionando porque ahora los `grade_value` coincidirán.
+
+**3. Verificar otras páginas** que usan `loadGrades()`:
+- `BancoPreguntas.tsx`, `MisPruebas.tsx`, `DashboardDocente.tsx`, `Configuracion.tsx`, `StaffManager.tsx`, `CurriculumManager.tsx`, `QuestionBankDialog.tsx` -- migrar también a `admin_courses` para consistencia.
+- Crear un hook reutilizable `useAdminCourses()` que cargue desde la tabla y aplique el filtro de plan si corresponde, para no repetir la lógica en cada página.
+
+### Sin cambios en base de datos
+
+No se requieren migraciones. La tabla `admin_courses` ya tiene los datos correctos.
