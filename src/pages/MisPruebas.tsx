@@ -14,6 +14,7 @@ import { loadGrades, loadSubjects } from "@/lib/catalog";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
 import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserUsage } from "@/hooks/useUserUsage";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Item { assessment: Assessment; userId: string; }
