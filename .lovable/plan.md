@@ -1,26 +1,18 @@
-
 ## Problema
 
-El filtro de cursos por plan no funciona porque `plan_allowed_courses` no tiene foreign key hacia `admin_courses`, entonces el join via PostgREST (`admin_courses!inner(grade_value)`) falla silenciosamente y devuelve datos vacíos → se interpreta como "sin restricción" → el docente ve todos los cursos.
+En la página de Perfil → "Mis cursos", el docente ve todos los cursos disponibles en el dropdown, sin respetar la restricción de cursos del plan (`plan_allowed_courses`). El filtro ya se aplicó en `CrearPrueba.tsx` pero falta replicarlo en `Perfil.tsx`.
 
 ## Solución
 
-### 1. Migración: agregar FK de `plan_allowed_courses.course_id` → `admin_courses.id`
+### Archivo: `src/pages/Perfil.tsx`
 
-También agregar FK de `admin_course_subjects.course_id` → `admin_courses.id` (que también le falta).
+Agregar la misma lógica de filtrado que ya existe en `CrearPrueba.tsx`:
 
-### 2. Actualizar `src/pages/CrearPrueba.tsx`
+1. Convertir `grades` de `useMemo` a `useState` (para poder filtrarlo después).
+2. Agregar un `useEffect` que, si el usuario no es staff y tiene un `effectivePlan`:
+   - Consulta `plan_allowed_courses` para obtener los `course_id` permitidos.
+   - Consulta `admin_courses` con esos IDs para obtener los `grade_value`.
+   - Filtra el estado `grades` dejando solo los cursos permitidos.
+   - Si no hay restricciones (`allowed.length === 0`), no filtra (comportamiento actual).
 
-Simplificar la lógica de filtrado para que sea más robusta:
-- Consultar `plan_allowed_courses` para el plan del usuario
-- Luego consultar `admin_courses` con los IDs obtenidos para obtener los `grade_value`
-- Filtrar `grades` con ese set
-
-Esto funciona con o sin FK, pero con el FK también habilita el join para futuros usos.
-
-### Archivos afectados
-
-| Archivo | Cambio |
-|---------|--------|
-| Nueva migración | FK en `plan_allowed_courses` y `admin_course_subjects` |
-| `src/pages/CrearPrueba.tsx` | Arreglar lógica de filtrado (dos queries separadas) |
+No se requieren cambios en base de datos ni en otros archivos.
