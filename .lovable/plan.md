@@ -1,41 +1,48 @@
-## 3 fixes for docente Pro user
 
-### 1. Docente autonomy based on colegio_id (not assignments)
+## Expiración de plan Pro con degradación suave
 
-**Problem**: `isAutonomous` currently checks if the docente has zero `teacher_assignments`. This user has a self-assigned course but `colegio_id = NULL`, so the "Enviar a Revisión UTP" button appears despite having no UTP to send to.
+Cuando un plan Pro expira (1 mes por defecto), el usuario baja a Free pero conserva todos sus datos. Solo se restringe cuántos puede usar activamente.
 
-**Rule from project memory**: "Docentes autónomos (sin colegio_id) no pertenecen a ningún colegio."
+### Lógica de negocio
 
-**Fix**:
-- **`src/lib/profiles.ts`**: Add `colegioId` to the `Profile` interface and include `colegio_id` in all profile queries.
-- **`src/pages/CrearPrueba.tsx`**: Change `isAutonomous` to `!isStaff && !currentProfile?.colegioId`. A docente without colegio is always autonomous, regardless of assignments.
-- **`src/pages/MisPruebas.tsx`**: Apply same logic if UTP review status is shown there.
+- **Créditos**: se mantienen tal cual, no se restan.
+- **Asignaciones**: si tiene más de las permitidas en Free (ej. 5), solo las últimas N creadas quedan activas; las anteriores se bloquean (no se eliminan).
+- **Pruebas**: si tiene más de las permitidas en Free (ej. 10), solo las últimas N (por `updated_at`) se pueden editar/eliminar; las anteriores son de solo lectura.
+- Al renovar/subir plan, todo se desbloquea automáticamente (no hay que restaurar nada).
 
-### 2. AI generates questions in English for "Inglés" subject
+### Ya existe: `effectivePlan`
 
-**Problem**: The system prompt says "Redacta en español de Chile" but the AI still generates in English when the subject is Inglés.
+El hook `useUserUsage` ya calcula `effectivePlan`: si `plan_expires_at` pasó, devuelve el plan por defecto (Free). Los límites (`maxAssessments`, `maxAssignments`) ya se derivan del `effectivePlan`. Esto significa que la restricción de "no crear más" ya funciona.
 
-**Fix** in `supabase/functions/generate-question/index.ts`: Add an explicit rule to the system prompt:
-```
-- IMPORTANTE: Redacta SIEMPRE el enunciado, las alternativas y la pauta en español de Chile, incluso si la asignatura es Inglés u otro idioma extranjero. Solo los textos que formen parte del contenido evaluado (por ejemplo, un fragmento en inglés que el alumno debe analizar) pueden estar en otro idioma.
-```
+### Lo que falta: restringir los existentes que exceden el límite
 
-### 3. Credits not matching Pro plan
+**1. Asignaciones — bloqueo visual en Perfil**
 
-**Problem**: The user was created with 20 credits (old hardcoded default) but their Pro plan defines `default_credits: 200`. Their `user_usage` row has `credits_available: 18`.
+En `src/pages/Perfil.tsx`, ordenar las asignaciones por `created_at DESC`. Si `maxAssignments` es N y hay más de N, marcar las que exceden (las más antiguas) como bloqueadas: no se pueden seleccionar al crear pruebas, y en la UI muestran un candado con tooltip "Excede el límite de tu plan".
 
-**Fix**: Two parts:
-- **Migration**: Update the existing user's credits to match their plan's default (only if current credits are lower than plan default, to not penalize users who already used credits).
-- **`handle_new_user` trigger**: Already reads from `plans` table -- this is correct. No change needed.
-- **Admin action**: When changing a user's plan in AdminDashboard, also reset their credits to the new plan's `default_credits`. Check if this already happens.
+**2. Pruebas — bloqueo de edición en MisPruebas y CrearPrueba**
 
-### Files to modify
+En `src/pages/MisPruebas.tsx`, ordenar por `updated_at DESC`. Si `maxAssessments` es N y hay más de N, las pruebas fuera del límite muestran botones Editar/Eliminar deshabilitados con tooltip "Excede el límite de tu plan". Se pueden ver pero no modificar.
 
-| File | Change |
-|------|--------|
-| `src/lib/profiles.ts` | Add `colegioId` field to Profile |
-| `src/pages/CrearPrueba.tsx` | Use `colegioId` for autonomy check |
-| `src/pages/MisPruebas.tsx` | Same autonomy fix if applicable |
-| `supabase/functions/generate-question/index.ts` | Add Spanish-only rule to prompt |
-| `src/pages/AdminDashboard.tsx` | Ensure plan change updates credits |
-| Migration SQL | Update existing Pro user credits |
+En `src/pages/CrearPrueba.tsx`, si el usuario intenta abrir una prueba bloqueada vía URL, mostrar alerta y redirigir.
+
+**3. Filtrar asignaciones disponibles en CrearPrueba**
+
+En `src/pages/CrearPrueba.tsx`, cuando se cargan las asignaciones para elegir curso/asignatura, filtrar solo las activas (las últimas N por `created_at`).
+
+**4. Valor por defecto de `plan_expires_at` al asignar plan Pro**
+
+En `src/pages/AdminDashboard.tsx`, cuando el admin asigna un plan diferente a Free, setear `plan_expires_at = now() + 1 mes` automáticamente. Si asigna Free, `plan_expires_at = null`.
+
+### Archivos a modificar
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/pages/Perfil.tsx` | Ordenar asignaciones, marcar excedentes como bloqueadas |
+| `src/pages/MisPruebas.tsx` | Ordenar pruebas, deshabilitar edición/eliminación en excedentes |
+| `src/pages/CrearPrueba.tsx` | Filtrar asignaciones activas; bloquear apertura de prueba excedente |
+| `src/pages/DashboardDocente.tsx` | Ajustar conteo de pruebas activas vs total |
+| `src/pages/AdminDashboard.tsx` | Auto-setear `plan_expires_at` al cambiar plan |
+| `src/hooks/useUserUsage.tsx` | Exportar `planExpiresAt` (ya existe) para mostrar en UI |
+
+No se requieren migraciones de base de datos. La columna `plan_expires_at` ya existe en `user_usage`.
