@@ -41,6 +41,13 @@ export type Database = {
             referencedRelation: "admin_courses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_admin_course_subjects_course"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       admin_courses: {
@@ -359,6 +366,13 @@ export type Database = {
           plan_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_plan_allowed_courses_course"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "plan_allowed_courses_course_id_fkey"
             columns: ["course_id"]

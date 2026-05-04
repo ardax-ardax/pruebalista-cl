@@ -214,15 +214,22 @@ const CrearPrueba = () => {
     if (isStaff) return; // Staff ve todos los cursos
     if (!effectivePlan) return;
     (async () => {
-      // Obtener cursos permitidos para este plan
+      // 1. Obtener IDs de cursos permitidos para este plan
       const { data: allowed } = await supabase
         .from("plan_allowed_courses")
-        .select("course_id, admin_courses!inner(grade_value)")
+        .select("course_id")
         .eq("plan_id", effectivePlan);
       if (!allowed || allowed.length === 0) return; // Sin restricción
-      const allowedGrades = new Set(
-        allowed.map((a: any) => a.admin_courses?.grade_value).filter(Boolean)
-      );
+
+      // 2. Obtener grade_value de esos cursos
+      const courseIds = allowed.map((a) => a.course_id);
+      const { data: courses } = await supabase
+        .from("admin_courses")
+        .select("grade_value")
+        .in("id", courseIds);
+      if (!courses || courses.length === 0) return;
+
+      const allowedGrades = new Set(courses.map((c) => c.grade_value));
       setGrades((prev) => prev.filter((g) => allowedGrades.has(g.value)));
     })();
   }, [effectivePlan, isStaff]);
