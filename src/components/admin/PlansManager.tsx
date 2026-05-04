@@ -183,11 +183,13 @@ export default function PlansManager() {
   const openNew = () => {
     const maxOrder = localPlans.reduce((max, p) => Math.max(max, p.sort_order), -1);
     setEditing(emptyPlan(maxOrder + 1));
+    setEditingCourses([]);
     setIsNew(true);
   };
 
   const openEdit = (p: Plan) => {
     setEditing({ ...p });
+    setEditingCourses(planCourseMap[p.id] ?? []);
     setIsNew(false);
   };
 
