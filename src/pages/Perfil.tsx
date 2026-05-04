@@ -65,14 +65,31 @@ export default function Perfil() {
   const isDocente = !!user && !isStaff;
 
   useEffect(() => {
-    getMyProfile().then((p) => {
+    getMyProfile().then(async (p) => {
       if (p) {
         setProfile(p);
         setInstitutionName(p.customInstitutionName ?? "");
         setLogoUrl(p.customLogoUrl);
+        // Load colegio name if linked
+        if (user) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("colegio_id")
+            .eq("id", user.id)
+            .maybeSingle();
+          const cId = (prof as { colegio_id: string | null } | null)?.colegio_id;
+          if (cId) {
+            const { data: col } = await supabase
+              .from("colegios")
+              .select("nombre")
+              .eq("id", cId)
+              .maybeSingle();
+            setColegioName((col as { nombre: string } | null)?.nombre ?? null);
+          }
+        }
       }
     });
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
