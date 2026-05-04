@@ -345,6 +345,14 @@ export const StaffManager = () => {
                 {grades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
               </SelectContent>
             </Select>
+            <Select value={newLetter} onValueChange={setNewLetter}>
+              <SelectTrigger className="h-9 w-[70px]"><SelectValue placeholder="Letra" /></SelectTrigger>
+              <SelectContent>
+                {["A", "B", "C", "D", "E", "F"].map((l) => (
+                  <SelectItem key={l} value={l}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={newSubject} onValueChange={setNewSubject} disabled={!newGrade}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder={newGrade ? "Asignatura" : "Primero el curso"} />
