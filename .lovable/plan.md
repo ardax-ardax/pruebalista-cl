@@ -1,30 +1,50 @@
 
-## Reorganizar página Configuración en pestañas
+# Migrar OAs a base de datos + carga masiva
 
-La página actual muestra todas las secciones apiladas verticalmente. Se organizará en pestañas usando el componente `Tabs` de shadcn (ya usado en Perfil.tsx).
+## Contexto actual
+- ~512 líneas de OAs hard-coded en `curriculum-data.ts` (BASE_CURRICULUM).
+- 662 filas ya en tabla `curriculum_base` (122 combinaciones curso/asignatura).
+- Sistema híbrido: base hard-coded + overrides desde DB, con cache localStorage + memoria.
 
-### Estructura por rol
+## Plan
 
-**Admin** (4 pestañas):
-1. **Colegio** -- Datos del colegio (logo + nombre) + ColegiosManager
-2. **Personal** -- StaffManager
-3. **Currículum** -- CurriculumManager
-4. **Plantillas** -- Editor de plantillas de formato
+### 1. Poblar `curriculum_base` con los OAs hard-coded faltantes
+- Crear un script que lea `BASE_CURRICULUM` y haga `INSERT ... ON CONFLICT DO NOTHING` para cada OA que no exista ya en `curriculum_base`.
+- Esto asegura que la DB tenga TODOS los OAs antes de eliminar el hard-code.
 
-**UTP** (3 pestañas):
-1. **Catálogos** -- Asignaturas, cursos y docentes (CatalogManager x3)
-2. **Políticas** -- Política de asignación + Visibilidad de créditos
-3. **Docentes** -- Consumo de IA por docente (UtpUsageManager)
+### 2. Reescribir `curriculum-data.ts` — solo DB
+- Eliminar `BASE_CURRICULUM` (las ~400 líneas de datos hard-coded).
+- Convertir `getOAs` para que lea desde un cache en memoria que se hidrata desde `curriculum_base` (ya hidratado por `loadOverridesFromCloud`).
+- Eliminar la lógica de "merge base + overrides" — todo viene de una sola fuente (la tabla).
+- Mantener `TRANSVERSAL_SKILLS` como fallback si no hay OAs para un curso/asignatura.
+- Mantener exports públicos: `getOAs`, `findOA`, `hasCurriculum`, `findIndicators`.
 
-**Docente** (sin pestañas, solo la sección de plantillas como está ahora)
+### 3. Simplificar `curriculum-overrides.ts`
+- Ya no hay "overrides" — ahora es CRUD directo contra `curriculum_base`.
+- `saveOverride` → `upsertOA` (INSERT/UPDATE en `curriculum_base`).
+- `removeOverride` → `deleteOA` (DELETE en `curriculum_base`).
+- Eliminar localStorage como persistencia (solo cache en memoria con TTL).
+- El botón "Restaurar" en CurriculumManager se convierte en "Eliminar OA".
 
-### Archivo modificado
+### 4. Agregar carga masiva (CSV) en CurriculumManager
+- Nuevo botón "Importar CSV" junto al botón "Nuevo OA".
+- Formato CSV esperado: `curso,asignatura,codigo_oa,descripcion,eje,indicador_codigo,indicador_descripcion`.
+- Múltiples filas con el mismo `codigo_oa` agrupan indicadores automáticamente.
+- Componente `FileDropzone` ya existe — se reutiliza adaptado para `.csv`.
+- Preview de los OAs parseados antes de confirmar la importación.
+- Inserción por lotes en `curriculum_base` via `upsert`.
+- Mostrar resumen: X OAs insertados, Y actualizados, Z errores.
 
-`src/pages/Configuracion.tsx`:
-- Importar `Tabs, TabsContent, TabsList, TabsTrigger` (ya disponibles en el proyecto).
-- Envolver las secciones de admin en un `Tabs` con las 4 pestañas descritas.
-- Envolver las secciones de UTP en un `Tabs` con las 3 pestañas.
-- La vista docente queda sin cambios (solo plantillas).
-- Agregar iconos a las pestañas para mejor UX (Building2, Users, BookOpen, LayoutTemplate, Shield, BarChart3).
+### 5. Actualizar CurriculumManager
+- Reemplazar "Restaurar" por "Eliminar" (con confirmación).
+- Agregar botón de importación CSV.
+- Quitar badges de "Sincronizado/Solo local" (siempre es DB).
 
-No hay cambios en base de datos ni en otros archivos.
+### Archivos modificados
+- `src/lib/curriculum-data.ts` — eliminar hard-code, leer solo de cache/DB
+- `src/lib/curriculum-overrides.ts` — simplificar a CRUD directo
+- `src/components/admin/CurriculumManager.tsx` — CSV import + UI cleanup
+- Nuevo: `src/components/admin/CsvOaImporter.tsx` — componente de importación
+
+### Sin cambios de esquema DB
+La tabla `curriculum_base` ya tiene la estructura necesaria. No se requieren migraciones.
