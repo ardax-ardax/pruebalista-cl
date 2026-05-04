@@ -275,6 +275,39 @@ export default function PlansManager() {
                   <Label>Hoja de respuesta OMR</Label>
                   <Switch checked={editing.can_use_omr} onCheckedChange={(v) => setEditing({ ...editing, can_use_omr: v })} />
                 </div>
+                {/* Plantillas permitidas */}
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label>Todas las plantillas</Label>
+                    <Switch
+                      checked={editing.allowed_templates === null}
+                      onCheckedChange={(v) => setEditing({ ...editing, allowed_templates: v ? null : TEMPLATE_OPTIONS.map((t) => t.id) })}
+                    />
+                  </div>
+                  {editing.allowed_templates !== null && (
+                    <div className="space-y-1.5 pl-1">
+                      {TEMPLATE_OPTIONS.map((t) => {
+                        const checked = editing.allowed_templates?.includes(t.id) ?? false;
+                        return (
+                          <div key={t.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`tpl-${t.id}`}
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                const cur = editing.allowed_templates ?? [];
+                                setEditing({
+                                  ...editing,
+                                  allowed_templates: v ? [...cur, t.id] : cur.filter((x) => x !== t.id),
+                                });
+                              }}
+                            />
+                            <label htmlFor={`tpl-${t.id}`} className="text-sm cursor-pointer">{t.name}</label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center justify-between">
                   <Label>Plan por defecto (nuevos usuarios)</Label>
                   <Switch checked={editing.is_default} onCheckedChange={(v) => setEditing({ ...editing, is_default: v })} />
