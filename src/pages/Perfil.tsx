@@ -328,7 +328,7 @@ export default function Perfil() {
                                 <TooltipContent>Excede el límite de tu plan actual</TooltipContent>
                               </Tooltip>
                             )}
-                            {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
+                            {getGradeLabel(a.grade_value)} {a.section_letter ?? "A"} — {getSubjectLabel(a.subject_value)}
                             <button
                               onClick={() => handleRemoveAssignment(a.id)}
                               className="ml-1 hover:text-destructive transition-colors"
