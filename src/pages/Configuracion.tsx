@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Copy, Plus, Save, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Building2, BookOpen, Copy, LayoutTemplate, Plus, Save, Shield, Trash2, Upload, Users, X, BarChart3 } from "lucide-react";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -80,7 +81,6 @@ const Configuracion = () => {
     setSubjects(loadSubjects());
     setGrades(loadGrades());
     setTeachers(loadTeachers());
-    // Inicialmente mostramos lo local mientras llega el backend (evita parpadeo en blanco).
     setLogo(loadLogo());
     setInstitutionName(loadInstitutionName() || DEFAULT_INSTITUTION_NAME);
     const localLogo = loadLogo();
@@ -88,7 +88,6 @@ const Configuracion = () => {
     loadAppSettings()
       .then(async (s) => {
         setAppSettings(s);
-        // Migración suave: si el backend está vacío, subir primero el logo disponible.
         const fallbackLogo = localLogo || await loadDefaultInstitutionLogo();
         let sharedLogo = s.institution_logo;
         if (isAdmin && !sharedLogo && fallbackLogo) {
@@ -99,8 +98,6 @@ const Configuracion = () => {
           const r = await setInstitutionNameRemote(localName);
           if (r.ok) s.institution_name = localName;
         }
-
-        // Sincronizar branding desde backend → UI + caché local.
         const backendName = s.institution_name || DEFAULT_INSTITUTION_NAME;
         setInstitutionName(backendName);
         saveInstitutionName(backendName);
@@ -138,60 +135,25 @@ const Configuracion = () => {
       : "Créditos visibles: los docentes verán su saldo de créditos IA.");
   };
 
-  const updateSubjects = (next: SubjectOption[]) => {
-    setSubjects(next);
-    saveSubjects(next);
-  };
+  const updateSubjects = (next: SubjectOption[]) => { setSubjects(next); saveSubjects(next); };
+  const updateGrades = (next: GradeOption[]) => { setGrades(next); saveGrades(next); };
+  const updateTeachers = (next: TeacherOption[]) => { setTeachers(next); saveTeachers(next); };
+  const handleResetSubjects = () => { setSubjects(resetSubjects()); toast.success("Asignaturas restauradas"); };
+  const handleResetGrades = () => { setGrades(resetGrades()); toast.success("Cursos restaurados"); };
+  const handleResetTeachers = () => { setTeachers(resetTeachers()); toast.success("Docentes restaurados"); };
 
-  const updateGrades = (next: GradeOption[]) => {
-    setGrades(next);
-    saveGrades(next);
-  };
-
-  const updateTeachers = (next: TeacherOption[]) => {
-    setTeachers(next);
-    saveTeachers(next);
-  };
-
-  const handleResetSubjects = () => {
-    setSubjects(resetSubjects());
-    toast.success("Asignaturas restauradas");
-  };
-
-  const handleResetGrades = () => {
-    setGrades(resetGrades());
-    toast.success("Cursos restaurados");
-  };
-
-  const handleResetTeachers = () => {
-    setTeachers(resetTeachers());
-    toast.success("Docentes restaurados");
-  };
-
-  const persist = (next: FormatTemplate[]) => {
-    setTemplates(next);
-    saveTemplates(next);
-  };
+  const persist = (next: FormatTemplate[]) => { setTemplates(next); saveTemplates(next); };
 
   const handleLogoUpload = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Sube una imagen (PNG, JPG)");
-      return;
-    }
-    if (file.size > 500 * 1024) {
-      toast.error("La imagen supera 500 KB. Usa una versión más liviana.");
-      return;
-    }
+    if (!file.type.startsWith("image/")) { toast.error("Sube una imagen (PNG, JPG)"); return; }
+    if (file.size > 500 * 1024) { toast.error("La imagen supera 500 KB. Usa una versión más liviana."); return; }
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
       setLogo(dataUrl);
       saveLogo(dataUrl);
       const r = await setInstitutionLogoRemote(dataUrl);
-      if (!r.ok) {
-        toast.error("Logo guardado localmente, pero no se pudo subir al servidor: " + (r.error ?? ""));
-        return;
-      }
+      if (!r.ok) { toast.error("Logo guardado localmente, pero no se pudo subir al servidor: " + (r.error ?? "")); return; }
       toast.success("Logo guardado y compartido con todo el colegio");
     };
     reader.readAsDataURL(file);
@@ -201,34 +163,19 @@ const Configuracion = () => {
     setLogo(null);
     saveLogo(null);
     const r = await setInstitutionLogoRemote(null);
-    if (!r.ok) {
-      toast.error("No se pudo eliminar del servidor: " + (r.error ?? ""));
-      return;
-    }
+    if (!r.ok) { toast.error("No se pudo eliminar del servidor: " + (r.error ?? "")); return; }
     toast.success("Logo eliminado");
   };
 
   const handleSaveInstitution = async () => {
     saveInstitutionName(institutionName);
     const r = await setInstitutionNameRemote(institutionName);
-    if (!r.ok) {
-      toast.error("Guardado localmente, pero no se pudo subir al servidor: " + (r.error ?? ""));
-      return;
-    }
+    if (!r.ok) { toast.error("Guardado localmente, pero no se pudo subir al servidor: " + (r.error ?? "")); return; }
     toast.success("Nombre del colegio guardado");
   };
 
-  const startEdit = (t: FormatTemplate) => {
-    setEditingId(t.id);
-    setEditing({ ...t });
-    setEditingName(t.name);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditing(null);
-  };
-
+  const startEdit = (t: FormatTemplate) => { setEditingId(t.id); setEditing({ ...t }); setEditingName(t.name); };
+  const cancelEdit = () => { setEditingId(null); setEditing(null); };
   const saveEdit = () => {
     if (!editing) return;
     const updated: FormatTemplate = { ...editing, name: editingName };
@@ -237,231 +184,33 @@ const Configuracion = () => {
     toast.success(`"${editingName}" guardada`);
     cancelEdit();
   };
-
   const handleDuplicate = (t: FormatTemplate) => {
     const dup = duplicateTemplate(t);
-    const next = [...templates, dup];
-    persist(next);
+    persist([...templates, dup]);
     toast.success(`Plantilla duplicada como "${dup.name}"`);
   };
-
   const handleDelete = (id: string) => {
-    const next = templates.filter((t) => t.id !== id);
-    persist(next);
+    persist(templates.filter((t) => t.id !== id));
     toast.success("Plantilla eliminada");
     setConfirmDeleteId(null);
     if (editingId === id) cancelEdit();
   };
-
   const handleResetBuiltIn = (id: string) => {
     const original = BUILT_IN_TEMPLATES.find((t) => t.id === id);
     if (!original) return;
-    const next = templates.map((t) => (t.id === id ? { ...original } : t));
-    persist(next);
+    persist(templates.map((t) => (t.id === id ? { ...original } : t)));
     toast.success(`"${original.name}" restaurada a valores por defecto`);
   };
-
   const handleNew = () => {
     const t = emptyTemplate();
     t.name = "Nueva plantilla";
-    const next = [...templates, t];
-    persist(next);
+    persist([...templates, t]);
     startEdit(t);
   };
 
-  return (
-    <AppLayout>
-      <div className="mb-6">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Volver
-        </Link>
-      </div>
-
-      <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Configuración</h1>
-      <p className="text-muted-foreground mb-8">
-        Gestiona el logo del colegio y las plantillas de formato disponibles.
-      </p>
-
-      {/* Datos institucionales (solo admin) */}
-      {isAdmin && (
-      <Card className="shadow-card mb-8">
-        <CardHeader>
-          <CardTitle className="text-lg">Datos del colegio</CardTitle>
-          <CardDescription>
-            El logo se reutiliza automáticamente en cualquier plantilla que lo incluya en el encabezado.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid sm:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label>Logo del colegio</Label>
-              <div className="flex items-center gap-4">
-                <div className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 overflow-hidden">
-                  {logo ? (
-                    <img src={logo} alt="Logo del colegio" className="max-h-full max-w-full object-contain" />
-                  ) : (
-                    <Upload className="h-6 w-6 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label>
-                    <Button asChild variant="outline" size="sm" className="gap-2">
-                      <span className="cursor-pointer">
-                        <Upload className="h-3.5 w-3.5" />
-                        {logo ? "Cambiar logo" : "Subir logo"}
-                      </span>
-                    </Button>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleLogoUpload(f);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  {logo && (
-                    <Button variant="ghost" size="sm" onClick={handleRemoveLogo} className="gap-2 text-destructive">
-                      <X className="h-3.5 w-3.5" />
-                      Eliminar
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">PNG o JPG. Recomendado: fondo transparente, máx 1 MB.</p>
-            </div>
-            <div className="space-y-3">
-              <Label htmlFor="institution">Nombre del colegio</Label>
-              <Input
-                id="institution"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder="Ej: Colegio San Martín"
-              />
-              <Button size="sm" onClick={handleSaveInstitution} className="gap-2">
-                <Save className="h-3.5 w-3.5" />
-                Guardar nombre
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      )}
-
-      {/* Asignaturas, cursos y docentes (solo UTP) */}
-      {isUtpHead && (
-      <Card className="shadow-card mb-8">
-        <CardHeader>
-          <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
-          <CardDescription>
-            Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo"
-            es lo que aparece en el nombre final (sin espacios ni símbolos).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <CatalogManager
-            title="Asignaturas"
-            description="Ej: Historia → Historia"
-            items={subjects}
-            onChange={updateSubjects}
-            onReset={handleResetSubjects}
-            labelPlaceholder="Educación Física"
-            valuePlaceholder="EducaciónFísica"
-          />
-          <CatalogManager
-            title="Cursos"
-            description="Ej: 7° Básico → 7Básico"
-            items={grades}
-            onChange={updateGrades}
-            onReset={handleResetGrades}
-            labelPlaceholder="7° Básico"
-            valuePlaceholder="7Básico"
-          />
-          <CatalogManager
-            title="Docentes"
-            description="Quien crea el documento. Se agrega al final del nombre."
-            items={teachers}
-            onChange={updateTeachers}
-            onReset={handleResetTeachers}
-            labelPlaceholder="Jorge Villablanca"
-            valuePlaceholder="JorgeVillablanca"
-          />
-        </CardContent>
-      </Card>
-      )}
-
-      {/* Política de asignación (solo UTP) */}
-      {isUtpHead && (
-        <Card className="shadow-card mb-8 border-primary/40">
-          <CardHeader>
-            <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
-            <CardDescription>
-              Decide si los docentes deben usar solo los cursos que les asignó el equipo o si pueden elegir libremente del catálogo completo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
-              <div className="text-sm">
-                <div className="font-medium">Permitir que los docentes elijan sus propios cursos y asignaturas</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Si está <strong>activo</strong>, cada docente verá todo el catálogo de cursos y asignaturas. Si está <strong>inactivo</strong>, solo podrá usar los pares (curso · asignatura) registrados en sus asignaciones.
-                </div>
-              </div>
-              <Switch
-                checked={appSettings.allow_self_assignment}
-                onCheckedChange={handleToggleSelfAssignment}
-                disabled={savingSetting}
-              />
-            </label>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Toggle ocultar créditos a docentes (solo UTP) */}
-      {isUtpHead && (
-        <Card className="shadow-card mb-8 border-primary/40">
-          <CardHeader>
-            <CardTitle className="text-lg">Visibilidad de créditos IA</CardTitle>
-            <CardDescription>
-              Controla si los docentes pueden ver su contador de créditos de IA o si ven un badge de "Plan Institucional".
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
-              <div className="text-sm">
-                <div className="font-medium">Ocultar créditos a los docentes</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Si está <strong>activo</strong>, los docentes verán "Plan Institucional" en lugar de su saldo de créditos. El equipo directivo siempre verá los datos reales.
-                </div>
-              </div>
-              <Switch
-                checked={appSettings.hide_credits_from_teachers}
-                onCheckedChange={handleToggleHideCredits}
-                disabled={savingSetting}
-              />
-            </label>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Consumo de IA por docente (solo UTP) */}
-      {isUtpHead && <UtpUsageManager />}
-
-      {/* Gestión de Colegios (solo admin) */}
-      {isAdmin && <ColegiosManager />}
-
-      {/* Gestión de Personal (solo admin) */}
-      {isAdmin && <StaffManager />}
-
-      {/* Gestión Curricular (solo admin) */}
-      {isAdmin && <CurriculumManager />}
-
-      {/* Plantillas (solo admin puede editar built-in) */}
-      {isAdmin && (
-      <>
+  /* ── Sección reutilizable: Plantillas (Admin) ── */
+  const renderAdminTemplates = () => (
+    <>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Plantillas de formato</h2>
@@ -472,7 +221,6 @@ const Configuracion = () => {
           Nueva plantilla
         </Button>
       </div>
-
       <div className="space-y-3">
         {templates.map((t) => {
           const isEditing = editingId === t.id;
@@ -481,11 +229,7 @@ const Configuracion = () => {
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="flex-1 min-w-0">
                   {isEditing ? (
-                    <Input
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      className="font-semibold"
-                    />
+                    <Input value={editingName} onChange={(e) => setEditingName(e.target.value)} className="font-semibold" />
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-base">{t.name}</CardTitle>
@@ -501,30 +245,12 @@ const Configuracion = () => {
                 <div className="flex items-center gap-1.5 shrink-0">
                   {!isEditing && (
                     <>
-                      <Button variant="outline" size="sm" onClick={() => startEdit(t)}>
-                        Editar
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(t)} title="Duplicar">
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => startEdit(t)}>Editar</Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(t)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
                       {t.isBuiltIn ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleResetBuiltIn(t.id)}
-                          title="Restaurar valores por defecto"
-                        >
-                          Restaurar
-                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleResetBuiltIn(t.id)} title="Restaurar valores por defecto">Restaurar</Button>
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setConfirmDeleteId(t.id)}
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setConfirmDeleteId(t.id)} title="Eliminar"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       )}
                     </>
                   )}
@@ -535,10 +261,7 @@ const Configuracion = () => {
                   <TemplateEditor template={editing} onChange={setEditing} />
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" onClick={cancelEdit}>Cancelar</Button>
-                    <Button onClick={saveEdit} className="gap-2">
-                      <Save className="h-4 w-4" />
-                      Guardar cambios
-                    </Button>
+                    <Button onClick={saveEdit} className="gap-2"><Save className="h-4 w-4" />Guardar cambios</Button>
                   </div>
                 </CardContent>
               )}
@@ -546,112 +269,252 @@ const Configuracion = () => {
           );
         })}
       </div>
-      </>
+    </>
+  );
+
+  /* ── Sección reutilizable: Datos del colegio ── */
+  const renderColegioData = () => (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="text-lg">Datos del colegio</CardTitle>
+        <CardDescription>El logo se reutiliza automáticamente en cualquier plantilla que lo incluya en el encabezado.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid sm:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <Label>Logo del colegio</Label>
+            <div className="flex items-center gap-4">
+              <div className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 overflow-hidden">
+                {logo ? (
+                  <img src={logo} alt="Logo del colegio" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label>
+                  <Button asChild variant="outline" size="sm" className="gap-2">
+                    <span className="cursor-pointer">
+                      <Upload className="h-3.5 w-3.5" />
+                      {logo ? "Cambiar logo" : "Subir logo"}
+                    </span>
+                  </Button>
+                  <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ""; }} />
+                </label>
+                {logo && (
+                  <Button variant="ghost" size="sm" onClick={handleRemoveLogo} className="gap-2 text-destructive">
+                    <X className="h-3.5 w-3.5" /> Eliminar
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">PNG o JPG. Recomendado: fondo transparente, máx 1 MB.</p>
+          </div>
+          <div className="space-y-3">
+            <Label htmlFor="institution">Nombre del colegio</Label>
+            <Input id="institution" value={institutionName} onChange={(e) => setInstitutionName(e.target.value)} placeholder="Ej: Colegio San Martín" />
+            <Button size="sm" onClick={handleSaveInstitution} className="gap-2"><Save className="h-3.5 w-3.5" />Guardar nombre</Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <AppLayout>
+      <div className="mb-6">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> Volver
+        </Link>
+      </div>
+
+      <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Configuración</h1>
+      <p className="text-muted-foreground mb-6">
+        Gestiona el colegio, personal, currículum y plantillas.
+      </p>
+
+      {/* ════════════════ ADMIN: 4 pestañas ════════════════ */}
+      {isAdmin && (
+        <Tabs defaultValue="colegio" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="colegio" className="flex items-center gap-1.5">
+              <Building2 className="h-4 w-4" /> Colegio
+            </TabsTrigger>
+            <TabsTrigger value="personal" className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" /> Personal
+            </TabsTrigger>
+            <TabsTrigger value="curriculum" className="flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4" /> Currículum
+            </TabsTrigger>
+            <TabsTrigger value="plantillas" className="flex items-center gap-1.5">
+              <LayoutTemplate className="h-4 w-4" /> Plantillas
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="colegio" className="space-y-6">
+            {renderColegioData()}
+            <ColegiosManager />
+          </TabsContent>
+
+          <TabsContent value="personal">
+            <StaffManager />
+          </TabsContent>
+
+          <TabsContent value="curriculum">
+            <CurriculumManager />
+          </TabsContent>
+
+          <TabsContent value="plantillas">
+            {renderAdminTemplates()}
+          </TabsContent>
+        </Tabs>
       )}
 
-      {/* Plantillas para docentes (no admin, no UTP): solo lectura en built-in, CRUD en personalizadas */}
-      {!isAdmin && !isUtpHead && (
-      <>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Plantillas de formato</h2>
-          <p className="text-sm text-muted-foreground">
-            Puedes duplicar las plantillas base para crear tus propias versiones personalizadas.
-          </p>
-        </div>
-        <Button onClick={handleNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nueva plantilla
-        </Button>
-      </div>
+      {/* ════════════════ UTP: 3 pestañas ════════════════ */}
+      {isUtpHead && (
+        <Tabs defaultValue="catalogos" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="catalogos" className="flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4" /> Catálogos
+            </TabsTrigger>
+            <TabsTrigger value="politicas" className="flex items-center gap-1.5">
+              <Shield className="h-4 w-4" /> Políticas
+            </TabsTrigger>
+            <TabsTrigger value="docentes" className="flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4" /> Docentes
+            </TabsTrigger>
+          </TabsList>
 
-      <div className="space-y-3">
-        {templates.map((t) => {
-          const isEditing = editingId === t.id;
-          return (
-            <Card key={t.id} className="shadow-card">
-              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-                <div className="flex-1 min-w-0">
-                  {isEditing && !t.isBuiltIn ? (
-                    <Input
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      className="font-semibold"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <CardTitle className="text-base">{t.name}</CardTitle>
-                      {t.isBuiltIn ? (
-                        <Badge variant="secondary" className="text-[10px]">Plantilla base · Solo lectura</Badge>
-                      ) : (
-                        <Badge className="bg-accent text-accent-foreground text-[10px]">Personalizada</Badge>
-                      )}
+          <TabsContent value="catalogos">
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
+                <CardDescription>
+                  Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo" es lo que aparece en el nombre final (sin espacios ni símbolos).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <CatalogManager title="Asignaturas" description="Ej: Historia → Historia" items={subjects} onChange={updateSubjects} onReset={handleResetSubjects} labelPlaceholder="Educación Física" valuePlaceholder="EducaciónFísica" />
+                <CatalogManager title="Cursos" description="Ej: 7° Básico → 7Básico" items={grades} onChange={updateGrades} onReset={handleResetGrades} labelPlaceholder="7° Básico" valuePlaceholder="7Básico" />
+                <CatalogManager title="Docentes" description="Quien crea el documento. Se agrega al final del nombre." items={teachers} onChange={updateTeachers} onReset={handleResetTeachers} labelPlaceholder="Jorge Villablanca" valuePlaceholder="JorgeVillablanca" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="politicas" className="space-y-6">
+            <Card className="shadow-card border-primary/40">
+              <CardHeader>
+                <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
+                <CardDescription>Decide si los docentes deben usar solo los cursos que les asignó el equipo o si pueden elegir libremente del catálogo completo.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+                  <div className="text-sm">
+                    <div className="font-medium">Permitir que los docentes elijan sus propios cursos y asignaturas</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Si está <strong>activo</strong>, cada docente verá todo el catálogo de cursos y asignaturas. Si está <strong>inactivo</strong>, solo podrá usar los pares (curso · asignatura) registrados en sus asignaciones.
                     </div>
-                  )}
-                  <CardDescription className="mt-1.5">{t.description}</CardDescription>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {!isEditing && (
-                    <>
-                      {/* Built-in: solo duplicar */}
-                      <Button variant="ghost" size="icon" onClick={() => handleDuplicate(t)} title="Duplicar">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      {/* Custom: editar y eliminar */}
-                      {!t.isBuiltIn && (
+                  </div>
+                  <Switch checked={appSettings.allow_self_assignment} onCheckedChange={handleToggleSelfAssignment} disabled={savingSetting} />
+                </label>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card border-primary/40">
+              <CardHeader>
+                <CardTitle className="text-lg">Visibilidad de créditos IA</CardTitle>
+                <CardDescription>Controla si los docentes pueden ver su contador de créditos de IA o si ven un badge de "Plan Institucional".</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
+                  <div className="text-sm">
+                    <div className="font-medium">Ocultar créditos a los docentes</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Si está <strong>activo</strong>, los docentes verán "Plan Institucional" en lugar de su saldo de créditos. El equipo directivo siempre verá los datos reales.
+                    </div>
+                  </div>
+                  <Switch checked={appSettings.hide_credits_from_teachers} onCheckedChange={handleToggleHideCredits} disabled={savingSetting} />
+                </label>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="docentes">
+            <UtpUsageManager />
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* ════════════════ Docente: Plantillas sin pestañas ════════════════ */}
+      {!isAdmin && !isUtpHead && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Plantillas de formato</h2>
+              <p className="text-sm text-muted-foreground">Puedes duplicar las plantillas base para crear tus propias versiones personalizadas.</p>
+            </div>
+            <Button onClick={handleNew} className="gap-2"><Plus className="h-4 w-4" />Nueva plantilla</Button>
+          </div>
+          <div className="space-y-3">
+            {templates.map((t) => {
+              const isEditing = editingId === t.id;
+              return (
+                <Card key={t.id} className="shadow-card">
+                  <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                    <div className="flex-1 min-w-0">
+                      {isEditing && !t.isBuiltIn ? (
+                        <Input value={editingName} onChange={(e) => setEditingName(e.target.value)} className="font-semibold" />
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CardTitle className="text-base">{t.name}</CardTitle>
+                          {t.isBuiltIn ? (
+                            <Badge variant="secondary" className="text-[10px]">Plantilla base · Solo lectura</Badge>
+                          ) : (
+                            <Badge className="bg-accent text-accent-foreground text-[10px]">Personalizada</Badge>
+                          )}
+                        </div>
+                      )}
+                      <CardDescription className="mt-1.5">{t.description}</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {!isEditing && (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => startEdit(t)}>
-                            Editar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setConfirmDeleteId(t.id)}
-                            title="Eliminar"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDuplicate(t)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
+                          {!t.isBuiltIn && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => startEdit(t)}>Editar</Button>
+                              <Button variant="ghost" size="icon" onClick={() => setConfirmDeleteId(t.id)} title="Eliminar"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </>
+                          )}
                         </>
                       )}
-                    </>
+                    </div>
+                  </CardHeader>
+                  {isEditing && !t.isBuiltIn && editing && (
+                    <CardContent className="space-y-4">
+                      <TemplateEditor template={editing} onChange={setEditing} />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" onClick={cancelEdit}>Cancelar</Button>
+                        <Button onClick={saveEdit} className="gap-2"><Save className="h-4 w-4" />Guardar cambios</Button>
+                      </div>
+                    </CardContent>
                   )}
-                </div>
-              </CardHeader>
-              {isEditing && !t.isBuiltIn && editing && (
-                <CardContent className="space-y-4">
-                  <TemplateEditor template={editing} onChange={setEditing} />
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" onClick={cancelEdit}>Cancelar</Button>
-                    <Button onClick={saveEdit} className="gap-2">
-                      <Save className="h-4 w-4" />
-                      Guardar cambios
-                    </Button>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          );
-        })}
-      </div>
-      </>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <AlertDialog open={!!confirmDeleteId} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar esta plantilla?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Las plantillas base no se ven afectadas.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Las plantillas base no se ven afectadas.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Eliminar
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
