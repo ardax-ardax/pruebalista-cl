@@ -116,15 +116,25 @@ const CrearPrueba = () => {
 
   // Carga las asignaciones del docente. Si es staff (admin/UTP), no restringimos.
   // Si el docente no tiene asignaciones, se bloquea la creación de pruebas nuevas.
+  // If plan has a limit, only the last N assignments (by created_at) are active.
+  const maxAssignments = useUserUsage().maxAssignments;
   useEffect(() => {
     if (authLoading || !user) return;
     if (!isDocente) { setRestrictedAssignments(null); setAssignmentsLoaded(true); setHasZeroAssignments(false); return; }
     listAssignmentsForTeacher(user.id).then((a) => {
-      setRestrictedAssignments(a.length > 0 ? a : null);
-      setHasZeroAssignments(a.length === 0);
+      if (a.length === 0) {
+        setRestrictedAssignments(null);
+        setHasZeroAssignments(true);
+      } else {
+        // Sort newest first and keep only the active ones per plan limit
+        const sorted = [...a].sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
+        const active = maxAssignments !== null ? sorted.slice(0, maxAssignments) : sorted;
+        setRestrictedAssignments(active.length > 0 ? active : null);
+        setHasZeroAssignments(active.length === 0);
+      }
       setAssignmentsLoaded(true);
     });
-  }, [user, isDocente, authLoading]);
+  }, [user, isDocente, authLoading, maxAssignments]);
 
   // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
   // y para aplicar branding personalizado para usuarios individuales).
