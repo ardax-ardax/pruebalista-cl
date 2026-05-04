@@ -448,6 +448,11 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ──── Courses Tab ──── */}
+          <TabsContent value="courses" className="space-y-4">
+            <AdminCoursesManager />
+          </TabsContent>
         </Tabs>
       </div>
 
