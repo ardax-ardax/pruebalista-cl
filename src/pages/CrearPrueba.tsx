@@ -173,7 +173,7 @@ const CrearPrueba = () => {
     }
     setTemplates(t);
     setSubjects(loadSubjects());
-    setGrades(loadGrades());
+    // grades now loaded via useAdminCourses hook
     setTeachers(loadTeachers());
     // Branding: solo staff usa branding institucional del backend.
     // Docentes autónomos usan su perfil (cargado en otro useEffect).
