@@ -117,8 +117,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                       </div>
                     )}
                     {!usageLoading && (
-                      <div className="pt-1">
+                      <div className="pt-1 space-y-0.5">
                         <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{planLabel}</Badge>
+                        {planExpiresAt && effectivePlan !== (planType === effectivePlan ? "" : "") && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </DropdownMenuLabel>
