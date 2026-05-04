@@ -205,16 +205,16 @@ export default function AdminCoursesManager() {
                       <p className="text-xs text-muted-foreground mb-2">Asignaturas para este curso:</p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
                         {filteredSubjectsForLevel(c.level).map((s) => {
-                          const isChecked = cs.some((x) => x.subject_value === s.value);
+                          const isChecked = cs.some((x) => x.subject_value === s.subject_value);
                           return (
-                            <div key={s.value} className="flex items-center gap-2">
+                            <div key={s.subject_value} className="flex items-center gap-2">
                               <Checkbox
-                                id={`${c.id}-${s.value}`}
+                                id={`${c.id}-${s.subject_value}`}
                                 checked={isChecked}
                                 disabled={savingSubjects}
-                                onCheckedChange={(v) => toggleSubject(c, s.value, s.label, !!v)}
+                                onCheckedChange={(v) => toggleSubject(c, s.subject_value, s.subject_label, !!v)}
                               />
-                              <label htmlFor={`${c.id}-${s.value}`} className="text-xs cursor-pointer">{s.label}</label>
+                              <label htmlFor={`${c.id}-${s.subject_value}`} className="text-xs cursor-pointer">{s.subject_label}</label>
                             </div>
                           );
                         })}
