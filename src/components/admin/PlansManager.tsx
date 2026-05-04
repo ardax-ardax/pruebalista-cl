@@ -233,6 +233,15 @@ export default function PlansManager() {
       toast.error(error.message);
       return;
     }
+
+    // Save allowed courses
+    await supabase.from("plan_allowed_courses").delete().eq("plan_id", editing.id);
+    if (editingCourses.length > 0) {
+      await supabase.from("plan_allowed_courses").insert(
+        editingCourses.map((cid) => ({ plan_id: editing.id, course_id: cid }))
+      );
+    }
+
     toast.success(isNew ? "Plan creado" : "Plan actualizado");
     setEditing(null);
     refresh();
