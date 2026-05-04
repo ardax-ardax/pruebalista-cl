@@ -388,7 +388,7 @@ export const StaffManager = () => {
                           key={a.id}
                           className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px]"
                         >
-                          <span className="font-medium">{gradeLabel(a.grade_value)}</span>
+                          <span className="font-medium">{gradeLabel(a.grade_value)} {a.section_letter ?? "A"}</span>
                           <span className="text-muted-foreground">·</span>
                           <span>{subjectLabel(a.subject_value)}</span>
                           <button
