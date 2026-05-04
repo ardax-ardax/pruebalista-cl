@@ -8,6 +8,7 @@ export interface TeacherAssignment {
   teacher_user_id: string;
   grade_value: string;
   subject_value: string;
+  section_letter: string;
   created_at: string;
 }
 
