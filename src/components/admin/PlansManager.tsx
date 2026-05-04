@@ -21,6 +21,7 @@ const emptyPlan = (): Omit<Plan, "created_at"> => ({
   can_export_docx: false,
   show_watermark: true,
   can_edit_layout: true,
+  can_use_omr: false,
   default_credits: 20,
   is_default: false,
   sort_order: 0,
@@ -262,6 +263,10 @@ export default function PlansManager() {
                 <div className="flex items-center justify-between">
                   <Label>Puede editar layout</Label>
                   <Switch checked={editing.can_edit_layout} onCheckedChange={(v) => setEditing({ ...editing, can_edit_layout: v })} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Hoja de respuesta OMR</Label>
+                  <Switch checked={editing.can_use_omr} onCheckedChange={(v) => setEditing({ ...editing, can_use_omr: v })} />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Plan por defecto (nuevos usuarios)</Label>

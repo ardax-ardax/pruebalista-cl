@@ -9,6 +9,7 @@ export interface Plan {
   can_export_docx: boolean;
   show_watermark: boolean;
   can_edit_layout: boolean;
+  can_use_omr: boolean;
   default_credits: number;
   is_default: boolean;
   sort_order: number;
@@ -22,6 +23,7 @@ const DEFAULT_PLAN_LIMITS: Plan = {
   can_export_docx: false,
   show_watermark: true,
   can_edit_layout: true,
+  can_use_omr: false,
   default_credits: 20,
   is_default: true,
   sort_order: 0,
