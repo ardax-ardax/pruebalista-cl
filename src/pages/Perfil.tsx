@@ -38,6 +38,7 @@ export default function Perfil() {
   const [addingAssignment, setAddingAssignment] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedLetter, setSelectedLetter] = useState("A");
 
   const grades = useMemo(() => loadGrades(), []);
   const allSubjects = useMemo(() => loadSubjects(), []);
@@ -161,12 +162,13 @@ export default function Perfil() {
       return;
     }
     setAddingAssignment(true);
-    const res = await addAssignment(user.id, selectedGrade, selectedSubject);
+    const res = await addAssignment(user.id, selectedGrade, selectedSubject, selectedLetter);
     if (res.ok) {
       const updated = await listAssignmentsForTeacher(user.id);
       setAssignments(updated);
       setSelectedGrade("");
       setSelectedSubject("");
+      setSelectedLetter("A");
       toast.success("Asignación agregada");
     } else {
       toast.error(res.error || "Error al agregar");
@@ -326,7 +328,7 @@ export default function Perfil() {
                                 <TooltipContent>Excede el límite de tu plan actual</TooltipContent>
                               </Tooltip>
                             )}
-                            {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
+                            {getGradeLabel(a.grade_value)} {a.section_letter ?? "A"} — {getSubjectLabel(a.subject_value)}
                             <button
                               onClick={() => handleRemoveAssignment(a.id)}
                               className="ml-1 hover:text-destructive transition-colors"
@@ -357,6 +359,17 @@ export default function Perfil() {
                       <SelectContent>
                         {grades.map((g) => (
                           <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={selectedLetter} onValueChange={setSelectedLetter} disabled={!canAddMore}>
+                      <SelectTrigger className="sm:w-[80px]">
+                        <SelectValue placeholder="Letra" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["A", "B", "C", "D", "E", "F"].map((l) => (
+                          <SelectItem key={l} value={l}>{l}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

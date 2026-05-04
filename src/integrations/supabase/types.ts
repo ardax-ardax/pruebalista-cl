@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_course_subjects: {
+        Row: {
+          course_id: string
+          id: string
+          subject_label: string
+          subject_value: string
+        }
+        Insert: {
+          course_id: string
+          id?: string
+          subject_label: string
+          subject_value: string
+        }
+        Update: {
+          course_id?: string
+          id?: string
+          subject_label?: string
+          subject_value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_course_subjects_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_courses: {
+        Row: {
+          created_at: string
+          grade_value: string
+          id: string
+          label: string
+          level: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          grade_value: string
+          id?: string
+          label: string
+          level?: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          grade_value?: string
+          id?: string
+          label?: string
+          level?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       ai_generation_log: {
         Row: {
           created_at: string
@@ -259,6 +315,39 @@ export type Database = {
           },
         ]
       }
+      plan_allowed_courses: {
+        Row: {
+          course_id: string
+          id: string
+          plan_id: string
+        }
+        Insert: {
+          course_id: string
+          id?: string
+          plan_id: string
+        }
+        Update: {
+          course_id?: string
+          id?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_allowed_courses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_allowed_courses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           allowed_templates: string[] | null
@@ -445,6 +534,7 @@ export type Database = {
           created_at: string
           grade_value: string
           id: string
+          section_letter: string
           subject_value: string
           teacher_user_id: string
         }
@@ -452,6 +542,7 @@ export type Database = {
           created_at?: string
           grade_value: string
           id?: string
+          section_letter?: string
           subject_value: string
           teacher_user_id: string
         }
@@ -459,6 +550,7 @@ export type Database = {
           created_at?: string
           grade_value?: string
           id?: string
+          section_letter?: string
           subject_value?: string
           teacher_user_id?: string
         }

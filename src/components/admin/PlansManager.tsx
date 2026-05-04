@@ -121,6 +121,11 @@ export default function PlansManager() {
   const [userCounts, setUserCounts] = useState<Record<string, number>>({});
   const [localPlans, setLocalPlans] = useState<Plan[]>([]);
 
+  // Admin courses for restriction
+  const [adminCourses, setAdminCourses] = useState<{ id: string; label: string }[]>([]);
+  const [planCourseMap, setPlanCourseMap] = useState<Record<string, string[]>>({});
+  const [editingCourses, setEditingCourses] = useState<string[]>([]);
+
   useEffect(() => {
     setLocalPlans(plans);
   }, [plans]);
@@ -136,6 +141,21 @@ export default function PlansManager() {
         });
         setUserCounts(counts);
       });
+  }, [plans]);
+
+  // Load admin courses + plan restrictions
+  useEffect(() => {
+    supabase.from("admin_courses").select("id, label").order("sort_order").then(({ data }) => {
+      setAdminCourses((data ?? []) as { id: string; label: string }[]);
+    });
+    supabase.from("plan_allowed_courses").select("plan_id, course_id").then(({ data }) => {
+      const map: Record<string, string[]> = {};
+      (data ?? []).forEach((r: { plan_id: string; course_id: string }) => {
+        if (!map[r.plan_id]) map[r.plan_id] = [];
+        map[r.plan_id].push(r.course_id);
+      });
+      setPlanCourseMap(map);
+    });
   }, [plans]);
 
   const sensors = useSensors(
@@ -163,11 +183,13 @@ export default function PlansManager() {
   const openNew = () => {
     const maxOrder = localPlans.reduce((max, p) => Math.max(max, p.sort_order), -1);
     setEditing(emptyPlan(maxOrder + 1));
+    setEditingCourses([]);
     setIsNew(true);
   };
 
   const openEdit = (p: Plan) => {
     setEditing({ ...p });
+    setEditingCourses(planCourseMap[p.id] ?? []);
     setIsNew(false);
   };
 
@@ -211,6 +233,15 @@ export default function PlansManager() {
       toast.error(error.message);
       return;
     }
+
+    // Save allowed courses
+    await supabase.from("plan_allowed_courses").delete().eq("plan_id", editing.id);
+    if (editingCourses.length > 0) {
+      await supabase.from("plan_allowed_courses").insert(
+        editingCourses.map((cid) => ({ plan_id: editing.id, course_id: cid }))
+      );
+    }
+
     toast.success(isNew ? "Plan creado" : "Plan actualizado");
     setEditing(null);
     refresh();
@@ -394,6 +425,40 @@ export default function PlansManager() {
                     </div>
                   )}
                 </div>
+                {/* Cursos permitidos */}
+                {adminCourses.length > 0 && (
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label>Todos los cursos</Label>
+                    <Switch
+                      checked={editingCourses.length === 0}
+                      onCheckedChange={(v) => setEditingCourses(v ? [] : adminCourses.map((c) => c.id))}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Vacío = sin restricción de cursos</p>
+                  {editingCourses.length > 0 && (
+                    <div className="space-y-1.5 pl-1 max-h-40 overflow-y-auto">
+                      {adminCourses.map((c) => {
+                        const checked = editingCourses.includes(c.id);
+                        return (
+                          <div key={c.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`course-${c.id}`}
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setEditingCourses(
+                                  v ? [...editingCourses, c.id] : editingCourses.filter((x) => x !== c.id)
+                                );
+                              }}
+                            />
+                            <label htmlFor={`course-${c.id}`} className="text-sm cursor-pointer">{c.label}</label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                )}
                 <div className="flex items-center justify-between">
                   <Label>Plan por defecto (nuevos usuarios)</Label>
                   <Switch checked={editing.is_default} onCheckedChange={(v) => setEditing({ ...editing, is_default: v })} />

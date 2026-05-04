@@ -66,6 +66,7 @@ export const StaffManager = () => {
   const [newTeacher, setNewTeacher] = useState<string>("");
   const [newGrade, setNewGrade] = useState<string>("");
   const [newSubject, setNewSubject] = useState<string>("");
+  const [newLetter, setNewLetter] = useState<string>("A");
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
@@ -182,7 +183,7 @@ export const StaffManager = () => {
       return;
     }
     setBusy(true);
-    const res = await addAssignment(newTeacher, newGrade, newSubject);
+    const res = await addAssignment(newTeacher, newGrade, newSubject, newLetter);
     setBusy(false);
     if (!res.ok) {
       toast.error("No se pudo crear: " + (res.error ?? ""));
@@ -190,6 +191,7 @@ export const StaffManager = () => {
     }
     toast.success("Asignación creada");
     setNewSubject("");
+    setNewLetter("A");
     await refresh();
   };
 
@@ -343,6 +345,14 @@ export const StaffManager = () => {
                 {grades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
               </SelectContent>
             </Select>
+            <Select value={newLetter} onValueChange={setNewLetter}>
+              <SelectTrigger className="h-9 w-[70px]"><SelectValue placeholder="Letra" /></SelectTrigger>
+              <SelectContent>
+                {["A", "B", "C", "D", "E", "F"].map((l) => (
+                  <SelectItem key={l} value={l}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={newSubject} onValueChange={setNewSubject} disabled={!newGrade}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder={newGrade ? "Asignatura" : "Primero el curso"} />
@@ -378,7 +388,7 @@ export const StaffManager = () => {
                           key={a.id}
                           className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px]"
                         >
-                          <span className="font-medium">{gradeLabel(a.grade_value)}</span>
+                          <span className="font-medium">{gradeLabel(a.grade_value)} {a.section_letter ?? "A"}</span>
                           <span className="text-muted-foreground">·</span>
                           <span>{subjectLabel(a.subject_value)}</span>
                           <button

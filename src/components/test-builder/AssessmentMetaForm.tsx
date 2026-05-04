@@ -173,7 +173,7 @@ export const AssessmentMetaForm = ({
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <Label className="text-xs flex items-center gap-1">
               Curso
@@ -186,6 +186,17 @@ export const AssessmentMetaForm = ({
               </SelectTrigger>
               <SelectContent>
                 {availableGrades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Letra</Label>
+            <Select value={meta.sectionLetter ?? "A"} onValueChange={(v) => set("sectionLetter", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["A", "B", "C", "D", "E", "F"].map((l) => (
+                  <SelectItem key={l} value={l}>{l}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
