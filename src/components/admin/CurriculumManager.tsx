@@ -49,7 +49,7 @@ const blankDraft = (): DraftOA => ({
 });
 
 export const CurriculumManager = () => {
-  const [grades, setGrades] = useState<GradeOption[]>([]);
+  const { grades } = useAdminCourses();
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
