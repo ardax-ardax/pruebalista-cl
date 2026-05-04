@@ -46,6 +46,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage, type PlanType } from "@/hooks/useUserUsage";
 import { listAssignmentsForTeacher, type TeacherAssignment } from "@/lib/teacher-assignments";
 import { loadAppSettings, loadDefaultInstitutionLogo, type AppSettings, DEFAULT_APP_SETTINGS } from "@/lib/app-settings";
+import { supabase } from "@/integrations/supabase/client";
 
 const CrearPrueba = () => {
   const [templates, setTemplates] = useState<FormatTemplate[]>([]);
