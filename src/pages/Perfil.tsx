@@ -2,9 +2,10 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { getMyProfile, updateMyProfile, type Profile } from "@/lib/profiles";
 import { listAssignmentsForTeacher, addAssignment, removeAssignment, type TeacherAssignment } from "@/lib/teacher-assignments";
-import { loadGrades, loadSubjects, getSubjectsForGrade } from "@/lib/catalog";
+import { loadSubjects, getSubjectsForGrade } from "@/lib/catalog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
