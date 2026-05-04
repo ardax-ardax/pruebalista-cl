@@ -2,6 +2,24 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +36,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { BookOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, GripVertical, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 interface AdminSubject {
   id: string;
@@ -34,6 +52,65 @@ const LEVEL_OPTIONS = [
   { value: "ElectivoMedia", label: "Electivo Media" },
 ] as const;
 
+const levelBadgeColor = (level: string) => {
+  if (level === "Básica") return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+  if (level === "Media") return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+  return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+};
+
+function SortableSubjectRow({
+  subject,
+  onEdit,
+  onDelete,
+}: {
+  subject: AdminSubject;
+  onEdit: (s: AdminSubject) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: subject.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell>
+        <button
+          className="cursor-grab active:cursor-grabbing touch-none p-1 text-muted-foreground hover:text-foreground"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </TableCell>
+      <TableCell className="font-medium">{subject.subject_label}</TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">{subject.subject_value}</TableCell>
+      <TableCell>
+        <div className="flex gap-1 flex-wrap">
+          {subject.levels.map((l) => (
+            <Badge key={l} variant="secondary" className={`text-[10px] ${levelBadgeColor(l)}`}>
+              {l === "ElectivoMedia" ? "Electivo" : l}
+            </Badge>
+          ))}
+        </div>
+      </TableCell>
+      <TableCell className="text-right space-x-1">
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(subject)}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => onDelete(subject.id)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function AdminSubjectsManager() {
   const [subjects, setSubjects] = useState<AdminSubject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +119,11 @@ export default function AdminSubjectsManager() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const refresh = async () => {
     setLoading(true);
@@ -60,6 +142,20 @@ export default function AdminSubjectsManager() {
     const q = search.toLowerCase();
     return s.subject_label.toLowerCase().includes(q) || s.subject_value.toLowerCase().includes(q);
   });
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = subjects.findIndex((s) => s.id === active.id);
+    const newIndex = subjects.findIndex((s) => s.id === over.id);
+    const reordered = arrayMove(subjects, oldIndex, newIndex);
+    setSubjects(reordered);
+
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase.from("admin_subjects").update({ sort_order: i } as never).eq("id", reordered[i].id);
+    }
+  };
 
   const openNew = () => {
     const maxSort = subjects.reduce((m, s) => Math.max(m, s.sort_order), -1);
@@ -116,12 +212,6 @@ export default function AdminSubjectsManager() {
     refresh();
   };
 
-  const levelBadgeColor = (level: string) => {
-    if (level === "Básica") return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    if (level === "Media") return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-  };
-
   return (
     <>
       <Card>
@@ -132,7 +222,7 @@ export default function AdminSubjectsManager() {
               Asignaturas
             </CardTitle>
             <CardDescription>
-              Define las asignaturas del sistema y en qué niveles se imparten. Solo aparecerán en los cursos del nivel correspondiente.
+              Define las asignaturas del sistema y en qué niveles se imparten. Arrastra para reordenar.
             </CardDescription>
           </div>
           <Button size="sm" onClick={openNew} className="gap-1">
@@ -158,43 +248,31 @@ export default function AdminSubjectsManager() {
             </p>
           ) : (
             <div className="max-h-[500px] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Niveles</TableHead>
-                    <TableHead className="text-center">Orden</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.subject_label}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{s.subject_value}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {s.levels.map((l) => (
-                            <Badge key={l} variant="secondary" className={`text-[10px] ${levelBadgeColor(l)}`}>
-                              {l === "ElectivoMedia" ? "Electivo" : l}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center text-xs">{s.sort_order}</TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(s)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10"></TableHead>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Niveles</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <SortableContext items={filtered.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                    <TableBody>
+                      {filtered.map((s) => (
+                        <SortableSubjectRow
+                          key={s.id}
+                          subject={s}
+                          onEdit={openEdit}
+                          onDelete={setDeleteId}
+                        />
+                      ))}
+                    </TableBody>
+                  </SortableContext>
+                </Table>
+              </DndContext>
             </div>
           )}
         </CardContent>
@@ -239,14 +317,6 @@ export default function AdminSubjectsManager() {
                     <label htmlFor={`level-${l.value}`} className="text-sm cursor-pointer">{l.label}</label>
                   </div>
                 ))}
-              </div>
-              <div className="space-y-1">
-                <Label>Orden</Label>
-                <Input
-                  type="number"
-                  value={editing.sort_order ?? 0}
-                  onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })}
-                />
               </div>
             </div>
           )}
