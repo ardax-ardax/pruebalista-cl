@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Copy, FilePlus2, Library, Pencil, Trash2 } from "lucide-react";
+import { Copy, FilePlus2, Library, Lock, Pencil, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
@@ -13,6 +14,7 @@ import { loadGrades, loadSubjects } from "@/lib/catalog";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
 import { ASSESSMENT_STATUS_LABEL, newAssessmentId } from "@/lib/assessment-schema";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserUsage } from "@/hooks/useUserUsage";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Item { assessment: Assessment; userId: string; }
@@ -30,6 +32,7 @@ const MisPruebas = () => {
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
+  const { maxAssessments } = useUserUsage();
   const [isAutonomous, setIsAutonomous] = useState(true); // default true until checked
 
   // Check if user is autonomous (no colegio_id)
@@ -111,6 +114,16 @@ const MisPruebas = () => {
       .map((v) => ({ value: v, label: subjects.find((s) => s.value === v)?.label ?? v }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [items, subjects, isStaff]);
+
+  // Compute which of the user's own assessments are "active" (not blocked by plan limit).
+  // Blocked = beyond the last N (by updatedAt) when maxAssessments is set.
+  const blockedAssessmentIds = useMemo(() => {
+    if (isStaff || maxAssessments === null) return new Set<string>();
+    const own = items.filter((i) => i.userId === user?.id);
+    if (own.length <= maxAssessments) return new Set<string>();
+    const sorted = [...own].sort((a, b) => b.assessment.updatedAt - a.assessment.updatedAt);
+    return new Set(sorted.slice(maxAssessments).map((i) => i.assessment.id));
+  }, [items, maxAssessments, isStaff, user?.id]);
 
   const visible = (() => {
     if (!isStaff || !showAll) {
@@ -201,6 +214,7 @@ const MisPruebas = () => {
             {visible.map(({ assessment: a, userId }) => {
               const counted = a.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
               const isOwn = userId === user?.id;
+              const isBlocked = blockedAssessmentIds.has(a.id);
               const authorLabel = isStaff && !isOwn
                 ? profileLabel(profileById.get(userId), userId)
                 : null;
@@ -215,10 +229,18 @@ const MisPruebas = () => {
                 return map[s] ?? map.borrador;
               })();
               return (
-                <Card key={a.id} className="shadow-card">
+                <Card key={a.id} className={`shadow-card ${isBlocked ? "opacity-60" : ""}`}>
                   <CardContent className="p-4 flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">
+                        {isBlocked && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent>Excede el límite de tu plan. Solo lectura.</TooltipContent>
+                          </Tooltip>
+                        )}
                         {a.meta.title || "Sin título"}
                         {(!isAutonomous || isStaff) && (
                           <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
@@ -235,13 +257,13 @@ const MisPruebas = () => {
                         {authorLabel && (<><span>·</span><span className="font-medium">{authorLabel}</span></>)}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/crear-prueba?id=${a.id}`)}>
-                      <Pencil className="h-4 w-4" /> Editar
+                    <Button size="sm" variant="outline" disabled={isBlocked} onClick={() => navigate(`/crear-prueba?id=${a.id}`)}>
+                      <Pencil className="h-4 w-4" /> {isBlocked ? "Bloqueada" : "Editar"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleDuplicate(a)}>
                       <Copy className="h-4 w-4" /> Duplicar
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(a.id, a.meta.title)}>
+                    <Button size="sm" variant="ghost" disabled={isBlocked} onClick={() => handleDelete(a.id, a.meta.title)}>
                       <Trash2 className="h-4 w-4" /> Eliminar
                     </Button>
                   </CardContent>

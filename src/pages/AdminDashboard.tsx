@@ -122,9 +122,13 @@ export default function AdminDashboard() {
   /* --- Inline plan change --- */
   const handlePlanChange = async (userId: string, newPlan: string) => {
     const planConfig = getPlan(newPlan);
+    const defaultPlan = plans.find((p) => p.is_default);
+    const isDefault = newPlan === defaultPlan?.id;
+    // If non-default plan, set expiry to 1 month from now; if default, clear expiry
+    const expiresAt = isDefault ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const { error } = await supabase
       .from("user_usage")
-      .update({ plan_type: newPlan, credits_available: planConfig.default_credits })
+      .update({ plan_type: newPlan, credits_available: planConfig.default_credits, plan_expires_at: expiresAt })
       .eq("user_id", userId);
     if (error) { toast.error(error.message); return; }
     toast.success(`Plan actualizado a ${planConfig.label} (${planConfig.default_credits} créditos)`);
@@ -173,8 +177,11 @@ export default function AdminDashboard() {
     setBulkLoading(true);
     const ids = Array.from(selectedUsers);
     const planConfig = getPlan(bulkPlan);
+    const defaultPlan = plans.find((p) => p.is_default);
+    const isDefault = bulkPlan === defaultPlan?.id;
+    const expiresAt = isDefault ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const promises = ids.map((uid) =>
-      supabase.from("user_usage").update({ plan_type: bulkPlan, credits_available: planConfig.default_credits }).eq("user_id", uid),
+      supabase.from("user_usage").update({ plan_type: bulkPlan, credits_available: planConfig.default_credits, plan_expires_at: expiresAt }).eq("user_id", uid),
     );
     await Promise.all(promises);
     setBulkLoading(false);

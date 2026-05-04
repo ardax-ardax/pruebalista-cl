@@ -16,7 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImagePlus, Loader2, Save, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
+import { ImagePlus, Loader2, Lock, Save, Trash2, User, BookOpen, Plus, X, Info, Palette } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 
@@ -44,8 +45,17 @@ export default function Perfil() {
     [selectedGrade, allSubjects, grades]
   );
 
+  // Sort assignments: newest first. Only the last N (by created_at) are active when plan has limit.
+  const sortedAssignments = useMemo(
+    () => [...assignments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [assignments],
+  );
   const hasLimit = maxAssignments !== null;
   const maxAssign = maxAssignments ?? Infinity;
+  const activeAssignmentIds = useMemo(() => {
+    if (!hasLimit) return new Set(assignments.map((a) => a.id));
+    return new Set(sortedAssignments.slice(0, maxAssign).map((a) => a.id));
+  }, [sortedAssignments, hasLimit, maxAssign]);
   const canAddMore = assignments.length < maxAssign;
   const alreadyExists = assignments.some(
     (a) => a.grade_value === selectedGrade && a.subject_value === selectedSubject
@@ -246,18 +256,29 @@ export default function Perfil() {
                     </div>
                   ) : assignments.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {assignments.map((a) => (
-                        <Badge key={a.id} variant="secondary" className="flex items-center gap-1 py-1.5 px-3 text-sm">
-                          {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
-                          <button
-                            onClick={() => handleRemoveAssignment(a.id)}
-                            className="ml-1 hover:text-destructive transition-colors"
-                            title="Eliminar"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </Badge>
-                      ))}
+                      {sortedAssignments.map((a) => {
+                        const isBlocked = !activeAssignmentIds.has(a.id);
+                        return (
+                          <Badge key={a.id} variant="secondary" className={`flex items-center gap-1 py-1.5 px-3 text-sm ${isBlocked ? "opacity-50" : ""}`}>
+                            {isBlocked && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Lock className="h-3.5 w-3.5 text-amber-500 mr-1" />
+                                </TooltipTrigger>
+                                <TooltipContent>Excede el límite de tu plan actual</TooltipContent>
+                              </Tooltip>
+                            )}
+                            {getGradeLabel(a.grade_value)} — {getSubjectLabel(a.subject_value)}
+                            <button
+                              onClick={() => handleRemoveAssignment(a.id)}
+                              className="ml-1 hover:text-destructive transition-colors"
+                              title="Eliminar"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">
