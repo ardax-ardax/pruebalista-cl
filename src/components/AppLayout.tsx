@@ -20,7 +20,7 @@ import {
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
-  const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark } = useUserUsage();
+  const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark, planExpiresAt, planType } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
   const [hideCredits, setHideCredits] = useState(false);
