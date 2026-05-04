@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { GripVertical, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { BUILT_IN_TEMPLATES } from "@/lib/templates";
 
@@ -319,13 +319,13 @@ export default function PlansManager() {
 
       {/* Edit / Create Dialog */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{isNew ? "Nuevo Plan" : `Editar: ${editing?.label}`}</DialogTitle>
             <DialogDescription>Configura las características del plan</DialogDescription>
           </DialogHeader>
           {editing && (
-           <ScrollArea className="max-h-[60vh] pr-4">
+           <div className="overflow-y-auto max-h-[60vh] pr-2 flex-1 min-h-0">
             <div className="space-y-4 py-2">
               <div className="space-y-1">
                 <Label>ID (slug)</Label>
@@ -467,7 +467,7 @@ export default function PlansManager() {
                 </div>
               </div>
             </div>
-           </ScrollArea>
+           </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
