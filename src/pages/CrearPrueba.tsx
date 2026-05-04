@@ -206,7 +206,7 @@ const CrearPrueba = () => {
         else if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
       }
     })();
-  }, [editingId]);
+  }, [editingId, allowedTemplates, isStaff]);
 
   // Re-cargar el logo y nombre del colegio si cambian en otra pestaña/ventana
   // o al volver a esta pestaña (asegura que la vista previa siempre vea el
