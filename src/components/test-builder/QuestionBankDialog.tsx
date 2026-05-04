@@ -25,7 +25,7 @@ const TYPES: { value: string; label: string }[] = [
 
 export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
   const subjects = loadSubjects();
-  const grades = loadGrades();
+  const { grades } = useAdminCourses();
 
   const [rows, setRows] = useState<QuestionBankRow[]>([]);
   const [loading, setLoading] = useState(false);

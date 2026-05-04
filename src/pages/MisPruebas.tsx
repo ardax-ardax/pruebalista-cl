@@ -26,7 +26,7 @@ const MisPruebas = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subjects] = useState(() => loadSubjects());
-  const [grades] = useState(() => loadGrades());
+  const { grades } = useAdminCourses();
   const [showAll, setShowAll] = useState(false);
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const [subjectFilter, setSubjectFilter] = useState<string>(ALL);

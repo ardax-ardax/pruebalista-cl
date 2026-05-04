@@ -37,7 +37,7 @@ export default function DashboardDocente() {
   const [loading, setLoading] = useState(true);
 
   const subjects = loadSubjects();
-  const grades = loadGrades();
+  const { grades } = useAdminCourses();
 
   const navigateToCreate = () => {
     if (maxAssessments !== null && assessments.length >= maxAssessments) {

@@ -95,7 +95,7 @@ function QuestionDetails({ question }: { question: Question }) {
 export default function BancoPreguntas() {
   const { isAdmin, isStaff, user } = useAuth();
   const subjects = loadSubjects();
-  const grades = loadGrades();
+  const { grades } = useAdminCourses();
 
   const [rows, setRows] = useState<QuestionBankRow[]>([]);
   const [loading, setLoading] = useState(true);
