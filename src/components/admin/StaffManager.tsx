@@ -29,11 +29,11 @@ import {
 } from "@/lib/teacher-assignments";
 import {
   getSubjectsForGrade,
-  loadGrades,
   loadSubjects,
   type GradeOption,
   type SubjectOption,
 } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 
 type AppRole = "admin" | "utp_head" | "docente";
 
@@ -58,7 +58,7 @@ export const StaffManager = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [rolesByUser, setRolesByUser] = useState<Map<string, AppRole>>(new Map());
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
-  const [grades] = useState<GradeOption[]>(() => loadGrades());
+  const { grades } = useAdminCourses();
   const [subjects] = useState<SubjectOption[]>(() => loadSubjects());
   const [loadError, setLoadError] = useState<string | null>(null);
 

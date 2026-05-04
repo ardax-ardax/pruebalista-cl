@@ -16,7 +16,8 @@ import {
 import { Plus, RotateCcw, Save, Trash2, Pencil, Cloud, CloudOff } from "lucide-react";
 import { toast } from "sonner";
 
-import { loadGrades, loadSubjects, getSubjectsForGrade, type GradeOption, type SubjectOption } from "@/lib/catalog";
+import { loadSubjects, getSubjectsForGrade, type GradeOption, type SubjectOption } from "@/lib/catalog";
+import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { getOAs, type Indicator, type OA } from "@/lib/curriculum-data";
 import {
   findOverride, loadOverridesFromCloud, removeOverride, saveOverride,
