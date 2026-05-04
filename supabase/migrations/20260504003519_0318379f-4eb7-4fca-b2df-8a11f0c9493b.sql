@@ -1,0 +1,1 @@
+ALTER TABLE public.plans ADD COLUMN can_use_omr boolean NOT NULL DEFAULT false;

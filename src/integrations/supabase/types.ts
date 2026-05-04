@@ -263,6 +263,7 @@ export type Database = {
         Row: {
           can_edit_layout: boolean
           can_export_docx: boolean
+          can_use_omr: boolean
           created_at: string
           default_credits: number
           id: string
@@ -276,6 +277,7 @@ export type Database = {
         Insert: {
           can_edit_layout?: boolean
           can_export_docx?: boolean
+          can_use_omr?: boolean
           created_at?: string
           default_credits?: number
           id: string
@@ -289,6 +291,7 @@ export type Database = {
         Update: {
           can_edit_layout?: boolean
           can_export_docx?: boolean
+          can_use_omr?: boolean
           created_at?: string
           default_credits?: number
           id?: string
