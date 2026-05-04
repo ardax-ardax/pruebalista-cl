@@ -52,6 +52,7 @@ const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
 export default function AdminCoursesManager() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [subjects, setSubjects] = useState<CourseSubject[]>([]);
+  const [allSubjects, setAllSubjects] = useState<AdminSubjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<AdminCourse> | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -62,12 +63,14 @@ export default function AdminCoursesManager() {
 
   const refresh = async () => {
     setLoading(true);
-    const [cRes, sRes] = await Promise.all([
+    const [cRes, sRes, asRes] = await Promise.all([
       supabase.from("admin_courses").select("*").order("sort_order"),
       supabase.from("admin_course_subjects").select("*"),
+      supabase.from("admin_subjects").select("*").order("sort_order"),
     ]);
     setCourses((cRes.data ?? []) as AdminCourse[]);
     setSubjects((sRes.data ?? []) as CourseSubject[]);
+    setAllSubjects((asRes.data ?? []) as AdminSubjectRow[]);
     setLoading(false);
   };
 
