@@ -143,6 +143,21 @@ export default function PlansManager() {
       });
   }, [plans]);
 
+  // Load admin courses + plan restrictions
+  useEffect(() => {
+    supabase.from("admin_courses").select("id, label").order("sort_order").then(({ data }) => {
+      setAdminCourses((data ?? []) as { id: string; label: string }[]);
+    });
+    supabase.from("plan_allowed_courses").select("plan_id, course_id").then(({ data }) => {
+      const map: Record<string, string[]> = {};
+      (data ?? []).forEach((r: { plan_id: string; course_id: string }) => {
+        if (!map[r.plan_id]) map[r.plan_id] = [];
+        map[r.plan_id].push(r.course_id);
+      });
+      setPlanCourseMap(map);
+    });
+  }, [plans]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
