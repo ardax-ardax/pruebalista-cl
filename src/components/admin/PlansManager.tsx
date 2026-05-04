@@ -12,6 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BUILT_IN_TEMPLATES } from "@/lib/templates";
+
+const TEMPLATE_OPTIONS = BUILT_IN_TEMPLATES.map((t) => ({ id: t.id, name: t.name }));
 
 const emptyPlan = (): Omit<Plan, "created_at"> => ({
   id: "",
@@ -22,6 +26,7 @@ const emptyPlan = (): Omit<Plan, "created_at"> => ({
   show_watermark: true,
   can_edit_layout: true,
   can_use_omr: false,
+  allowed_templates: null,
   default_credits: 20,
   is_default: false,
   sort_order: 0,
