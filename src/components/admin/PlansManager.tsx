@@ -121,6 +121,11 @@ export default function PlansManager() {
   const [userCounts, setUserCounts] = useState<Record<string, number>>({});
   const [localPlans, setLocalPlans] = useState<Plan[]>([]);
 
+  // Admin courses for restriction
+  const [adminCourses, setAdminCourses] = useState<{ id: string; label: string }[]>([]);
+  const [planCourseMap, setPlanCourseMap] = useState<Record<string, string[]>>({});
+  const [editingCourses, setEditingCourses] = useState<string[]>([]);
+
   useEffect(() => {
     setLocalPlans(plans);
   }, [plans]);
