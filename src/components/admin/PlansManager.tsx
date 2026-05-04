@@ -82,6 +82,8 @@ export default function PlansManager() {
       can_export_docx: editing.can_export_docx,
       show_watermark: editing.show_watermark,
       can_edit_layout: editing.can_edit_layout,
+      can_use_omr: editing.can_use_omr,
+      allowed_templates: editing.allowed_templates,
       default_credits: editing.default_credits,
       is_default: editing.is_default,
       sort_order: editing.sort_order,
