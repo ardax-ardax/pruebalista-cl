@@ -62,7 +62,7 @@ export const CurriculumManager = () => {
 
   // Carga inicial: catálogos + sincroniza overrides desde la nube.
   useEffect(() => {
-    setGrades(loadGrades());
+    // grades loaded via useAdminCourses hook
     setSubjects(loadSubjects());
     loadOverridesFromCloud().then((r) => {
       setCloudOk(r.ok);
