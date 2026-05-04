@@ -1,14 +1,26 @@
 
-## Agregar drag & drop a la tabla de Asignaturas
+## Problema
 
-Mismo patrón ya usado en `PlansManager.tsx` con `@dnd-kit`.
+El filtro de cursos por plan no funciona porque `plan_allowed_courses` no tiene foreign key hacia `admin_courses`, entonces el join via PostgREST (`admin_courses!inner(grade_value)`) falla silenciosamente y devuelve datos vacíos → se interpreta como "sin restricción" → el docente ve todos los cursos.
 
-### Cambios en `src/components/admin/AdminSubjectsManager.tsx`
+## Solución
 
-1. **Importar** `DndContext`, `closestCenter`, `PointerSensor`, `KeyboardSensor`, `useSensors`, `useSensor`, `DragEndEvent`, `arrayMove`, `SortableContext`, `sortableKeyboardCoordinates`, `useSortable`, `verticalListSortingStrategy`, `CSS` de `@dnd-kit`
-2. **Extraer** cada fila de la tabla a un componente `SortableSubjectRow` que usa `useSortable` (igual que `SortableRow` en PlansManager)
-3. **Agregar columna** de grip handle (`GripVertical`) como primera columna
-4. **Envolver** `TableBody` en `SortableContext` + `DndContext`
-5. **`handleDragEnd`**: reordena el array local con `arrayMove` y persiste los nuevos `sort_order` en la base de datos
-6. **Quitar** la columna "Orden" numérica (ya no es necesaria, el orden se controla arrastrando)
-7. **Quitar** el campo "Orden" del diálogo de edición (se maneja solo vía drag)
+### 1. Migración: agregar FK de `plan_allowed_courses.course_id` → `admin_courses.id`
+
+También agregar FK de `admin_course_subjects.course_id` → `admin_courses.id` (que también le falta).
+
+### 2. Actualizar `src/pages/CrearPrueba.tsx`
+
+Simplificar la lógica de filtrado para que sea más robusta:
+- Consultar `plan_allowed_courses` para el plan del usuario
+- Luego consultar `admin_courses` con los IDs obtenidos para obtener los `grade_value`
+- Filtrar `grades` con ese set
+
+Esto funciona con o sin FK, pero con el FK también habilita el join para futuros usos.
+
+### Archivos afectados
+
+| Archivo | Cambio |
+|---------|--------|
+| Nueva migración | FK en `plan_allowed_courses` y `admin_course_subjects` |
+| `src/pages/CrearPrueba.tsx` | Arreglar lógica de filtrado (dos queries separadas) |
