@@ -214,6 +214,7 @@ const MisPruebas = () => {
             {visible.map(({ assessment: a, userId }) => {
               const counted = a.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
               const isOwn = userId === user?.id;
+              const isBlocked = blockedAssessmentIds.has(a.id);
               const authorLabel = isStaff && !isOwn
                 ? profileLabel(profileById.get(userId), userId)
                 : null;
@@ -228,10 +229,18 @@ const MisPruebas = () => {
                 return map[s] ?? map.borrador;
               })();
               return (
-                <Card key={a.id} className="shadow-card">
+                <Card key={a.id} className={`shadow-card ${isBlocked ? "opacity-60" : ""}`}>
                   <CardContent className="p-4 flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">
+                        {isBlocked && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent>Excede el límite de tu plan. Solo lectura.</TooltipContent>
+                          </Tooltip>
+                        )}
                         {a.meta.title || "Sin título"}
                         {(!isAutonomous || isStaff) && (
                           <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
@@ -248,13 +257,13 @@ const MisPruebas = () => {
                         {authorLabel && (<><span>·</span><span className="font-medium">{authorLabel}</span></>)}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/crear-prueba?id=${a.id}`)}>
-                      <Pencil className="h-4 w-4" /> Editar
+                    <Button size="sm" variant="outline" disabled={isBlocked} onClick={() => navigate(`/crear-prueba?id=${a.id}`)}>
+                      <Pencil className="h-4 w-4" /> {isBlocked ? "Bloqueada" : "Editar"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleDuplicate(a)}>
                       <Copy className="h-4 w-4" /> Duplicar
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(a.id, a.meta.title)}>
+                    <Button size="sm" variant="ghost" disabled={isBlocked} onClick={() => handleDelete(a.id, a.meta.title)}>
                       <Trash2 className="h-4 w-4" /> Eliminar
                     </Button>
                   </CardContent>
