@@ -165,7 +165,10 @@ const CrearPrueba = () => {
   }, [editingId, isStaff, user?.id]);
 
   useEffect(() => {
-    const t = loadTemplates();
+    let t = loadTemplates();
+    if (!isStaff && allowedTemplates) {
+      t = t.filter((tpl) => allowedTemplates.includes(tpl.id));
+    }
     setTemplates(t);
     setSubjects(loadSubjects());
     setGrades(loadGrades());
