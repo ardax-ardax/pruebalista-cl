@@ -325,6 +325,7 @@ export default function PlansManager() {
             <DialogDescription>Configura las características del plan</DialogDescription>
           </DialogHeader>
           {editing && (
+           <ScrollArea className="max-h-[60vh] pr-4">
             <div className="space-y-4 py-2">
               <div className="space-y-1">
                 <Label>ID (slug)</Label>
