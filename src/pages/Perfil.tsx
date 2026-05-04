@@ -45,8 +45,17 @@ export default function Perfil() {
     [selectedGrade, allSubjects, grades]
   );
 
+  // Sort assignments: newest first. Only the last N (by created_at) are active when plan has limit.
+  const sortedAssignments = useMemo(
+    () => [...assignments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [assignments],
+  );
   const hasLimit = maxAssignments !== null;
   const maxAssign = maxAssignments ?? Infinity;
+  const activeAssignmentIds = useMemo(() => {
+    if (!hasLimit) return new Set(assignments.map((a) => a.id));
+    return new Set(sortedAssignments.slice(0, maxAssign).map((a) => a.id));
+  }, [sortedAssignments, hasLimit, maxAssign]);
   const canAddMore = assignments.length < maxAssign;
   const alreadyExists = assignments.some(
     (a) => a.grade_value === selectedGrade && a.subject_value === selectedSubject
