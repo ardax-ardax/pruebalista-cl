@@ -183,7 +183,7 @@ export const StaffManager = () => {
       return;
     }
     setBusy(true);
-    const res = await addAssignment(newTeacher, newGrade, newSubject);
+    const res = await addAssignment(newTeacher, newGrade, newSubject, newLetter);
     setBusy(false);
     if (!res.ok) {
       toast.error("No se pudo crear: " + (res.error ?? ""));
@@ -191,6 +191,7 @@ export const StaffManager = () => {
     }
     toast.success("Asignación creada");
     setNewSubject("");
+    setNewLetter("A");
     await refresh();
   };
 
