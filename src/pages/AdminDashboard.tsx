@@ -20,10 +20,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, CreditCard, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { BookOpen, CalendarIcon, CreditCard, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
+import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
 
 /* ───────── Types ───────── */
 interface UserRow {
@@ -212,6 +213,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="plans" className="gap-2"><Package className="h-4 w-4" /> Planes</TabsTrigger>
             <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Usuarios</TabsTrigger>
             <TabsTrigger value="institutions" className="gap-2"><CreditCard className="h-4 w-4" /> Instituciones</TabsTrigger>
+            <TabsTrigger value="subjects" className="gap-2"><BookOpen className="h-4 w-4" /> Asignaturas</TabsTrigger>
             <TabsTrigger value="courses" className="gap-2"><GraduationCap className="h-4 w-4" /> Cursos</TabsTrigger>
           </TabsList>
 
@@ -450,6 +452,10 @@ export default function AdminDashboard() {
           </TabsContent>
 
           {/* ──── Courses Tab ──── */}
+          <TabsContent value="subjects" className="space-y-4">
+            <AdminSubjectsManager />
+          </TabsContent>
+
           <TabsContent value="courses" className="space-y-4">
             <AdminCoursesManager />
           </TabsContent>

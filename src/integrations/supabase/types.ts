@@ -70,6 +70,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_subjects: {
+        Row: {
+          created_at: string
+          id: string
+          levels: string[]
+          sort_order: number
+          subject_label: string
+          subject_value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          levels?: string[]
+          sort_order?: number
+          subject_label: string
+          subject_value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          levels?: string[]
+          sort_order?: number
+          subject_label?: string
+          subject_value?: string
+        }
+        Relationships: []
+      }
       ai_generation_log: {
         Row: {
           created_at: string

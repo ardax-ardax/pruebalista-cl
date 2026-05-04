@@ -23,7 +23,6 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, GraduationCap, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
-import { DEFAULT_SUBJECTS } from "@/lib/catalog";
 
 interface AdminCourse {
   id: string;
@@ -40,17 +39,20 @@ interface CourseSubject {
   subject_label: string;
 }
 
-const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
+interface AdminSubjectRow {
+  id: string;
+  subject_value: string;
+  subject_label: string;
+  levels: string[];
+  sort_order: number;
+}
 
-const ALL_SUBJECTS = DEFAULT_SUBJECTS.map((s) => ({
-  value: s.value,
-  label: s.label,
-  levels: s.levels,
-}));
+const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
 
 export default function AdminCoursesManager() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [subjects, setSubjects] = useState<CourseSubject[]>([]);
+  const [allSubjects, setAllSubjects] = useState<AdminSubjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<AdminCourse> | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -61,12 +63,14 @@ export default function AdminCoursesManager() {
 
   const refresh = async () => {
     setLoading(true);
-    const [cRes, sRes] = await Promise.all([
+    const [cRes, sRes, asRes] = await Promise.all([
       supabase.from("admin_courses").select("*").order("sort_order"),
       supabase.from("admin_course_subjects").select("*"),
+      supabase.from("admin_subjects").select("*").order("sort_order"),
     ]);
     setCourses((cRes.data ?? []) as AdminCourse[]);
     setSubjects((sRes.data ?? []) as CourseSubject[]);
+    setAllSubjects((asRes.data ?? []) as AdminSubjectRow[]);
     setLoading(false);
   };
 
@@ -142,9 +146,9 @@ export default function AdminCoursesManager() {
   };
 
   const filteredSubjectsForLevel = (level: string) => {
-    return ALL_SUBJECTS.filter((s) => {
+    return allSubjects.filter((s) => {
       if (!s.levels || s.levels.length === 0) return true;
-      if (s.levels.includes(level as any)) return true;
+      if (s.levels.includes(level)) return true;
       if (level === "Media" && s.levels.includes("ElectivoMedia")) return true;
       return false;
     });
@@ -201,16 +205,16 @@ export default function AdminCoursesManager() {
                       <p className="text-xs text-muted-foreground mb-2">Asignaturas para este curso:</p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
                         {filteredSubjectsForLevel(c.level).map((s) => {
-                          const isChecked = cs.some((x) => x.subject_value === s.value);
+                          const isChecked = cs.some((x) => x.subject_value === s.subject_value);
                           return (
-                            <div key={s.value} className="flex items-center gap-2">
+                            <div key={s.subject_value} className="flex items-center gap-2">
                               <Checkbox
-                                id={`${c.id}-${s.value}`}
+                                id={`${c.id}-${s.subject_value}`}
                                 checked={isChecked}
                                 disabled={savingSubjects}
-                                onCheckedChange={(v) => toggleSubject(c, s.value, s.label, !!v)}
+                                onCheckedChange={(v) => toggleSubject(c, s.subject_value, s.subject_label, !!v)}
                               />
-                              <label htmlFor={`${c.id}-${s.value}`} className="text-xs cursor-pointer">{s.label}</label>
+                              <label htmlFor={`${c.id}-${s.subject_value}`} className="text-xs cursor-pointer">{s.subject_label}</label>
                             </div>
                           );
                         })}
