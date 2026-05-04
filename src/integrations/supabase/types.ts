@@ -531,6 +531,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      hide_question_for_user: {
+        Args: { _question_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_same_colegio: {
         Args: { _staff_id: string; _target_user_id: string }
         Returns: boolean
