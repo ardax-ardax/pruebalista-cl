@@ -42,6 +42,7 @@ export const addAssignment = async (
   teacherUserId: string,
   gradeValue: string,
   subjectValue: string,
+  sectionLetter: string = "A",
 ): Promise<{ ok: boolean; error?: string }> => {
   const { error } = await supabase
     .from("teacher_assignments")
@@ -49,6 +50,7 @@ export const addAssignment = async (
       teacher_user_id: teacherUserId,
       grade_value: gradeValue,
       subject_value: subjectValue,
+      section_letter: sectionLetter,
     });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
