@@ -115,6 +115,16 @@ const MisPruebas = () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [items, subjects, isStaff]);
 
+  // Compute which of the user's own assessments are "active" (not blocked by plan limit).
+  // Blocked = beyond the last N (by updatedAt) when maxAssessments is set.
+  const blockedAssessmentIds = useMemo(() => {
+    if (isStaff || maxAssessments === null) return new Set<string>();
+    const own = items.filter((i) => i.userId === user?.id);
+    if (own.length <= maxAssessments) return new Set<string>();
+    const sorted = [...own].sort((a, b) => b.assessment.updatedAt - a.assessment.updatedAt);
+    return new Set(sorted.slice(maxAssessments).map((i) => i.assessment.id));
+  }, [items, maxAssessments, isStaff, user?.id]);
+
   const visible = (() => {
     if (!isStaff || !showAll) {
       let list = items.filter((i) => i.userId === user?.id);
