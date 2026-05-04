@@ -154,13 +154,13 @@ export default function BancoPreguntas() {
         toast.error("No se pudo eliminar");
       }
     } else {
-      if (!confirm("¿Ocultar esta pregunta de tu banco?")) return;
+      if (!confirm("¿Eliminar esta pregunta del banco?")) return;
       const ok = await hideFromBank(id, user!.id);
       if (ok) {
         setRows((prev) => prev.filter((r) => r.id !== id));
-        toast.success("Pregunta ocultada de tu banco");
+        toast.success("Pregunta eliminada");
       } else {
-        toast.error("No se pudo ocultar");
+        toast.error("No se pudo eliminar");
       }
     }
   };

@@ -3,6 +3,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlans, type Plan } from "@/hooks/usePlans";
 import { toast } from "sonner";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +29,13 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { GripVertical, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BUILT_IN_TEMPLATES } from "@/lib/templates";
 
 const TEMPLATE_OPTIONS = BUILT_IN_TEMPLATES.map((t) => ({ id: t.id, name: t.name }));
 
-const emptyPlan = (): Omit<Plan, "created_at"> => ({
+const emptyPlan = (nextOrder: number): Omit<Plan, "created_at"> => ({
   id: "",
   label: "",
   max_assessments: 10,
@@ -29,8 +47,71 @@ const emptyPlan = (): Omit<Plan, "created_at"> => ({
   allowed_templates: null,
   default_credits: 20,
   is_default: false,
-  sort_order: 0,
+  sort_order: nextOrder,
 });
+
+function SortableRow({
+  plan,
+  userCount,
+  onEdit,
+  onDelete,
+  limitLabel,
+}: {
+  plan: Plan;
+  userCount: number;
+  onEdit: (p: Plan) => void;
+  onDelete: (id: string) => void;
+  limitLabel: (v: number | null) => string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: plan.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell>
+        <button
+          className="cursor-grab active:cursor-grabbing touch-none p-1 text-muted-foreground hover:text-foreground"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </TableCell>
+      <TableCell className="font-mono text-xs">
+        {plan.id}
+        {plan.is_default && <Badge variant="secondary" className="ml-2 text-[9px]">default</Badge>}
+      </TableCell>
+      <TableCell className="font-medium">{plan.label}</TableCell>
+      <TableCell className="text-center">{limitLabel(plan.max_assessments)}</TableCell>
+      <TableCell className="text-center">{limitLabel(plan.max_assignments)}</TableCell>
+      <TableCell className="text-center">{plan.can_export_docx ? "✓" : "✗"}</TableCell>
+      <TableCell className="text-center">{plan.show_watermark ? "✓" : "✗"}</TableCell>
+      <TableCell className="text-center">{plan.default_credits}</TableCell>
+      <TableCell className="text-center">{userCount}</TableCell>
+      <TableCell className="text-right space-x-1">
+        <Button size="icon" variant="ghost" onClick={() => onEdit(plan)}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-destructive"
+          onClick={() => onDelete(plan.id)}
+          disabled={plan.is_default || userCount > 0}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function PlansManager() {
   const { plans, refresh } = usePlans();
@@ -38,6 +119,11 @@ export default function PlansManager() {
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [userCounts, setUserCounts] = useState<Record<string, number>>({});
+  const [localPlans, setLocalPlans] = useState<Plan[]>([]);
+
+  useEffect(() => {
+    setLocalPlans(plans);
+  }, [plans]);
 
   useEffect(() => {
     supabase
@@ -52,8 +138,31 @@ export default function PlansManager() {
       });
   }, [plans]);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = localPlans.findIndex((p) => p.id === active.id);
+    const newIndex = localPlans.findIndex((p) => p.id === over.id);
+    const reordered = arrayMove(localPlans, oldIndex, newIndex);
+    setLocalPlans(reordered);
+
+    // Persist new sort_order values
+    const updates = reordered.map((p, i) => ({ id: p.id, sort_order: i }));
+    for (const u of updates) {
+      await supabase.from("plans").update({ sort_order: u.sort_order } as never).eq("id", u.id);
+    }
+    refresh();
+  };
+
   const openNew = () => {
-    setEditing(emptyPlan());
+    const maxOrder = localPlans.reduce((max, p) => Math.max(max, p.sort_order), -1);
+    setEditing(emptyPlan(maxOrder + 1));
     setIsNew(true);
   };
 
@@ -89,7 +198,6 @@ export default function PlansManager() {
       sort_order: editing.sort_order,
     };
 
-    // If marking as default, unset others first
     if (editing.is_default) {
       await supabase.from("plans").update({ is_default: false }).neq("id", editing.id);
     }
@@ -135,59 +243,45 @@ export default function PlansManager() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Planes</CardTitle>
-            <CardDescription>Gestiona los planes disponibles para los docentes</CardDescription>
+            <CardDescription>Gestiona los planes disponibles para los docentes. Arrastra para reordenar.</CardDescription>
           </div>
           <Button size="sm" onClick={openNew} className="gap-1">
             <Plus className="h-4 w-4" /> Nuevo plan
           </Button>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead className="text-center">Pruebas</TableHead>
-                <TableHead className="text-center">Asignaciones</TableHead>
-                <TableHead className="text-center">.docx</TableHead>
-                <TableHead className="text-center">Marca agua</TableHead>
-                <TableHead className="text-center">Créditos</TableHead>
-                <TableHead className="text-center">Usuarios</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs">
-                    {p.id}
-                    {p.is_default && <Badge variant="secondary" className="ml-2 text-[9px]">default</Badge>}
-                  </TableCell>
-                  <TableCell className="font-medium">{p.label}</TableCell>
-                  <TableCell className="text-center">{limitLabel(p.max_assessments)}</TableCell>
-                  <TableCell className="text-center">{limitLabel(p.max_assignments)}</TableCell>
-                  <TableCell className="text-center">{p.can_export_docx ? "✓" : "✗"}</TableCell>
-                  <TableCell className="text-center">{p.show_watermark ? "✓" : "✗"}</TableCell>
-                  <TableCell className="text-center">{p.default_credits}</TableCell>
-                  <TableCell className="text-center">{userCounts[p.id] ?? 0}</TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(p)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => handleDelete(p.id)}
-                      disabled={p.is_default || (userCounts[p.id] ?? 0) > 0}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10"></TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead className="text-center">Pruebas</TableHead>
+                  <TableHead className="text-center">Asignaciones</TableHead>
+                  <TableHead className="text-center">.docx</TableHead>
+                  <TableHead className="text-center">Marca agua</TableHead>
+                  <TableHead className="text-center">Créditos</TableHead>
+                  <TableHead className="text-center">Usuarios</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <SortableContext items={localPlans.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                <TableBody>
+                  {localPlans.map((p) => (
+                    <SortableRow
+                      key={p.id}
+                      plan={p}
+                      userCount={userCounts[p.id] ?? 0}
+                      onEdit={openEdit}
+                      onDelete={handleDelete}
+                      limitLabel={limitLabel}
+                    />
+                  ))}
+                </TableBody>
+              </SortableContext>
+            </Table>
+          </DndContext>
         </CardContent>
       </Card>
 
@@ -248,14 +342,6 @@ export default function PlansManager() {
                   min={0}
                   value={editing.default_credits}
                   onChange={(e) => setEditing({ ...editing, default_credits: Number(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Orden</Label>
-                <Input
-                  type="number"
-                  value={editing.sort_order}
-                  onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) || 0 })}
                 />
               </div>
               <div className="space-y-3">
