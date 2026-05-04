@@ -66,6 +66,7 @@ export const StaffManager = () => {
   const [newTeacher, setNewTeacher] = useState<string>("");
   const [newGrade, setNewGrade] = useState<string>("");
   const [newSubject, setNewSubject] = useState<string>("");
+  const [newLetter, setNewLetter] = useState<string>("A");
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
