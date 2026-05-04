@@ -146,9 +146,9 @@ export default function AdminCoursesManager() {
   };
 
   const filteredSubjectsForLevel = (level: string) => {
-    return ALL_SUBJECTS.filter((s) => {
+    return allSubjects.filter((s) => {
       if (!s.levels || s.levels.length === 0) return true;
-      if (s.levels.includes(level as any)) return true;
+      if (s.levels.includes(level)) return true;
       if (level === "Media" && s.levels.includes("ElectivoMedia")) return true;
       return false;
     });
