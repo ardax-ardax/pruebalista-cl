@@ -319,7 +319,7 @@ export default function PlansManager() {
 
       {/* Edit / Create Dialog */}
       <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{isNew ? "Nuevo Plan" : `Editar: ${editing?.label}`}</DialogTitle>
             <DialogDescription>Configura las características del plan</DialogDescription>
