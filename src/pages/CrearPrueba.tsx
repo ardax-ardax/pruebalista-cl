@@ -730,6 +730,12 @@ const CrearPrueba = () => {
           assessment={assessment}
           institutionName={institutionName}
         />
+        <ResponseSheetDialog
+          open={responseSheetOpen}
+          onOpenChange={setResponseSheetOpen}
+          assessment={assessment}
+          institutionName={institutionName}
+        />
       </div>
     </AppLayout>
   );
