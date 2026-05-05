@@ -19,6 +19,7 @@ import Landing from "./pages/Landing.tsx";
 import Perfil from "./pages/Perfil.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import BancoPreguntas from "./pages/BancoPreguntas.tsx";
+import DocenteDashboardInstitucional from "./pages/DocenteDashboardInstitucional.tsx";
 
 const queryClient = new QueryClient();
 
