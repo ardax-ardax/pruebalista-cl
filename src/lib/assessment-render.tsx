@@ -20,6 +20,7 @@ export interface RenderContext {
   teacherLabel: string;
   planType?: string;
   showWatermark?: boolean;
+  includeResponseSheet?: boolean;
 }
 
 // === CSS común para preview y print ===
