@@ -555,11 +555,17 @@ const CrearPrueba = () => {
                 <Printer className="h-4 w-4" /> Hoja OMR
               </Button>
             )}
-            {canUseResponseSheet && (
-              <Button variant="outline" size="sm" onClick={() => setResponseSheetOpen(true)}>
-                <FileText className="h-4 w-4" /> Hoja de Respuestas
-              </Button>
-            )}
+            <label className={`inline-flex items-center gap-1.5 text-sm ${canUseResponseSheet ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`} title={canUseResponseSheet ? "Agrega una hoja de respuestas al final" : "Disponible en Planes Superiores"}>
+              <input
+                type="checkbox"
+                checked={includeResponseSheet && canUseResponseSheet}
+                disabled={!canUseResponseSheet}
+                onChange={(e) => setIncludeResponseSheet(e.target.checked)}
+                className="accent-primary h-4 w-4"
+              />
+              {!canUseResponseSheet && <Lock className="h-3.5 w-3.5" />}
+              Hoja de Respuestas
+            </label>
             {!canExportDocx ? (
               <Button size="sm" variant="secondary" disabled title="Disponible en un plan superior">
                 <Download className="h-4 w-4" /> .docx
