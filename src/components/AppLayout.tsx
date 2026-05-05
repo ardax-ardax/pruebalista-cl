@@ -45,7 +45,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/auth", { replace: true });
+    navigate("/landing", { replace: true });
   };
 
   // Si hide_credits está activo y el usuario es docente (rol user), ocultar créditos y mostrar badge institucional
