@@ -385,7 +385,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     : `${title}${instructions}${oaHeader}`;
 
   const responseSheet = ctx.includeResponseSheet ? renderResponseSheetHtml(assessment, institutionName) : "";
-  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>${responseSheet}`;
+  const answerKey = ctx.includeAnswerKey ? renderAnswerKeyHtml(ctx) : "";
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>${responseSheet}${answerKey}`;
 
 }
 
