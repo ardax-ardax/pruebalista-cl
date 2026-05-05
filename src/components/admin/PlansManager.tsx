@@ -402,6 +402,10 @@ export default function PlansManager() {
                   <Label>Hoja de Respuestas Básica</Label>
                   <Switch checked={editing.can_use_response_sheet} onCheckedChange={(v) => setEditing({ ...editing, can_use_response_sheet: v })} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <Label>Pauta de Corrección</Label>
+                  <Switch checked={editing.can_use_answer_key} onCheckedChange={(v) => setEditing({ ...editing, can_use_answer_key: v })} />
+                </div>
                 {/* Plantillas permitidas */}
                 <div className="space-y-2 pt-2 border-t">
                   <div className="flex items-center justify-between">
