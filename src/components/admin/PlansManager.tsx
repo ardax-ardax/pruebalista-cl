@@ -216,6 +216,7 @@ export default function PlansManager() {
       show_watermark: editing.show_watermark,
       can_edit_layout: editing.can_edit_layout,
       can_use_omr: editing.can_use_omr,
+      can_use_response_sheet: editing.can_use_response_sheet,
       allowed_templates: editing.allowed_templates,
       default_credits: editing.default_credits,
       is_default: editing.is_default,
