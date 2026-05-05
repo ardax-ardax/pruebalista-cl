@@ -43,7 +43,6 @@ interface BuildContext {
   subjectLabel: string;
   gradeLabel: string;
   teacherLabel: string;
-  includeResponseSheet?: boolean;
   includeAnswerKey?: boolean;
 }
 
@@ -1057,7 +1056,6 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         },
         children,
       },
-      ...(ctx.includeResponseSheet ? [buildResponseSheetSection(ctx)] : []),
       ...(ctx.includeAnswerKey ? [buildAnswerKeySection(ctx)] : []),
     ],
   });
