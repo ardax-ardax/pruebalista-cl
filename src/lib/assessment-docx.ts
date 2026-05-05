@@ -954,6 +954,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         children,
       },
       ...(ctx.includeResponseSheet ? [buildResponseSheetSection(ctx)] : []),
+      ...(ctx.includeAnswerKey ? [buildAnswerKeySection(ctx)] : []),
     ],
   });
 
