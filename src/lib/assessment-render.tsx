@@ -9,6 +9,7 @@ import { sanitizeRichText } from "./rich-text";
 import { defaultInstructionsFor } from "./essay-defaults";
 import { findOA } from "./curriculum-data";
 import { renderResponseSheetHtml, RESPONSE_SHEET_INLINE_CSS } from "./response-sheet-html";
+import { renderAnswerKeyHtml, ANSWER_KEY_CSS } from "./answer-key-html";
 
 export interface RenderContext {
   assessment: Assessment;
@@ -21,6 +22,7 @@ export interface RenderContext {
   planType?: string;
   showWatermark?: boolean;
   includeResponseSheet?: boolean;
+  includeAnswerKey?: boolean;
 }
 
 // === CSS común para preview y print ===
