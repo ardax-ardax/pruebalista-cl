@@ -770,12 +770,34 @@ function buildAnswerKeySection(ctx: BuildContext): ConstructorParameters<typeof 
   }));
 
   const ps = resolvePageSize(ctx.assessment.meta.layout, ctx.template.pageSize);
+  const layout = ctx.assessment.meta.layout;
+  const mmToTwip = (mm: number) => Math.round((mm / 10) * 567);
+  const margin = layout
+    ? { top: mmToTwip(layout.marginTop), bottom: mmToTwip(layout.marginBottom), left: mmToTwip(layout.marginSide), right: mmToTwip(layout.marginSide) }
+    : { top: cmToTwip(ctx.template.spacing.marginTop), bottom: cmToTwip(ctx.template.spacing.marginBottom), left: cmToTwip(ctx.template.spacing.marginLeft), right: cmToTwip(ctx.template.spacing.marginRight) };
   return {
     properties: {
       page: {
         size: { width: cmToTwip(ps.widthCm), height: cmToTwip(ps.heightCm), orientation: PageOrientation.PORTRAIT },
-        margin: { top: cmToTwip(1.5), bottom: cmToTwip(1.5), left: cmToTwip(2), right: cmToTwip(2) },
+        margin,
       },
+    },
+    footers: {
+      default: new Footer({
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            border: { top: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 } },
+            children: [
+              new TextRun({
+                text: [ctx.institutionName, ctx.subjectLabel, ctx.gradeLabel].filter((s) => s && s.trim().length > 0).join(" · "),
+                size: ptToHalfPt(8),
+                color: "555555",
+              }),
+            ],
+          }),
+        ],
+      }),
     },
     children,
   };
