@@ -19,6 +19,7 @@ import Landing from "./pages/Landing.tsx";
 import Perfil from "./pages/Perfil.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import BancoPreguntas from "./pages/BancoPreguntas.tsx";
+import DocenteDashboardInstitucional from "./pages/DocenteDashboardInstitucional.tsx";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/admin/dashboard" element={<AuthGuard><AdminGuard><AdminDashboard /></AdminGuard></AuthGuard>} />
               <Route path="/perfil" element={<AuthGuard><Perfil /></AuthGuard>} />
               <Route path="/banco-preguntas" element={<AuthGuard><BancoPreguntas /></AuthGuard>} />
+              <Route path="/docente/dashboard" element={<AuthGuard><DocenteDashboardInstitucional /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </UserUsageProvider>

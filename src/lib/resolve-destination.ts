@@ -14,7 +14,7 @@ export async function resolveDestination(role: string | null): Promise<string> {
   // docente (or null role): check if institutional
   try {
     const profile = await getMyProfile();
-    if (profile?.colegioId) return "/";
+    if (profile?.colegioId) return "/docente/dashboard";
   } catch {
     // fallback
   }
