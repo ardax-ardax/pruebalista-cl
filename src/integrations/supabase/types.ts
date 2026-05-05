@@ -311,6 +311,27 @@ export type Database = {
         }
         Relationships: []
       }
+      mineduc_subjects: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          sige_code: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          sige_code: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          sige_code?: number
+        }
+        Relationships: []
+      }
       pending_invitations: {
         Row: {
           colegio_id: string | null
