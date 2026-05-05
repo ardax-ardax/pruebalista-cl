@@ -8,6 +8,7 @@ import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
 import { defaultInstructionsFor } from "./essay-defaults";
 import { findOA } from "./curriculum-data";
+import { renderResponseSheetHtml, RESPONSE_SHEET_INLINE_CSS } from "./response-sheet-html";
 
 export interface RenderContext {
   assessment: Assessment;
