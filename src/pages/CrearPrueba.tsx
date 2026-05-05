@@ -553,6 +553,11 @@ const CrearPrueba = () => {
                 <Printer className="h-4 w-4" /> Hoja OMR
               </Button>
             )}
+            {canUseResponseSheet && (
+              <Button variant="outline" size="sm" onClick={() => setResponseSheetOpen(true)}>
+                <FileText className="h-4 w-4" /> Hoja de Respuestas
+              </Button>
+            )}
             {!canExportDocx ? (
               <Button size="sm" variant="secondary" disabled title="Disponible en un plan superior">
                 <Download className="h-4 w-4" /> .docx
