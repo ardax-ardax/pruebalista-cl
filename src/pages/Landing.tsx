@@ -119,19 +119,19 @@ export default function Landing() {
       {/* Hero — compact */}
       <section className="relative overflow-hidden flex-shrink-0">
         <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.03]" />
-        <div className="relative max-w-5xl mx-auto px-4 pt-6 pb-2 sm:pt-10 sm:pb-4 text-center space-y-3">
+        <div className="relative max-w-5xl mx-auto px-4 pt-4 pb-1 sm:pt-10 sm:pb-4 text-center space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3 w-3 text-primary" />
             Plataforma alineada al currículum Mineduc
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
+          <h1 className="text-xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
             Potencia tu gestión pedagógica
             <br />
             <span className="text-primary">con IA alineada al Mineduc</span>
           </h1>
 
-          <p className="max-w-xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
+          <p className="max-w-xl mx-auto text-xs sm:text-base text-muted-foreground leading-relaxed">
             Estandariza evaluaciones, ahorra horas de trabajo y asegura la
             cobertura curricular con tu cuenta de Google
           </p>
