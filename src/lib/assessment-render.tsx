@@ -188,6 +188,7 @@ export const ASSESSMENT_CSS = `
       margin-top: 0;
     }
   }
+${RESPONSE_SHEET_INLINE_CSS}
 `;
 
 const escape = (s: string) =>
