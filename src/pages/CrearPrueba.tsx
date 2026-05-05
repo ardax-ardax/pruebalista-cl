@@ -568,6 +568,17 @@ const CrearPrueba = () => {
               {!canUseResponseSheet && <Lock className="h-3.5 w-3.5" />}
               Hoja de Respuestas
             </label>
+            <label className={`inline-flex items-center gap-1.5 text-sm ${canUseAnswerKey ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`} title={canUseAnswerKey ? "Incluye pauta de corrección al final" : "Disponible en Planes Superiores"}>
+              <input
+                type="checkbox"
+                checked={includeAnswerKey && canUseAnswerKey}
+                disabled={!canUseAnswerKey}
+                onChange={(e) => setIncludeAnswerKey(e.target.checked)}
+                className="accent-primary h-4 w-4"
+              />
+              {!canUseAnswerKey && <Lock className="h-3.5 w-3.5" />}
+              Pauta de Corrección
+            </label>
             {!canExportDocx ? (
               <Button size="sm" variant="secondary" disabled title="Disponible en un plan superior">
                 <Download className="h-4 w-4" /> .docx
