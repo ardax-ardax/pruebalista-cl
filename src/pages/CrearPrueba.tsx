@@ -16,7 +16,7 @@ import { QuestionList } from "@/components/test-builder/QuestionList";
 import { AssessmentPreview } from "@/components/test-builder/AssessmentPreview";
 import { PreviewLayoutToolbar } from "@/components/test-builder/PreviewLayoutToolbar";
 import { OmrSheetDialog } from "@/components/omr/OmrSheetDialog";
-
+import { ResponseSheetDialog } from "@/components/response-sheet/ResponseSheetDialog";
 
 import {
   computeTotalPoints,
@@ -60,6 +60,7 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
+  const [responseSheetOpen, setResponseSheetOpen] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
   const [hasZeroAssignments, setHasZeroAssignments] = useState(false);
@@ -76,7 +77,7 @@ const CrearPrueba = () => {
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
-  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, allowedTemplates, planLabel } = useUserUsage();
+  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseResponseSheet, allowedTemplates, planLabel } = useUserUsage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
