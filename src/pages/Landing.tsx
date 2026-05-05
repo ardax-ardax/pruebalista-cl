@@ -119,19 +119,19 @@ export default function Landing() {
       {/* Hero — compact */}
       <section className="relative overflow-hidden flex-shrink-0">
         <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.03]" />
-        <div className="relative max-w-5xl mx-auto px-4 pt-6 pb-2 sm:pt-10 sm:pb-4 text-center space-y-3">
+        <div className="relative max-w-5xl mx-auto px-4 pt-4 pb-1 sm:pt-10 sm:pb-4 text-center space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3 w-3 text-primary" />
             Plataforma alineada al currículum Mineduc
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
+          <h1 className="text-xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
             Potencia tu gestión pedagógica
             <br />
             <span className="text-primary">con IA alineada al Mineduc</span>
           </h1>
 
-          <p className="max-w-xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
+          <p className="max-w-xl mx-auto text-xs sm:text-base text-muted-foreground leading-relaxed">
             Estandariza evaluaciones, ahorra horas de trabajo y asegura la
             cobertura curricular con tu cuenta de Google
           </p>
@@ -139,7 +139,7 @@ export default function Landing() {
       </section>
 
       {/* Dual access cards — tighter */}
-      <section className="max-w-4xl mx-auto px-4 pt-4 pb-6 sm:pb-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <section className="max-w-4xl mx-auto px-4 pt-3 pb-4 sm:pb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Docente */}
         <Card className="group relative overflow-hidden rounded-xl border border-border hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-elevated">
           <CardContent className="p-5 sm:p-6 space-y-3">

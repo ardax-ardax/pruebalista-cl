@@ -1,69 +1,66 @@
 
-## Pauta de Corrección — Plan de implementación
+## Plan: Optimización estética + Dashboard Institucional + RLS + Notificaciones
 
-### 1. Base de datos: nueva columna `can_use_answer_key`
+### 1. Landing Page — Ajustes estéticos menores
 
-Migración SQL:
+La Landing ya tiene implementados el header con tagline, footer con contacto/redes/legal, bordes redondeados y tarjetas above-the-fold. Se revisará en viewport móvil (402px) para verificar que todo sea visible sin scroll excesivo, y se harán ajustes de padding/spacing si es necesario.
+
+**Archivos**: `src/pages/Landing.tsx`
+
+---
+
+### 2. Dashboard Docente Institucional (`/docente/dashboard`)
+
+Reescribir `DocenteDashboardInstitucional.tsx` con:
+
+- **Saludo personalizado**: "Hola [Nombre], bienvenido al panel de [Nombre del Colegio]". Se obtiene el nombre del usuario via `useAuth` y el nombre del colegio consultando la tabla `colegios` via `colegio_id` del perfil.
+- **Sección de Notificaciones**: Consulta evaluaciones del docente con `status = 'rechazado'` o `status = 'aprobado'` que tengan `utp_feedback` no vacío. Se muestran como tarjetas de notificación con badge de estado y el mensaje de la UTP. Reemplazar cualquier mención de "Encargos" por "Notificaciones".
+- **Accesos rápidos**: Botones prominentes para "Crear Evaluación" y "Mis Evaluaciones".
+- **Estadísticas rápidas**: Pruebas creadas, preguntas en banco, créditos IA (respetando `hideCredits`).
+
+**Archivos**: `src/pages/DocenteDashboardInstitucional.tsx`
+
+---
+
+### 3. Privacidad del Banco de Preguntas (RLS)
+
+Actualizar la política SELECT de `question_bank`:
+
+- **Docente**: solo ve sus propias preguntas (`user_id = auth.uid()`) que no estén ocultas.
+- **UTP/Admin**: ve todas las preguntas de docentes de su mismo colegio (via `is_same_colegio`) que no estén ocultas.
+
+Esto requiere una migración SQL para reemplazar la política `Read own not hidden or same colegio` actual por una más restrictiva:
+
 ```sql
-ALTER TABLE plans ADD COLUMN can_use_answer_key boolean NOT NULL DEFAULT false;
+DROP POLICY "Read own not hidden or same colegio" ON public.question_bank;
+
+CREATE POLICY "Docente reads own, staff reads colegio"
+ON public.question_bank FOR SELECT TO authenticated
+USING (
+  NOT (auth.uid() = ANY(hidden_by_users))
+  AND (
+    user_id = auth.uid()
+    OR is_staff(auth.uid()) AND is_same_colegio(auth.uid(), user_id)
+  )
+);
 ```
 
-### 2. PlansManager (Admin) — toggle
+Esto restringe a que docentes normales solo vean sus propias preguntas, mientras que UTP/Admin ven las de su colegio.
 
-En `src/components/admin/PlansManager.tsx`:
-- Agregar `can_use_answer_key` al `emptyPlan`, al objeto `row` en `handleSave`, y al `SortableRow` si corresponde.
-- Agregar un toggle "Pauta de Corrección" debajo del toggle de "Hoja de Respuestas Básica".
+**Herramienta**: Migration tool
 
-### 3. Hooks: exponer `canUseAnswerKey`
+---
 
-- **`usePlans.tsx`**: Agregar `can_use_answer_key: boolean` a la interfaz `Plan` y al `DEFAULT_PLAN_LIMITS`.
-- **`useUserUsage.tsx`**: Agregar `canUseAnswerKey: boolean` a `UserUsage`, `DEFAULT_USAGE`, y al cálculo derivado.
+### 4. Flujo de Feedback UTP → Docente
 
-### 4. Crear `src/lib/answer-key-html.ts` — Generador HTML
+La tabla `assessments` ya tiene `utp_feedback` y `status`. El punto 2 (Dashboard) ya incluirá la lectura de estos campos como "Notificaciones". No se requiere nueva tabla ni migración adicional — las evaluaciones con status `rechazado` o `aprobado` que tengan `utp_feedback` aparecerán automáticamente como notificaciones en el dashboard del docente.
 
-Nueva función `renderAnswerKeyHtml(ctx: RenderContext)` que genera HTML con:
-- **Mismo encabezado institucional** que la evaluación (reutilizando el banner de `renderAssessmentHtml`): logo, nombre institución, profesor, asignatura, curso, fecha.
-- **Título central**: "Pauta de Corrección / Solucionario".
-- **Contenido por tipo de pregunta**:
-  - Selección múltiple: `N. [X] Letra — Texto de la opción correcta`, organizado en columnas si hay muchas.
-  - Verdadero/Falso: `N. V/F — Texto de la afirmación`.
-  - Desarrollo (short-answer): `N. [Criterios]` mostrando `rubric` o `rubricExplanation`.
-- **CSS**: `break-before: page` para página nueva.
-- Exporta también `ANSWER_KEY_CSS`.
+---
 
-### 5. Modificar `src/lib/assessment-render.tsx`
+### Resumen de cambios
 
-- Extender `RenderContext` con `includeAnswerKey?: boolean`.
-- Importar `renderAnswerKeyHtml` y `ANSWER_KEY_CSS`.
-- En `renderAssessmentHtml()`, si `includeAnswerKey` es true, anexar el HTML de la pauta después del response sheet (si existe).
-- Agregar `ANSWER_KEY_CSS` a `ASSESSMENT_CSS`.
-
-### 6. Modificar `src/lib/assessment-docx.ts`
-
-- Extender `BuildContext` con `includeAnswerKey?: boolean`.
-- Crear `buildAnswerKeySection(ctx)` que genera una sección DOCX con:
-  - Mismo banner institucional (reutilizando `bannerTable`).
-  - Título "Pauta de Corrección / Solucionario".
-  - Tabla con respuestas correctas por tipo de pregunta, organizada en columnas.
-- Agregar la sección al array de secciones del documento.
-
-### 7. Modificar `src/pages/CrearPrueba.tsx`
-
-- Agregar estado `includeAnswerKey` (boolean, default false).
-- En la barra de preview, agregar checkbox "Pauta de Corrección" con gating idéntico al de Hoja de Respuestas:
-  - Activo si `canUseAnswerKey` es true.
-  - Deshabilitado con icono de candado si es false.
-- Pasar `includeAnswerKey` al `RenderContext`.
-
-### Archivos a modificar/crear
-
-| Archivo | Acción |
-|---------|--------|
-| Migración SQL | Crear (`can_use_answer_key` en `plans`) |
-| `src/lib/answer-key-html.ts` | Crear (generador HTML) |
-| `src/hooks/usePlans.tsx` | Editar (interfaz Plan) |
-| `src/hooks/useUserUsage.tsx` | Editar (exponer canUseAnswerKey) |
-| `src/components/admin/PlansManager.tsx` | Editar (toggle + emptyPlan + save) |
-| `src/lib/assessment-render.tsx` | Editar (inyectar pauta, extender RenderContext) |
-| `src/lib/assessment-docx.ts` | Editar (sección DOCX) |
-| `src/pages/CrearPrueba.tsx` | Editar (checkbox gated, estado, pasar flag) |
+| Archivo / Recurso | Acción |
+|---|---|
+| `src/pages/Landing.tsx` | Ajustes menores de spacing móvil |
+| `src/pages/DocenteDashboardInstitucional.tsx` | Reescritura completa con saludo, notificaciones y accesos rápidos |
+| Migración SQL | Nueva política RLS para `question_bank` |
