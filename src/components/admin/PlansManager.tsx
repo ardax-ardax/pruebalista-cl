@@ -45,6 +45,7 @@ const emptyPlan = (nextOrder: number): Omit<Plan, "created_at"> => ({
   show_watermark: true,
   can_edit_layout: true,
   can_use_omr: false,
+  can_use_response_sheet: false,
   allowed_templates: null,
   default_credits: 20,
   is_default: false,
