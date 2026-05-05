@@ -1,66 +1,45 @@
 
-## Plan: Optimización estética + Dashboard Institucional + RLS + Notificaciones
+## Plan: Panel UTP — Equipo Docente + Centro de Revisión Pedagógica
 
-### 1. Landing Page — Ajustes estéticos menores
+### 1. Nuevo componente: `src/components/admin/UtpTeamManager.tsx`
 
-La Landing ya tiene implementados el header con tagline, footer con contacto/redes/legal, bordes redondeados y tarjetas above-the-fold. Se revisará en viewport móvil (402px) para verificar que todo sea visible sin scroll excesivo, y se harán ajustes de padding/spacing si es necesario.
+Pestaña "Mi Equipo Docente" con:
+- **Vincular Nuevo Docente**: Campo email + botón "Asignar al Colegio". Lógica:
+  - Busca en `profiles` por email. Si existe y sin colegio, actualiza `colegio_id`.
+  - Si ya pertenece al mismo colegio, muestra info. Si pertenece a otro, error.
+  - Si no existe, inserta en `pending_invitations` con `colegio_id` y `role=docente`. El trigger `handle_new_user` ya lo vincula automáticamente al registrarse.
+- **Equipo actual**: Lista de docentes vinculados al colegio (profiles con mismo `colegio_id`), mostrando avatar, nombre y email.
+- **Invitaciones pendientes**: Lista de invitaciones no consumidas del colegio, con opción de eliminar.
 
-**Archivos**: `src/pages/Landing.tsx`
+### 2. Nuevo componente: `src/components/admin/UtpReviewCenter.tsx`
 
----
+Pestaña "Evaluaciones por Revisar" con:
+- **Tabla de evaluaciones** pendientes: Consulta `assessments` con `status = 'pendiente_revision'` de docentes del mismo colegio (via join con profiles).
+- **Columnas**: Nombre, Docente, Fecha, Estado, Acciones.
+- **Modal de revisión**: Al hacer clic, abre un Dialog con:
+  - Vista previa del contenido (título, asignatura, curso, cantidad de preguntas).
+  - Botón "Aprobar" → cambia `status` a `aprobado`.
+  - Botón "Rechazar con Observaciones" → muestra textarea, guarda `utp_feedback` y cambia `status` a `rechazado`.
+- **Iconos de estado**: Clock (pendiente), CheckCircle verde (aprobado), AlertTriangle naranja (rechazado).
+- **Historial reciente**: Muestra también las últimas 10 evaluaciones aprobadas/rechazadas para referencia.
 
-### 2. Dashboard Docente Institucional (`/docente/dashboard`)
+### 3. Actualizar `src/pages/Configuracion.tsx`
 
-Reescribir `DocenteDashboardInstitucional.tsx` con:
+Reemplazar las 3 pestañas actuales del UTP (`catalogos`, `politicas`, `docentes`) por 5 pestañas:
+1. **Mi Equipo** → `UtpTeamManager`
+2. **Evaluaciones** → `UtpReviewCenter`
+3. **Catálogos** → existente (asignaturas, cursos, docentes)
+4. **Políticas** → existente (auto-asignación, créditos)
+5. **Docentes** → existente `UtpUsageManager`
 
-- **Saludo personalizado**: "Hola [Nombre], bienvenido al panel de [Nombre del Colegio]". Se obtiene el nombre del usuario via `useAuth` y el nombre del colegio consultando la tabla `colegios` via `colegio_id` del perfil.
-- **Sección de Notificaciones**: Consulta evaluaciones del docente con `status = 'rechazado'` o `status = 'aprobado'` que tengan `utp_feedback` no vacío. Se muestran como tarjetas de notificación con badge de estado y el mensaje de la UTP. Reemplazar cualquier mención de "Encargos" por "Notificaciones".
-- **Accesos rápidos**: Botones prominentes para "Crear Evaluación" y "Mis Evaluaciones".
-- **Estadísticas rápidas**: Pruebas creadas, preguntas en banco, créditos IA (respetando `hideCredits`).
+### 4. No se necesitan migraciones
 
-**Archivos**: `src/pages/DocenteDashboardInstitucional.tsx`
+La tabla `pending_invitations` ya tiene `colegio_id`. La tabla `assessments` ya tiene `status` y `utp_feedback`. La tabla `profiles` ya tiene `colegio_id`. Las políticas RLS existentes permiten que staff actualice assessments y profiles del mismo colegio. No hay cambios de esquema necesarios.
 
----
+### Resumen de archivos
 
-### 3. Privacidad del Banco de Preguntas (RLS)
-
-Actualizar la política SELECT de `question_bank`:
-
-- **Docente**: solo ve sus propias preguntas (`user_id = auth.uid()`) que no estén ocultas.
-- **UTP/Admin**: ve todas las preguntas de docentes de su mismo colegio (via `is_same_colegio`) que no estén ocultas.
-
-Esto requiere una migración SQL para reemplazar la política `Read own not hidden or same colegio` actual por una más restrictiva:
-
-```sql
-DROP POLICY "Read own not hidden or same colegio" ON public.question_bank;
-
-CREATE POLICY "Docente reads own, staff reads colegio"
-ON public.question_bank FOR SELECT TO authenticated
-USING (
-  NOT (auth.uid() = ANY(hidden_by_users))
-  AND (
-    user_id = auth.uid()
-    OR is_staff(auth.uid()) AND is_same_colegio(auth.uid(), user_id)
-  )
-);
-```
-
-Esto restringe a que docentes normales solo vean sus propias preguntas, mientras que UTP/Admin ven las de su colegio.
-
-**Herramienta**: Migration tool
-
----
-
-### 4. Flujo de Feedback UTP → Docente
-
-La tabla `assessments` ya tiene `utp_feedback` y `status`. El punto 2 (Dashboard) ya incluirá la lectura de estos campos como "Notificaciones". No se requiere nueva tabla ni migración adicional — las evaluaciones con status `rechazado` o `aprobado` que tengan `utp_feedback` aparecerán automáticamente como notificaciones en el dashboard del docente.
-
----
-
-### Resumen de cambios
-
-| Archivo / Recurso | Acción |
+| Archivo | Acción |
 |---|---|
-| `src/pages/Landing.tsx` | Ajustes menores de spacing móvil |
-| `src/pages/DocenteDashboardInstitucional.tsx` | Reescritura completa con saludo, notificaciones y accesos rápidos |
-| Migración SQL | Nueva política RLS para `question_bank` |
+| `src/components/admin/UtpTeamManager.tsx` | Nuevo |
+| `src/components/admin/UtpReviewCenter.tsx` | Nuevo |
+| `src/pages/Configuracion.tsx` | Editar pestañas UTP |
