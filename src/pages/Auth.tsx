@@ -1,20 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
+import { resolveDestination } from "@/lib/resolve-destination";
 import { ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
 
 const AuthPage = () => {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, role, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate("/", { replace: true });
-  }, [user, loading, navigate]);
+    if (loading || !user || redirecting) return;
+    setRedirecting(true);
+    resolveDestination(role).then((dest) => {
+      navigate(dest, { replace: true });
+    });
+  }, [user, loading, role, redirecting, navigate]);
 
   const handleGoogle = async () => {
     try {
@@ -25,7 +31,7 @@ const AuthPage = () => {
   };
 
   const handleOpenFullscreen = () => {
-    openInNewTab("/auth");
+    openInNewTab("/landing");
   };
 
   return (

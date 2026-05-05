@@ -1,37 +1,46 @@
 
-## Plan: Hoja de Respuestas Básica
+## Rediseño de Landing Page + Enrutamiento por Rol
 
-### 1. Base de datos
-- Migración: agregar columna `can_use_response_sheet boolean NOT NULL DEFAULT false` a la tabla `plans`.
+### 1. Nueva Landing Page (`src/pages/Landing.tsx`)
+Página pública (sin AuthGuard) con:
 
-### 2. Tipos y hooks
-- **`usePlans.tsx`**: Agregar `can_use_response_sheet` al interface `Plan` y al `DEFAULT_PLAN_LIMITS`.
-- **`useUserUsage.tsx`**: Agregar `canUseResponseSheet` al interface `UserUsage`, derivado del plan efectivo.
+- **Hero Section**: Titulo "Potencia tu gestión pedagógica con IA alineada al Mineduc", subtitulo sobre estandarización y cobertura curricular, badge "Plataforma alineada al currículum Mineduc".
+- **Dos tarjetas de acceso**:
+  - "Acceso Docente" — icono GraduationCap, beneficios (IA, banco de preguntas, exportación), botón primario.
+  - "Gestión Institucional / UTP" — icono Building2, beneficios (revisión, asignación, reportes), botón outline.
+  - Ambos ejecutan `signInWithGoogle()`. Si el usuario ya está logueado, se redirige automáticamente según rol.
+- **Sección de confianza**: "La primera plataforma que habla el lenguaje del Mineduc" con tres columnas: OAs Oficiales, IA Alineada, Flujo UTP.
+- **Footer** simple.
+- Usa tokens de diseño existentes (--primary, --success, --gradient-primary, --shadow-card, --shadow-elevated).
 
-### 3. Panel Admin (PlansManager)
-- Agregar un Switch "Hoja de Respuestas" en el diálogo de edición de plan (junto a los otros toggles como OMR, docx, etc.).
-- Incluir `can_use_response_sheet` en el objeto que se guarda/inserta.
+### 2. Lógica de Redirección por Rol
+Función `resolveDestination(role, userId)` en Landing.tsx:
 
-### 4. Página CrearPrueba
-- Extraer `canUseResponseSheet` de `useUserUsage()`.
-- Agregar estado `responseSheetOpen` y un botón "Hoja de Respuestas" en la barra de acciones (visible solo si `canUseResponseSheet === true` y hay preguntas de selección múltiple o V/F).
-- Crear un diálogo `ResponseSheetDialog` que permita imprimir la hoja.
+| Rol | Destino |
+|-----|---------|
+| `admin` | `/admin/dashboard` |
+| `utp_head` | `/configuracion` |
+| `docente` con `colegio_id` (institucional) | `/` (DashboardDocente) |
+| `docente` sin `colegio_id` (independiente) | `/crear-prueba` |
 
-### 5. Componente ResponseSheetDialog + generación visual
-- Nuevo archivo `src/components/response-sheet/ResponseSheetDialog.tsx`.
-- Recibe la evaluación (assessment) y genera una grilla de respuestas.
-- Diseño:
-  - Encabezado: Nombre del Estudiante, Curso, Fecha (campos en blanco para rellenar a mano).
-  - Grilla multi-columna (3-4 columnas) con formato `1. A B C D` para cada pregunta de selección múltiple, y `1. V F` para verdadero/falso.
-  - Solo incluye preguntas evaluables (excluye section-title, info-block, short-answer).
-  - Abre ventana de impresión (mismo patrón que `exportAssessmentToPdf`).
+Se ejecuta automáticamente al detectar usuario logueado en Landing.
 
-### Archivos modificados
+### 3. Actualización de Rutas (`src/App.tsx`)
+- `/landing` → `<Landing />` (público, sin AuthGuard)
+- `/auth` → redirige a `/landing` (mantener compatibilidad)
+- `/` → `<AuthGuard><DashboardDocente /></AuthGuard>` (sin cambio)
+- Resto de rutas sin cambio.
+
+### 4. Auth.tsx
+- El redirect post-login usa `resolveDestination` para ir al destino correcto según rol en vez de siempre ir a `/`.
+
+### 5. AuthGuard.tsx
+- Redirige a `/landing` en vez de `/auth` cuando no hay sesión.
+
+### Archivos afectados
 | Archivo | Cambio |
 |---------|--------|
-| (migración SQL) | Nueva columna `can_use_response_sheet` |
-| `src/hooks/usePlans.tsx` | Agregar campo al interface y default |
-| `src/hooks/useUserUsage.tsx` | Exponer `canUseResponseSheet` |
-| `src/components/admin/PlansManager.tsx` | Switch en diálogo + campo en save |
-| `src/pages/CrearPrueba.tsx` | Botón + estado + diálogo |
-| `src/components/response-sheet/ResponseSheetDialog.tsx` | Nuevo componente |
+| `src/pages/Landing.tsx` | Nuevo — landing page pública |
+| `src/App.tsx` | Agregar ruta `/landing`, actualizar `/auth` |
+| `src/pages/Auth.tsx` | Redirect post-login por rol, redirect base a `/landing` |
+| `src/components/AuthGuard.tsx` | Redirigir a `/landing` en vez de `/auth` |

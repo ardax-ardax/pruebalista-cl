@@ -15,6 +15,7 @@ import Configuracion from "./pages/Configuracion.tsx";
 import Cursos from "./pages/Cursos.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AuthPage from "./pages/Auth.tsx";
+import Landing from "./pages/Landing.tsx";
 import Perfil from "./pages/Perfil.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import BancoPreguntas from "./pages/BancoPreguntas.tsx";
@@ -31,6 +32,7 @@ const App = () => (
           <PlansProvider>
           <UserUsageProvider>
             <Routes>
+              <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
               <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
