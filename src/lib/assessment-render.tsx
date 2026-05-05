@@ -191,6 +191,7 @@ export const ASSESSMENT_CSS = `
     }
   }
 ${RESPONSE_SHEET_INLINE_CSS}
+${ANSWER_KEY_CSS}
 `;
 
 const escape = (s: string) =>
