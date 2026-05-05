@@ -114,16 +114,15 @@ export function UtpReviewCenter() {
       .order("updated_at", { ascending: false })
       .limit(10);
 
-    const mapRow = (r: Record<string, unknown>): AssessmentRow => {
-      const userId = r.user_id as string;
-      const p = profileMap.get(userId);
+    const mapRow = (r: { id: string; title: string; status: string; updated_at: string; created_at: string; utp_feedback: string | null; user_id: string; data: unknown }): AssessmentRow => {
+      const p = profileMap.get(r.user_id);
       return {
-        id: r.id as string,
-        title: (r.title as string) || "Sin título",
-        status: r.status as string,
-        updatedAt: r.updated_at as string,
-        createdAt: r.created_at as string,
-        utpFeedback: r.utp_feedback as string | null,
+        id: r.id,
+        title: r.title || "Sin título",
+        status: r.status,
+        updatedAt: r.updated_at,
+        createdAt: r.created_at,
+        utpFeedback: r.utp_feedback,
         docenteName: p?.name ?? "Desconocido",
         docenteEmail: p?.email ?? "",
         data: r.data as Record<string, unknown> | null,
