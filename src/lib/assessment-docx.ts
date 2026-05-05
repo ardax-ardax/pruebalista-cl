@@ -43,6 +43,7 @@ interface BuildContext {
   subjectLabel: string;
   gradeLabel: string;
   teacherLabel: string;
+  includeResponseSheet?: boolean;
 }
 
 const cmToTwip = (cm: number) => Math.round(cm * 567);
