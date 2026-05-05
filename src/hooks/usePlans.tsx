@@ -10,6 +10,7 @@ export interface Plan {
   show_watermark: boolean;
   can_edit_layout: boolean;
   can_use_omr: boolean;
+  can_use_response_sheet: boolean;
   allowed_templates: string[] | null;
   default_credits: number;
   is_default: boolean;
@@ -25,6 +26,7 @@ const DEFAULT_PLAN_LIMITS: Plan = {
   show_watermark: true,
   can_edit_layout: true,
   can_use_omr: false,
+  can_use_response_sheet: false,
   allowed_templates: null,
   default_credits: 20,
   is_default: true,
