@@ -62,6 +62,7 @@ const CrearPrueba = () => {
   const [omrOpen, setOmrOpen] = useState(false);
   const [responseSheetOpen, setResponseSheetOpen] = useState(false);
   const [includeResponseSheet, setIncludeResponseSheet] = useState(false);
+  const [includeAnswerKey, setIncludeAnswerKey] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
   const [hasZeroAssignments, setHasZeroAssignments] = useState(false);
