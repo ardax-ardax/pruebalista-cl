@@ -1,0 +1,1 @@
+ALTER TABLE public.plans ADD COLUMN can_use_answer_key boolean NOT NULL DEFAULT false;

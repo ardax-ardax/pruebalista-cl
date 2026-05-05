@@ -46,6 +46,7 @@ const emptyPlan = (nextOrder: number): Omit<Plan, "created_at"> => ({
   can_edit_layout: true,
   can_use_omr: false,
   can_use_response_sheet: false,
+  can_use_answer_key: false,
   allowed_templates: null,
   default_credits: 20,
   is_default: false,
@@ -217,6 +218,7 @@ export default function PlansManager() {
       can_edit_layout: editing.can_edit_layout,
       can_use_omr: editing.can_use_omr,
       can_use_response_sheet: editing.can_use_response_sheet,
+      can_use_answer_key: editing.can_use_answer_key,
       allowed_templates: editing.allowed_templates,
       default_credits: editing.default_credits,
       is_default: editing.is_default,
@@ -399,6 +401,10 @@ export default function PlansManager() {
                 <div className="flex items-center justify-between">
                   <Label>Hoja de Respuestas Básica</Label>
                   <Switch checked={editing.can_use_response_sheet} onCheckedChange={(v) => setEditing({ ...editing, can_use_response_sheet: v })} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Pauta de Corrección</Label>
+                  <Switch checked={editing.can_use_answer_key} onCheckedChange={(v) => setEditing({ ...editing, can_use_answer_key: v })} />
                 </div>
                 {/* Plantillas permitidas */}
                 <div className="space-y-2 pt-2 border-t">

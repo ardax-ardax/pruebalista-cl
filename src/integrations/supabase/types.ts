@@ -415,6 +415,7 @@ export type Database = {
           allowed_templates: string[] | null
           can_edit_layout: boolean
           can_export_docx: boolean
+          can_use_answer_key: boolean
           can_use_omr: boolean
           can_use_response_sheet: boolean
           created_at: string
@@ -431,6 +432,7 @@ export type Database = {
           allowed_templates?: string[] | null
           can_edit_layout?: boolean
           can_export_docx?: boolean
+          can_use_answer_key?: boolean
           can_use_omr?: boolean
           can_use_response_sheet?: boolean
           created_at?: string
@@ -447,6 +449,7 @@ export type Database = {
           allowed_templates?: string[] | null
           can_edit_layout?: boolean
           can_export_docx?: boolean
+          can_use_answer_key?: boolean
           can_use_omr?: boolean
           can_use_response_sheet?: boolean
           created_at?: string

@@ -44,6 +44,7 @@ interface BuildContext {
   gradeLabel: string;
   teacherLabel: string;
   includeResponseSheet?: boolean;
+  includeAnswerKey?: boolean;
 }
 
 const cmToTwip = (cm: number) => Math.round(cm * 567);
@@ -773,6 +774,110 @@ function buildResponseSheetSection(ctx: BuildContext): ConstructorParameters<typ
   };
 }
 
+function buildAnswerKeySection(ctx: BuildContext): ConstructorParameters<typeof Document>["0"]["sections"][number] {
+  const children: Array<Paragraph | Table> = [];
+  const sz = ptToHalfPt(10);
+  const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+  const borders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
+  const cellMargins = { top: 40, bottom: 40, left: 80, right: 80 };
+
+  // Institutional banner (reuse)
+  if (ctx.template.header?.enabled) children.push(bannerTable(ctx));
+  children.push(new Paragraph({ spacing: { before: 0, after: 80 }, children: [new TextRun("")] }));
+
+  // Title
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 120, after: 40 },
+    children: [new TextRun({ text: "PAUTA DE CORRECCIÓN / SOLUCIONARIO", bold: true, size: ptToHalfPt(13) })],
+  }));
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 200 },
+    children: [new TextRun({ text: ctx.assessment.meta.title || "", size: sz, color: "444444" })],
+  }));
+
+  // Build entries
+  type AKEntry = { num: number; type: "mc" | "tf" | "dev"; answer: string; detail: string };
+  const entries: AKEntry[] = [];
+  let num = 1;
+  for (const q of ctx.assessment.questions) {
+    if (q.type === "section-title" || q.type === "info-block") continue;
+    if (q.type === "multiple-choice" && q.options) {
+      const ci = q.options.findIndex((o) => o.correct);
+      const letter = ci >= 0 ? String.fromCharCode(65 + ci) : "—";
+      const text = ci >= 0 ? q.options[ci].text.replace(/<[^>]*>/g, "").trim() : "";
+      entries.push({ num, type: "mc", answer: letter, detail: text });
+    } else if (q.type === "true-false" && q.statements) {
+      for (const st of q.statements) {
+        entries.push({ num, type: "tf", answer: st.answer, detail: st.text.replace(/<[^>]*>/g, "").trim() });
+        num++;
+      }
+      continue;
+    } else if (q.type === "short-answer") {
+      entries.push({ num, type: "dev", answer: "Desarrollo", detail: (q.rubric || "").replace(/<[^>]*>/g, "").trim() });
+    }
+    num++;
+  }
+
+  // MC/TF entries in columns
+  const mcTf = entries.filter((e) => e.type === "mc" || e.type === "tf");
+  if (mcTf.length > 0) {
+    const COLS = mcTf.length > 20 ? 3 : mcTf.length > 10 ? 2 : 1;
+    const perCol = Math.ceil(mcTf.length / COLS);
+    const colW = Math.floor(9360 / COLS);
+    const columnWidths = Array(COLS).fill(colW);
+    const rows: TableRow[] = [];
+    for (let r = 0; r < perCol; r++) {
+      const cells: TableCell[] = [];
+      for (let c = 0; c < COLS; c++) {
+        const e = mcTf[c * perCol + r];
+        const text = e ? `${e.num}. ${e.answer} — ${e.detail}` : "";
+        cells.push(new TableCell({
+          width: { size: colW, type: WidthType.DXA },
+          borders,
+          margins: cellMargins,
+          children: [new Paragraph({ children: [new TextRun({ text, size: ptToHalfPt(9) })] })],
+        }));
+      }
+      rows.push(new TableRow({ children: cells }));
+    }
+    children.push(new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths, rows }));
+  }
+
+  // Development entries
+  const devEntries = entries.filter((e) => e.type === "dev");
+  if (devEntries.length > 0) {
+    children.push(new Paragraph({ spacing: { before: 200, after: 80 }, children: [new TextRun({ text: "Preguntas de Desarrollo — Criterios de Corrección", bold: true, size: sz })] }));
+    for (const e of devEntries) {
+      children.push(new Paragraph({
+        spacing: { before: 80 },
+        children: [
+          new TextRun({ text: `${e.num}. Desarrollo: `, bold: true, size: ptToHalfPt(9) }),
+          new TextRun({ text: e.detail || "Sin criterios definidos", size: ptToHalfPt(9), color: "333333" }),
+        ],
+      }));
+    }
+  }
+
+  children.push(new Paragraph({
+    spacing: { before: 200 },
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: `Documento de uso exclusivo del docente · ${entries.length} respuestas`, size: ptToHalfPt(8), color: "888888" })],
+  }));
+
+  const ps = resolvePageSize(ctx.assessment.meta.layout, ctx.template.pageSize);
+  return {
+    properties: {
+      page: {
+        size: { width: cmToTwip(ps.widthCm), height: cmToTwip(ps.heightCm), orientation: PageOrientation.PORTRAIT },
+        margin: { top: cmToTwip(1.5), bottom: cmToTwip(1.5), left: cmToTwip(2), right: cmToTwip(2) },
+      },
+    },
+    children,
+  };
+}
+
 export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string) {
   const { template, assessment } = ctx;
   // Pre-procesar imágenes con crop a PNG recortado para evitar deformación en Word.
@@ -953,6 +1058,7 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         children,
       },
       ...(ctx.includeResponseSheet ? [buildResponseSheetSection(ctx)] : []),
+      ...(ctx.includeAnswerKey ? [buildAnswerKeySection(ctx)] : []),
     ],
   });
 

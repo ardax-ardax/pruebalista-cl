@@ -1,61 +1,69 @@
 
-## Estado actual
+## Pauta de Corrección — Plan de implementación
 
-La columna `can_use_response_sheet` ya existe en la tabla `plans` y el toggle ya está en el PlansManager de admin. El hook `useUserUsage` ya expone `canUseResponseSheet`. Existe un `ResponseSheetDialog` que abre una ventana de impresión separada. **No se necesitan cambios en la base de datos.**
+### 1. Base de datos: nueva columna `can_use_answer_key`
 
-Lo que falta: integrar la hoja de respuestas como contenido inline al final de la evaluación (preview, PDF, DOCX), con un checkbox gated por plan.
+Migración SQL:
+```sql
+ALTER TABLE plans ADD COLUMN can_use_answer_key boolean NOT NULL DEFAULT false;
+```
 
----
+### 2. PlansManager (Admin) — toggle
 
-## Plan de implementación
+En `src/components/admin/PlansManager.tsx`:
+- Agregar `can_use_answer_key` al `emptyPlan`, al objeto `row` en `handleSave`, y al `SortableRow` si corresponde.
+- Agregar un toggle "Pauta de Corrección" debajo del toggle de "Hoja de Respuestas Básica".
 
-### 1. Crear `src/lib/response-sheet-html.ts` — Generador HTML inline
+### 3. Hooks: exponer `canUseAnswerKey`
 
-Nuevo archivo que genera el HTML de la hoja de respuestas para inyectar al final del assessment:
-- Encabezado: Nombre del Estudiante, Curso, Fecha, recuadro Puntaje/Nota
-- Cuerpo: lista numerada de burbujas (A/B/C/D para MC, V/F para true-false)
-- Organización automática en 2-3 columnas según cantidad de preguntas
-- CSS con `break-before: page` para que aparezca en página nueva al imprimir
-- Exporta una función `renderResponseSheetHtml(assessment, institutionName): string`
+- **`usePlans.tsx`**: Agregar `can_use_answer_key: boolean` a la interfaz `Plan` y al `DEFAULT_PLAN_LIMITS`.
+- **`useUserUsage.tsx`**: Agregar `canUseAnswerKey: boolean` a `UserUsage`, `DEFAULT_USAGE`, y al cálculo derivado.
 
-### 2. Modificar `src/lib/assessment-render.tsx` — Inyectar al final del HTML
+### 4. Crear `src/lib/answer-key-html.ts` — Generador HTML
 
-- Extender `RenderContext` con `includeResponseSheet?: boolean`
-- En `renderAssessmentHtml()`, si `includeResponseSheet` es true, anexar el HTML de la hoja de respuestas al final (con `break-before: page`)
-- El CSS de la hoja se agrega a `ASSESSMENT_CSS`
+Nueva función `renderAnswerKeyHtml(ctx: RenderContext)` que genera HTML con:
+- **Mismo encabezado institucional** que la evaluación (reutilizando el banner de `renderAssessmentHtml`): logo, nombre institución, profesor, asignatura, curso, fecha.
+- **Título central**: "Pauta de Corrección / Solucionario".
+- **Contenido por tipo de pregunta**:
+  - Selección múltiple: `N. [X] Letra — Texto de la opción correcta`, organizado en columnas si hay muchas.
+  - Verdadero/Falso: `N. V/F — Texto de la afirmación`.
+  - Desarrollo (short-answer): `N. [Criterios]` mostrando `rubric` o `rubricExplanation`.
+- **CSS**: `break-before: page` para página nueva.
+- Exporta también `ANSWER_KEY_CSS`.
 
-### 3. Modificar `src/lib/assessment-pdf.ts` — PDF incluye hoja automáticamente
+### 5. Modificar `src/lib/assessment-render.tsx`
 
-Sin cambios adicionales necesarios: como `renderAssessmentHtml` ya incluirá la hoja cuando `includeResponseSheet: true`, el PDF la hereda automáticamente.
+- Extender `RenderContext` con `includeAnswerKey?: boolean`.
+- Importar `renderAnswerKeyHtml` y `ANSWER_KEY_CSS`.
+- En `renderAssessmentHtml()`, si `includeAnswerKey` es true, anexar el HTML de la pauta después del response sheet (si existe).
+- Agregar `ANSWER_KEY_CSS` a `ASSESSMENT_CSS`.
 
-### 4. Modificar `src/lib/assessment-docx.ts` — Sección final en DOCX
+### 6. Modificar `src/lib/assessment-docx.ts`
 
-- Al final de la generación del documento, si `includeResponseSheet` está activo, agregar una sección con page break que contenga:
-  - Tabla de encabezado (Nombre, Curso, Fecha, Puntaje)
-  - Tabla de burbujas organizada en columnas
+- Extender `BuildContext` con `includeAnswerKey?: boolean`.
+- Crear `buildAnswerKeySection(ctx)` que genera una sección DOCX con:
+  - Mismo banner institucional (reutilizando `bannerTable`).
+  - Título "Pauta de Corrección / Solucionario".
+  - Tabla con respuestas correctas por tipo de pregunta, organizada en columnas.
+- Agregar la sección al array de secciones del documento.
 
-### 5. Modificar `src/pages/CrearPrueba.tsx` — Checkbox gated + estado
+### 7. Modificar `src/pages/CrearPrueba.tsx`
 
-- Agregar estado `includeResponseSheet` (boolean, default false)
-- En la barra de herramientas de la pestaña preview, agregar un checkbox "Incluir Hoja de Respuestas":
-  - Si `canUseResponseSheet` es true: checkbox funcional
-  - Si es false: checkbox deshabilitado con icono de candado y tooltip "Disponible en Planes Superiores"
-- Pasar `includeResponseSheet` al `RenderContext` que se usa en preview, PDF y DOCX
-- Eliminar el botón separado de "Hoja de Respuestas" (reemplazado por el checkbox inline)
+- Agregar estado `includeAnswerKey` (boolean, default false).
+- En la barra de preview, agregar checkbox "Pauta de Corrección" con gating idéntico al de Hoja de Respuestas:
+  - Activo si `canUseAnswerKey` es true.
+  - Deshabilitado con icono de candado si es false.
+- Pasar `includeAnswerKey` al `RenderContext`.
 
-### 6. Ajustes al `PaginatedAssessmentPreview`
-
-- La hoja de respuestas se renderizará como un bloque con `break-before: page`, por lo que el paginador la colocará automáticamente en una página nueva en el preview.
-
----
-
-## Archivos a modificar/crear
+### Archivos a modificar/crear
 
 | Archivo | Acción |
 |---------|--------|
-| `src/lib/response-sheet-html.ts` | Crear (generador HTML) |
-| `src/lib/assessment-render.tsx` | Editar (inyectar hoja, extender RenderContext) |
-| `src/lib/assessment-docx.ts` | Editar (sección DOCX al final) |
-| `src/pages/CrearPrueba.tsx` | Editar (checkbox gated, pasar flag al contexto) |
-
-No se requieren migraciones de base de datos.
+| Migración SQL | Crear (`can_use_answer_key` en `plans`) |
+| `src/lib/answer-key-html.ts` | Crear (generador HTML) |
+| `src/hooks/usePlans.tsx` | Editar (interfaz Plan) |
+| `src/hooks/useUserUsage.tsx` | Editar (exponer canUseAnswerKey) |
+| `src/components/admin/PlansManager.tsx` | Editar (toggle + emptyPlan + save) |
+| `src/lib/assessment-render.tsx` | Editar (inyectar pauta, extender RenderContext) |
+| `src/lib/assessment-docx.ts` | Editar (sección DOCX) |
+| `src/pages/CrearPrueba.tsx` | Editar (checkbox gated, estado, pasar flag) |

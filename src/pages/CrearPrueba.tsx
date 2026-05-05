@@ -62,6 +62,7 @@ const CrearPrueba = () => {
   const [omrOpen, setOmrOpen] = useState(false);
   const [responseSheetOpen, setResponseSheetOpen] = useState(false);
   const [includeResponseSheet, setIncludeResponseSheet] = useState(false);
+  const [includeAnswerKey, setIncludeAnswerKey] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
   const [hasZeroAssignments, setHasZeroAssignments] = useState(false);
@@ -78,7 +79,7 @@ const CrearPrueba = () => {
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
-  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseResponseSheet, allowedTemplates, planLabel } = useUserUsage();
+  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseResponseSheet, canUseAnswerKey, allowedTemplates, planLabel } = useUserUsage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
@@ -331,8 +332,9 @@ const CrearPrueba = () => {
       planType: effectivePlan,
       showWatermark,
       includeResponseSheet: canUseResponseSheet && includeResponseSheet,
+      includeAnswerKey: canUseAnswerKey && includeAnswerKey,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeResponseSheet, canUseResponseSheet]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeResponseSheet, canUseResponseSheet, includeAnswerKey, canUseAnswerKey]);
 
   if (!assessment || !template || !renderCtx) {
     return (
@@ -565,6 +567,17 @@ const CrearPrueba = () => {
               />
               {!canUseResponseSheet && <Lock className="h-3.5 w-3.5" />}
               Hoja de Respuestas
+            </label>
+            <label className={`inline-flex items-center gap-1.5 text-sm ${canUseAnswerKey ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`} title={canUseAnswerKey ? "Incluye pauta de corrección al final" : "Disponible en Planes Superiores"}>
+              <input
+                type="checkbox"
+                checked={includeAnswerKey && canUseAnswerKey}
+                disabled={!canUseAnswerKey}
+                onChange={(e) => setIncludeAnswerKey(e.target.checked)}
+                className="accent-primary h-4 w-4"
+              />
+              {!canUseAnswerKey && <Lock className="h-3.5 w-3.5" />}
+              Pauta de Corrección
             </label>
             {!canExportDocx ? (
               <Button size="sm" variant="secondary" disabled title="Disponible en un plan superior">
