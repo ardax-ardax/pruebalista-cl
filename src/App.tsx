@@ -32,6 +32,7 @@ const App = () => (
           <PlansProvider>
           <UserUsageProvider>
             <Routes>
+              <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
               <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
