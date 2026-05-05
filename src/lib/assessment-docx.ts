@@ -773,7 +773,7 @@ function buildResponseSheetSection(ctx: BuildContext): ConstructorParameters<typ
   };
 }
 
-
+export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string) {
   const { template, assessment } = ctx;
   // Pre-procesar imágenes con crop a PNG recortado para evitar deformación en Word.
   const imageCache = await processAssessmentImages(assessment);
