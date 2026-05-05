@@ -16,7 +16,7 @@ import { QuestionList } from "@/components/test-builder/QuestionList";
 import { AssessmentPreview } from "@/components/test-builder/AssessmentPreview";
 import { PreviewLayoutToolbar } from "@/components/test-builder/PreviewLayoutToolbar";
 import { OmrSheetDialog } from "@/components/omr/OmrSheetDialog";
-import { ResponseSheetDialog } from "@/components/response-sheet/ResponseSheetDialog";
+
 
 import {
   computeTotalPoints,
@@ -60,8 +60,6 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
-  const [responseSheetOpen, setResponseSheetOpen] = useState(false);
-  const [includeResponseSheet, setIncludeResponseSheet] = useState(false);
   const [includeAnswerKey, setIncludeAnswerKey] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
@@ -79,7 +77,7 @@ const CrearPrueba = () => {
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
-  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseResponseSheet, canUseAnswerKey, allowedTemplates, planLabel } = useUserUsage();
+  const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseAnswerKey, allowedTemplates, planLabel } = useUserUsage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const editingId = searchParams.get("id");
@@ -331,10 +329,9 @@ const CrearPrueba = () => {
       teacherLabel,
       planType: effectivePlan,
       showWatermark,
-      includeResponseSheet: canUseResponseSheet && includeResponseSheet,
       includeAnswerKey: canUseAnswerKey && includeAnswerKey,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeResponseSheet, canUseResponseSheet, includeAnswerKey, canUseAnswerKey]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeAnswerKey, canUseAnswerKey]);
 
   if (!assessment || !template || !renderCtx) {
     return (
@@ -557,17 +554,6 @@ const CrearPrueba = () => {
                 <Printer className="h-4 w-4" /> Hoja OMR
               </Button>
             )}
-            <label className={`inline-flex items-center gap-1.5 text-sm ${canUseResponseSheet ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`} title={canUseResponseSheet ? "Agrega una hoja de respuestas al final" : "Disponible en Planes Superiores"}>
-              <input
-                type="checkbox"
-                checked={includeResponseSheet && canUseResponseSheet}
-                disabled={!canUseResponseSheet}
-                onChange={(e) => setIncludeResponseSheet(e.target.checked)}
-                className="accent-primary h-4 w-4"
-              />
-              {!canUseResponseSheet && <Lock className="h-3.5 w-3.5" />}
-              Hoja de Respuestas
-            </label>
             <label className={`inline-flex items-center gap-1.5 text-sm ${canUseAnswerKey ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`} title={canUseAnswerKey ? "Incluye pauta de corrección al final" : "Disponible en Planes Superiores"}>
               <input
                 type="checkbox"
@@ -748,12 +734,6 @@ const CrearPrueba = () => {
         <OmrSheetDialog
           open={omrOpen}
           onOpenChange={setOmrOpen}
-          assessment={assessment}
-          institutionName={institutionName}
-        />
-        <ResponseSheetDialog
-          open={responseSheetOpen}
-          onOpenChange={setResponseSheetOpen}
           assessment={assessment}
           institutionName={institutionName}
         />

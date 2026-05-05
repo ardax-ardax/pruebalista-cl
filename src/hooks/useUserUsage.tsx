@@ -21,7 +21,7 @@ export interface UserUsage {
   showWatermark: boolean;
   canEditLayout: boolean;
   canUseOmr: boolean;
-  canUseResponseSheet: boolean;
+  
   canUseAnswerKey: boolean;
   allowedTemplates: string[] | null;
 }
@@ -40,7 +40,7 @@ const DEFAULT_USAGE: UserUsage = {
   showWatermark: true,
   canEditLayout: true,
   canUseOmr: false,
-  canUseResponseSheet: false,
+  
   canUseAnswerKey: false,
   allowedTemplates: null,
 };
@@ -118,7 +118,7 @@ export function UserUsageProvider({ children }: { children: ReactNode }) {
     showWatermark: planConfig.show_watermark,
     canEditLayout: planConfig.can_edit_layout,
     canUseOmr: planConfig.can_use_omr,
-    canUseResponseSheet: planConfig.can_use_response_sheet,
+    
     canUseAnswerKey: planConfig.can_use_answer_key,
     allowedTemplates: planConfig.allowed_templates,
   };

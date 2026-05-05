@@ -43,7 +43,6 @@ interface BuildContext {
   subjectLabel: string;
   gradeLabel: string;
   teacherLabel: string;
-  includeResponseSheet?: boolean;
   includeAnswerKey?: boolean;
 }
 
@@ -677,102 +676,6 @@ function questionParagraphs(q: Question, qNumber: number | null, ctx: BuildConte
 
   return out;
 }
-// === Hoja de Respuestas Básica para DOCX ===
-
-type RSEntry = { num: number; type: "mc"; options: string[] } | { num: number; type: "tf" };
-
-function buildRSEntries(questions: Question[]): RSEntry[] {
-  const entries: RSEntry[] = [];
-  let num = 1;
-  for (const q of questions) {
-    if (q.type === "section-title" || q.type === "info-block" || q.type === "short-answer") continue;
-    if (q.type === "multiple-choice" && q.options) {
-      entries.push({ num, type: "mc", options: q.options.map((_, i) => String.fromCharCode(65 + i)) });
-    } else if (q.type === "true-false") {
-      entries.push({ num, type: "tf" });
-    }
-    num++;
-  }
-  return entries;
-}
-
-function buildResponseSheetSection(ctx: BuildContext): ConstructorParameters<typeof Document>["0"]["sections"][number] {
-  const entries = buildRSEntries(ctx.assessment.questions);
-  const children: Array<Paragraph | Table> = [];
-  const sz = ptToHalfPt(10);
-  const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "999999" };
-  const borders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
-  const cellMargins = { top: 40, bottom: 40, left: 80, right: 80 };
-
-  // Header
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 80 }, children: [new TextRun({ text: ctx.institutionName, bold: true, size: ptToHalfPt(11) })] }));
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: `Hoja de Respuestas — ${ctx.assessment.meta.title}`, bold: true, size: ptToHalfPt(12) })] }));
-
-  // Fields table: Nombre, Curso, Fecha, Puntaje, Nota
-  const fieldCell = (label: string, w: number) => new TableCell({
-    width: { size: w, type: WidthType.DXA },
-    borders,
-    margins: cellMargins,
-    children: [new Paragraph({ children: [new TextRun({ text: `${label}: `, bold: true, size: sz })] })],
-  });
-  children.push(new Table({
-    width: { size: 9360, type: WidthType.DXA },
-    columnWidths: [9360],
-    rows: [
-      new TableRow({ children: [fieldCell("Nombre", 9360)] }),
-    ],
-  }));
-  children.push(new Table({
-    width: { size: 9360, type: WidthType.DXA },
-    columnWidths: [3120, 3120, 3120],
-    rows: [
-      new TableRow({ children: [fieldCell("Curso", 3120), fieldCell("Fecha", 3120), fieldCell("Puntaje / Nota", 3120)] }),
-    ],
-  }));
-  children.push(new Paragraph({ spacing: { before: 200, after: 100 }, children: [] }));
-
-  // Answer grid
-  if (entries.length > 0) {
-    const COLS = entries.length > 30 ? 3 : entries.length > 15 ? 2 : 1;
-    const perCol = Math.ceil(entries.length / COLS);
-    const colW = Math.floor(9360 / COLS);
-    const columnWidths = Array(COLS).fill(colW);
-
-    const maxRows = perCol;
-    const rows: TableRow[] = [];
-    for (let r = 0; r < maxRows; r++) {
-      const cells: TableCell[] = [];
-      for (let c = 0; c < COLS; c++) {
-        const idx = c * perCol + r;
-        const e = entries[idx];
-        const text = e
-          ? `${e.num}.  ${e.type === "mc" ? e.options.map((l) => `[ ${l} ]`).join("  ") : "[ V ]  [ F ]"}`
-          : "";
-        cells.push(new TableCell({
-          width: { size: colW, type: WidthType.DXA },
-          borders,
-          margins: cellMargins,
-          children: [new Paragraph({ children: [new TextRun({ text, size: sz, font: "Courier New" })] })],
-        }));
-      }
-      rows.push(new TableRow({ children: cells }));
-    }
-    children.push(new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths, rows }));
-  }
-
-  children.push(new Paragraph({ spacing: { before: 100 }, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Total: ${entries.length} preguntas`, size: ptToHalfPt(8), color: "666666" })] }));
-
-  const ps = resolvePageSize(ctx.assessment.meta.layout, ctx.template.pageSize);
-  return {
-    properties: {
-      page: {
-        size: { width: cmToTwip(ps.widthCm), height: cmToTwip(ps.heightCm), orientation: PageOrientation.PORTRAIT },
-        margin: { top: cmToTwip(1.5), bottom: cmToTwip(1.5), left: cmToTwip(2), right: cmToTwip(2) },
-      },
-    },
-    children,
-  };
-}
 
 function buildAnswerKeySection(ctx: BuildContext): ConstructorParameters<typeof Document>["0"]["sections"][number] {
   const children: Array<Paragraph | Table> = [];
@@ -867,12 +770,34 @@ function buildAnswerKeySection(ctx: BuildContext): ConstructorParameters<typeof 
   }));
 
   const ps = resolvePageSize(ctx.assessment.meta.layout, ctx.template.pageSize);
+  const layout = ctx.assessment.meta.layout;
+  const mmToTwip = (mm: number) => Math.round((mm / 10) * 567);
+  const margin = layout
+    ? { top: mmToTwip(layout.marginTop), bottom: mmToTwip(layout.marginBottom), left: mmToTwip(layout.marginSide), right: mmToTwip(layout.marginSide) }
+    : { top: cmToTwip(ctx.template.spacing.marginTop), bottom: cmToTwip(ctx.template.spacing.marginBottom), left: cmToTwip(ctx.template.spacing.marginLeft), right: cmToTwip(ctx.template.spacing.marginRight) };
   return {
     properties: {
       page: {
         size: { width: cmToTwip(ps.widthCm), height: cmToTwip(ps.heightCm), orientation: PageOrientation.PORTRAIT },
-        margin: { top: cmToTwip(1.5), bottom: cmToTwip(1.5), left: cmToTwip(2), right: cmToTwip(2) },
+        margin,
       },
+    },
+    footers: {
+      default: new Footer({
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            border: { top: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 } },
+            children: [
+              new TextRun({
+                text: [ctx.institutionName, ctx.subjectLabel, ctx.gradeLabel].filter((s) => s && s.trim().length > 0).join(" · "),
+                size: ptToHalfPt(8),
+                color: "555555",
+              }),
+            ],
+          }),
+        ],
+      }),
     },
     children,
   };
@@ -1057,7 +982,6 @@ export async function exportAssessmentToDocx(ctx: BuildContext, fileName: string
         },
         children,
       },
-      ...(ctx.includeResponseSheet ? [buildResponseSheetSection(ctx)] : []),
       ...(ctx.includeAnswerKey ? [buildAnswerKeySection(ctx)] : []),
     ],
   });

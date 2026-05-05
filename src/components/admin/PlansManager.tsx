@@ -399,10 +399,6 @@ export default function PlansManager() {
                   <Switch checked={editing.can_use_omr} onCheckedChange={(v) => setEditing({ ...editing, can_use_omr: v })} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label>Hoja de Respuestas Básica</Label>
-                  <Switch checked={editing.can_use_response_sheet} onCheckedChange={(v) => setEditing({ ...editing, can_use_response_sheet: v })} />
-                </div>
-                <div className="flex items-center justify-between">
                   <Label>Pauta de Corrección</Label>
                   <Switch checked={editing.can_use_answer_key} onCheckedChange={(v) => setEditing({ ...editing, can_use_answer_key: v })} />
                 </div>

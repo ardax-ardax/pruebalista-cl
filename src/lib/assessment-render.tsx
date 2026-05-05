@@ -8,7 +8,6 @@ import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
 import { defaultInstructionsFor } from "./essay-defaults";
 import { findOA } from "./curriculum-data";
-import { renderResponseSheetHtml, RESPONSE_SHEET_INLINE_CSS } from "./response-sheet-html";
 import { renderAnswerKeyHtml, ANSWER_KEY_CSS } from "./answer-key-html";
 
 export interface RenderContext {
@@ -21,7 +20,6 @@ export interface RenderContext {
   teacherLabel: string;
   planType?: string;
   showWatermark?: boolean;
-  includeResponseSheet?: boolean;
   includeAnswerKey?: boolean;
 }
 
@@ -170,6 +168,7 @@ export const ASSESSMENT_CSS = `
     height: 100%;
     position: relative;
     overflow: hidden;
+  }
   /* Marca de agua (solo plan free) */
   .pa-watermark {
     text-align: center;
@@ -190,7 +189,6 @@ export const ASSESSMENT_CSS = `
       margin-top: 0;
     }
   }
-${RESPONSE_SHEET_INLINE_CSS}
 ${ANSWER_KEY_CSS}
 `;
 
@@ -385,9 +383,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `${oaHeader}${title}${instructions}`
     : `${title}${instructions}${oaHeader}`;
 
-  const responseSheet = ctx.includeResponseSheet ? renderResponseSheetHtml(assessment, institutionName) : "";
   const answerKey = ctx.includeAnswerKey ? renderAnswerKeyHtml(ctx) : "";
-  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>${responseSheet}${answerKey}`;
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>${answerKey}`;
 
 }
 
