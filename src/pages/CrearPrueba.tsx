@@ -332,8 +332,9 @@ const CrearPrueba = () => {
       planType: effectivePlan,
       showWatermark,
       includeResponseSheet: canUseResponseSheet && includeResponseSheet,
+      includeAnswerKey: canUseAnswerKey && includeAnswerKey,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeResponseSheet, canUseResponseSheet]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeResponseSheet, canUseResponseSheet, includeAnswerKey, canUseAnswerKey]);
 
   if (!assessment || !template || !renderCtx) {
     return (
