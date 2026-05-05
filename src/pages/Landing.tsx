@@ -139,7 +139,7 @@ export default function Landing() {
       </section>
 
       {/* Dual access cards — tighter */}
-      <section className="max-w-4xl mx-auto px-4 pt-4 pb-6 sm:pb-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <section className="max-w-4xl mx-auto px-4 pt-3 pb-4 sm:pb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Docente */}
         <Card className="group relative overflow-hidden rounded-xl border border-border hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-elevated">
           <CardContent className="p-5 sm:p-6 space-y-3">
