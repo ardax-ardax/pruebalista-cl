@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Building2, BookOpen, Copy, LayoutTemplate, Plus, Save, Shield, Trash2, Upload, Users, X, BarChart3 } from "lucide-react";
+import { ArrowLeft, Building2, BookOpen, ClipboardCheck, Copy, LayoutTemplate, Plus, Save, Shield, Trash2, Upload, Users, X, BarChart3 } from "lucide-react";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
@@ -8,6 +8,8 @@ import { CatalogManager } from "@/components/CatalogManager";
 import { CurriculumManager } from "@/components/admin/CurriculumManager";
 import { StaffManager } from "@/components/admin/StaffManager";
 import { ColegiosManager } from "@/components/admin/ColegiosManager";
+import { UtpTeamManager } from "@/components/admin/UtpTeamManager";
+import { UtpReviewCenter } from "@/components/admin/UtpReviewCenter";
 import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -372,31 +374,45 @@ const Configuracion = () => {
 
       {/* ════════════════ UTP: 3 pestañas ════════════════ */}
       {isUtpHead && (
-        <Tabs defaultValue="catalogos" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="catalogos" className="flex items-center gap-1.5">
-              <BookOpen className="h-4 w-4" /> Catálogos
+        <Tabs defaultValue="equipo" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsTrigger value="equipo" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <Users className="h-4 w-4" /> <span className="hidden sm:inline">Mi Equipo</span>
             </TabsTrigger>
-            <TabsTrigger value="politicas" className="flex items-center gap-1.5">
-              <Shield className="h-4 w-4" /> Políticas
+            <TabsTrigger value="evaluaciones" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <ClipboardCheck className="h-4 w-4" /> <span className="hidden sm:inline">Evaluaciones</span>
             </TabsTrigger>
-            <TabsTrigger value="docentes" className="flex items-center gap-1.5">
-              <BarChart3 className="h-4 w-4" /> Docentes
+            <TabsTrigger value="catalogos" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Catálogos</span>
+            </TabsTrigger>
+            <TabsTrigger value="politicas" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <Shield className="h-4 w-4" /> <span className="hidden sm:inline">Políticas</span>
+            </TabsTrigger>
+            <TabsTrigger value="docentes" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Consumo</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="equipo">
+            <UtpTeamManager />
+          </TabsContent>
+
+          <TabsContent value="evaluaciones">
+            <UtpReviewCenter />
+          </TabsContent>
 
           <TabsContent value="catalogos">
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
                 <CardDescription>
-                  Estas listas alimentan los selectores del nombre de archivo. El "Valor en archivo" es lo que aparece en el nombre final (sin espacios ni símbolos).
+                  Estas listas alimentan los selectores del nombre de archivo.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <CatalogManager title="Asignaturas" description="Ej: Historia → Historia" items={subjects} onChange={updateSubjects} onReset={handleResetSubjects} labelPlaceholder="Educación Física" valuePlaceholder="EducaciónFísica" />
                 <CatalogManager title="Cursos" description="Ej: 7° Básico → 7Básico" items={grades} onChange={updateGrades} onReset={handleResetGrades} labelPlaceholder="7° Básico" valuePlaceholder="7Básico" />
-                <CatalogManager title="Docentes" description="Quien crea el documento. Se agrega al final del nombre." items={teachers} onChange={updateTeachers} onReset={handleResetTeachers} labelPlaceholder="Jorge Villablanca" valuePlaceholder="JorgeVillablanca" />
+                <CatalogManager title="Docentes" description="Quien crea el documento." items={teachers} onChange={updateTeachers} onReset={handleResetTeachers} labelPlaceholder="Jorge Villablanca" valuePlaceholder="JorgeVillablanca" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -405,14 +421,14 @@ const Configuracion = () => {
             <Card className="shadow-card border-primary/40">
               <CardHeader>
                 <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
-                <CardDescription>Decide si los docentes deben usar solo los cursos que les asignó el equipo o si pueden elegir libremente del catálogo completo.</CardDescription>
+                <CardDescription>Decide si los docentes deben usar solo los cursos que les asignó el equipo o si pueden elegir libremente.</CardDescription>
               </CardHeader>
               <CardContent>
                 <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
                   <div className="text-sm">
                     <div className="font-medium">Permitir que los docentes elijan sus propios cursos y asignaturas</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Si está <strong>activo</strong>, cada docente verá todo el catálogo de cursos y asignaturas. Si está <strong>inactivo</strong>, solo podrá usar los pares (curso · asignatura) registrados en sus asignaciones.
+                      Si está <strong>activo</strong>, cada docente verá todo el catálogo. Si está <strong>inactivo</strong>, solo podrá usar los pares registrados en sus asignaciones.
                     </div>
                   </div>
                   <Switch checked={appSettings.allow_self_assignment} onCheckedChange={handleToggleSelfAssignment} disabled={savingSetting} />
@@ -423,14 +439,14 @@ const Configuracion = () => {
             <Card className="shadow-card border-primary/40">
               <CardHeader>
                 <CardTitle className="text-lg">Visibilidad de créditos IA</CardTitle>
-                <CardDescription>Controla si los docentes pueden ver su contador de créditos de IA o si ven un badge de "Plan Institucional".</CardDescription>
+                <CardDescription>Controla si los docentes pueden ver su contador de créditos de IA.</CardDescription>
               </CardHeader>
               <CardContent>
                 <label className="flex items-start justify-between gap-4 rounded-md border border-border p-3">
                   <div className="text-sm">
                     <div className="font-medium">Ocultar créditos a los docentes</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Si está <strong>activo</strong>, los docentes verán "Plan Institucional" en lugar de su saldo de créditos. El equipo directivo siempre verá los datos reales.
+                      Si está <strong>activo</strong>, los docentes verán "Plan Institucional" en lugar de su saldo de créditos.
                     </div>
                   </div>
                   <Switch checked={appSettings.hide_credits_from_teachers} onCheckedChange={handleToggleHideCredits} disabled={savingSetting} />
