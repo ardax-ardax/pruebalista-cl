@@ -13,8 +13,10 @@ import {
   Sparkles,
   GraduationCap,
   FileText,
-  BarChart3,
   Loader2,
+  Mail,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +29,16 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const InstagramIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+);
+const LinkedInIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+);
+const YouTubeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>
+);
+
 type LoginIntent = "docente" | "institucional" | null;
 
 export default function Landing() {
@@ -36,37 +48,28 @@ export default function Landing() {
   const [redirecting, setRedirecting] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const intentRef = useRef<LoginIntent>(null);
+  const [demoEmail, setDemoEmail] = useState("");
 
-  // Restore intent after OAuth redirect
   useEffect(() => {
     const stored = sessionStorage.getItem("loginIntent") as LoginIntent;
     if (stored) intentRef.current = stored;
   }, []);
 
-  // Redirect logged-in users
   useEffect(() => {
     if (loading || !user || redirecting) return;
     setRedirecting(true);
-
     const intent = intentRef.current || (sessionStorage.getItem("loginIntent") as LoginIntent);
     sessionStorage.removeItem("loginIntent");
-
     resolveDestination(role).then((dest) => {
-      // If user clicked institucional but doesn't have admin/utp permissions
       if (intent === "institucional" && role !== "admin" && role !== "utp_head") {
-        toast.info("Tu cuenta no tiene permisos directivos. Entrando a tu panel docente…", {
-          duration: 4000,
-        });
+        toast.info("Tu cuenta no tiene permisos directivos. Entrando a tu panel docente…", { duration: 4000 });
       }
       navigate(dest, { replace: true });
     });
   }, [user, loading, role, redirecting, navigate]);
 
   const handleLogin = async (intent: LoginIntent) => {
-    if (isEmbedded) {
-      openInNewTab("/landing");
-      return;
-    }
+    if (isEmbedded) { openInNewTab("/landing"); return; }
     try {
       intentRef.current = intent;
       sessionStorage.setItem("loginIntent", intent || "");
@@ -78,7 +81,13 @@ export default function Landing() {
     }
   };
 
-  // Loading / spinner overlay
+  const handleDemoRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!demoEmail.trim()) return;
+    toast.success("¡Solicitud enviada! Nos pondremos en contacto pronto.");
+    setDemoEmail("");
+  };
+
   if (loading || (user && redirecting) || signingIn) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
@@ -89,57 +98,69 @@ export default function Landing() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.04]" />
-        <div className="relative max-w-5xl mx-auto px-4 py-14 sm:py-24 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+    <main className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-sm">
+              <BookOpen className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-base font-bold tracking-tight text-foreground">
+              PruebaLista<span className="text-primary">.cl</span>
+            </span>
+          </div>
+          <p className="hidden sm:block text-xs font-medium text-muted-foreground tracking-wide">
+            Inteligencia Educativa al Servicio del Aula
+          </p>
+        </div>
+      </header>
+
+      {/* Hero — compact */}
+      <section className="relative overflow-hidden flex-shrink-0">
+        <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.03]" />
+        <div className="relative max-w-5xl mx-auto px-4 pt-6 pb-2 sm:pt-10 sm:pb-4 text-center space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
+            <Sparkles className="h-3 w-3 text-primary" />
             Plataforma alineada al currículum Mineduc
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
             Potencia tu gestión pedagógica
             <br />
             <span className="text-primary">con IA alineada al Mineduc</span>
           </h1>
 
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Estandariza tus evaluaciones, ahorra horas de trabajo y asegura la
-            cobertura curricular usando tu cuenta de Google
+          <p className="max-w-xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
+            Estandariza evaluaciones, ahorra horas de trabajo y asegura la
+            cobertura curricular con tu cuenta de Google
           </p>
         </div>
       </section>
 
-      {/* Dual access cards */}
-      <section className="max-w-4xl mx-auto px-4 -mt-4 pb-12 sm:pb-16 grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {/* Card Docente */}
-        <Card className="group relative overflow-hidden border-2 border-transparent hover:border-primary/30 transition-all duration-300 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)]">
-          <CardContent className="p-6 sm:p-8 space-y-4">
-            <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
-              <GraduationCap className="h-7 w-7 text-primary" />
+      {/* Dual access cards — tighter */}
+      <section className="max-w-4xl mx-auto px-4 pt-4 pb-6 sm:pb-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* Docente */}
+        <Card className="group relative overflow-hidden rounded-xl border border-border hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-elevated">
+          <CardContent className="p-5 sm:p-6 space-y-3">
+            <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center">
+              <GraduationCap className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground">Acceso Docente</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Crea evaluaciones profesionales, accede al banco de preguntas y
-              genera material con IA en segundos
+            <h2 className="text-lg font-semibold text-foreground">Acceso Docente</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Crea evaluaciones profesionales, accede al banco de preguntas y genera material con IA en segundos
             </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              {[
-                "Generación de preguntas con IA",
-                "Banco de preguntas reutilizable",
-                "Exportación PDF y .docx",
-              ].map((t) => (
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {["Generación de preguntas con IA", "Banco de preguntas reutilizable", "Exportación PDF y .docx"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
                   {t}
                 </li>
               ))}
             </ul>
             <button
               onClick={() => handleLogin("docente")}
-              className="w-full mt-2 flex items-center justify-center gap-3 rounded-md border border-[#dadce0] bg-white px-6 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm transition-colors hover:bg-[#f7f8f8] active:bg-[#eee]"
+              className="w-full mt-1 flex items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-2 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 active:scale-[0.98]"
             >
               <GoogleIcon />
               Ingresar con Google
@@ -147,34 +168,27 @@ export default function Landing() {
           </CardContent>
         </Card>
 
-        {/* Card UTP / Admin */}
-        <Card className="group relative overflow-hidden border-2 border-transparent hover:border-primary/30 transition-all duration-300 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)]">
-          <CardContent className="p-6 sm:p-8 space-y-4">
-            <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-7 w-7 text-primary" />
+        {/* UTP */}
+        <Card className="group relative overflow-hidden rounded-xl border border-border hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-elevated">
+          <CardContent className="p-5 sm:p-6 space-y-3">
+            <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground">
-              Gestión Institucional / UTP
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Supervisa el consumo, aprueba evaluaciones y toma el control de la
-              calidad educativa de tu colegio
+            <h2 className="text-lg font-semibold text-foreground">Gestión Institucional / UTP</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Supervisa el consumo, aprueba evaluaciones y controla la calidad educativa de tu colegio
             </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              {[
-                "Revisión y aprobación de pruebas",
-                "Asignación de cursos y docentes",
-                "Reportes de uso y cobertura",
-              ].map((t) => (
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {["Revisión y aprobación de pruebas", "Asignación de cursos y docentes", "Reportes de uso y cobertura"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
                   {t}
                 </li>
               ))}
             </ul>
             <button
               onClick={() => handleLogin("institucional")}
-              className="w-full mt-2 flex items-center justify-center gap-3 rounded-md border border-[#dadce0] bg-white px-6 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm transition-colors hover:bg-[#f7f8f8] active:bg-[#eee]"
+              className="w-full mt-1 flex items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-2 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 active:scale-[0.98]"
             >
               <GoogleIcon />
               Ingresar con Google
@@ -185,68 +199,118 @@ export default function Landing() {
 
       {/* Embedded warning */}
       {isEmbedded && (
-        <div className="max-w-4xl mx-auto px-4 pb-8">
-          <div className="flex gap-3 rounded-md border border-border bg-muted/40 p-3 text-sm">
+        <div className="max-w-4xl mx-auto px-4 pb-4">
+          <div className="flex gap-3 rounded-xl border border-border bg-muted/40 p-3 text-sm">
             <Info className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
             <p className="text-muted-foreground">
-              Por motivos de seguridad de Google, el inicio de sesión no funciona
-              dentro de marcos.{" "}
-              <button
-                onClick={() => openInNewTab("/landing")}
-                className="underline underline-offset-2 text-foreground hover:text-primary"
-              >
+              Por motivos de seguridad de Google, el inicio de sesión no funciona dentro de marcos.{" "}
+              <button onClick={() => openInNewTab("/landing")} className="underline underline-offset-2 text-foreground hover:text-primary">
                 Abre en una pestaña nueva
-              </button>
-              .
+              </button>.
             </p>
           </div>
         </div>
       )}
 
-      {/* Trust strip */}
+      {/* Trust strip — compact */}
       <section className="border-t border-border bg-card">
-        <div className="max-w-4xl mx-auto px-4 py-10 sm:py-12 text-center space-y-6">
-          <h3 className="text-lg font-semibold text-foreground">
+        <div className="max-w-4xl mx-auto px-4 py-8 text-center space-y-5">
+          <h3 className="text-base font-semibold text-foreground">
             La primera plataforma que habla el lenguaje del Mineduc
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
-            <div className="space-y-2">
-              <div className="h-10 w-10 mx-auto rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-emerald-600" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-sm">
+            {[
+              { icon: BookOpen, title: "Conexión con OAs del Mineduc", desc: "Objetivos de Aprendizaje e indicadores de evaluación del currículum nacional preconfigurados." },
+              { icon: FileText, title: "Formatos SIMCE / PAES", desc: "Genera evaluaciones con formatos estandarizados alineados a las pruebas nacionales." },
+              { icon: Shield, title: "Flujo UTP Integrado", desc: "Los docentes crean, la UTP revisa y aprueba. Control total de calidad institucional." },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="space-y-2">
+                <div className="h-10 w-10 mx-auto rounded-xl bg-success/10 flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-success" />
+                </div>
+                <p className="font-medium text-foreground text-sm">{title}</p>
+                <p className="text-xs text-muted-foreground">{desc}</p>
               </div>
-              <p className="font-medium text-foreground">Conexión con OAs del Mineduc</p>
-              <p className="text-muted-foreground">
-                Objetivos de Aprendizaje e indicadores de evaluación del
-                currículum nacional preconfigurados.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="h-10 w-10 mx-auto rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-emerald-600" />
-              </div>
-              <p className="font-medium text-foreground">Formatos SIMCE / PAES</p>
-              <p className="text-muted-foreground">
-                Genera evaluaciones con formatos estandarizados alineados a las
-                pruebas nacionales.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="h-10 w-10 mx-auto rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <Shield className="h-5 w-5 text-emerald-600" />
-              </div>
-              <p className="font-medium text-foreground">Flujo UTP Integrado</p>
-              <p className="text-muted-foreground">
-                Los docentes crean, la UTP revisa y aprueba. Control total de
-                calidad institucional.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} PruebaLista.cl — Plataforma de gestión pedagógica
+      <footer className="border-t border-border bg-muted/30 mt-auto">
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {/* Brand + Contact */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-primary shadow-sm">
+                  <BookOpen className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <span className="text-sm font-bold text-foreground">
+                  PruebaLista<span className="text-primary">.cl</span>
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Plataforma de gestión pedagógica con IA alineada al currículum Mineduc.
+              </p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <a href="mailto:soporte@pruebalista.cl" className="flex items-center gap-2 hover:text-foreground transition-colors">
+                  <Mail className="h-3.5 w-3.5" /> soporte@pruebalista.cl
+                </a>
+                <a href="https://wa.me/56900000000" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-foreground transition-colors">
+                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                </a>
+              </div>
+            </div>
+
+            {/* Demo form */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-foreground">Solicita una Demo para tu Colegio</h4>
+              <p className="text-xs text-muted-foreground">Déjanos tu correo y te contactaremos.</p>
+              <form onSubmit={handleDemoRequest} className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="correo@colegio.cl"
+                  value={demoEmail}
+                  onChange={(e) => setDemoEmail(e.target.value)}
+                  className="flex-1 h-9 rounded-xl border border-border bg-background px-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="h-9 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-medium shadow-sm hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Enviar
+                </button>
+              </form>
+            </div>
+
+            {/* Social + Legal */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-foreground">Síguenos</h4>
+              <div className="flex items-center gap-3">
+                <a href="https://instagram.com/ardax" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
+                  <InstagramIcon />
+                </a>
+                <a href="https://linkedin.com/company/ardax" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
+                  <LinkedInIcon />
+                </a>
+                <a href="https://youtube.com/@ardax" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
+                  <YouTubeIcon />
+                </a>
+              </div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <a href="#" className="block hover:text-foreground transition-colors">Términos de Servicio</a>
+                <a href="#" className="block hover:text-foreground transition-colors">Políticas de Privacidad</a>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-5 border-t border-border text-center text-[11px] text-muted-foreground">
+            © {new Date().getFullYear()} PruebaLista.cl — Inteligencia Educativa al Servicio del Aula
+          </div>
+        </div>
       </footer>
     </main>
   );
