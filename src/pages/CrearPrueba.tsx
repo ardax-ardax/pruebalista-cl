@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Cloud, CloudOff, Download, Eye, FileDown, FileText, Loader2, Lock, Pencil, Plus, Printer, Save, Send, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssessmentMetaForm } from "@/components/test-builder/AssessmentMetaForm";
@@ -61,6 +61,7 @@ const CrearPrueba = () => {
   const [exporting, setExporting] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
   const [responseSheetOpen, setResponseSheetOpen] = useState(false);
+  const [includeResponseSheet, setIncludeResponseSheet] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
   const [hasZeroAssignments, setHasZeroAssignments] = useState(false);
@@ -329,8 +330,9 @@ const CrearPrueba = () => {
       teacherLabel,
       planType: effectivePlan,
       showWatermark,
+      includeResponseSheet: canUseResponseSheet && includeResponseSheet,
     };
-  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan]);
+  }, [assessment, template, subjects, grades, teachers, logo, institutionName, effectivePlan, includeResponseSheet, canUseResponseSheet]);
 
   if (!assessment || !template || !renderCtx) {
     return (
@@ -553,11 +555,17 @@ const CrearPrueba = () => {
                 <Printer className="h-4 w-4" /> Hoja OMR
               </Button>
             )}
-            {canUseResponseSheet && (
-              <Button variant="outline" size="sm" onClick={() => setResponseSheetOpen(true)}>
-                <FileText className="h-4 w-4" /> Hoja de Respuestas
-              </Button>
-            )}
+            <label className={`inline-flex items-center gap-1.5 text-sm ${canUseResponseSheet ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`} title={canUseResponseSheet ? "Agrega una hoja de respuestas al final" : "Disponible en Planes Superiores"}>
+              <input
+                type="checkbox"
+                checked={includeResponseSheet && canUseResponseSheet}
+                disabled={!canUseResponseSheet}
+                onChange={(e) => setIncludeResponseSheet(e.target.checked)}
+                className="accent-primary h-4 w-4"
+              />
+              {!canUseResponseSheet && <Lock className="h-3.5 w-3.5" />}
+              Hoja de Respuestas
+            </label>
             {!canExportDocx ? (
               <Button size="sm" variant="secondary" disabled title="Disponible en un plan superior">
                 <Download className="h-4 w-4" /> .docx

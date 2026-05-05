@@ -8,6 +8,7 @@ import type { FormatTemplate } from "./templates";
 import { sanitizeRichText } from "./rich-text";
 import { defaultInstructionsFor } from "./essay-defaults";
 import { findOA } from "./curriculum-data";
+import { renderResponseSheetHtml, RESPONSE_SHEET_INLINE_CSS } from "./response-sheet-html";
 
 export interface RenderContext {
   assessment: Assessment;
@@ -19,6 +20,7 @@ export interface RenderContext {
   teacherLabel: string;
   planType?: string;
   showWatermark?: boolean;
+  includeResponseSheet?: boolean;
 }
 
 // === CSS común para preview y print ===
@@ -186,6 +188,7 @@ export const ASSESSMENT_CSS = `
       margin-top: 0;
     }
   }
+${RESPONSE_SHEET_INLINE_CSS}
 `;
 
 const escape = (s: string) =>
@@ -379,7 +382,8 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
     ? `${oaHeader}${title}${instructions}`
     : `${title}${instructions}${oaHeader}`;
 
-  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>`;
+  const responseSheet = ctx.includeResponseSheet ? renderResponseSheetHtml(assessment, institutionName) : "";
+  return `<div class="pa-page"${template.essayMode ? ` data-essay-mode="${template.essayMode}"` : ""}>${banner}${studentRow}${headerOrder}<div class="pa-content">${questionsHtml}</div>${footer}${watermark}</div>${responseSheet}`;
 
 }
 
