@@ -45,6 +45,7 @@ const emptyPlan = (nextOrder: number): Omit<Plan, "created_at"> => ({
   show_watermark: true,
   can_edit_layout: true,
   can_use_omr: false,
+  can_use_response_sheet: false,
   allowed_templates: null,
   default_credits: 20,
   is_default: false,
@@ -215,6 +216,7 @@ export default function PlansManager() {
       show_watermark: editing.show_watermark,
       can_edit_layout: editing.can_edit_layout,
       can_use_omr: editing.can_use_omr,
+      can_use_response_sheet: editing.can_use_response_sheet,
       allowed_templates: editing.allowed_templates,
       default_credits: editing.default_credits,
       is_default: editing.is_default,
@@ -393,6 +395,10 @@ export default function PlansManager() {
                 <div className="flex items-center justify-between">
                   <Label>Hoja de respuesta OMR</Label>
                   <Switch checked={editing.can_use_omr} onCheckedChange={(v) => setEditing({ ...editing, can_use_omr: v })} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Hoja de Respuestas Básica</Label>
+                  <Switch checked={editing.can_use_response_sheet} onCheckedChange={(v) => setEditing({ ...editing, can_use_response_sheet: v })} />
                 </div>
                 {/* Plantillas permitidas */}
                 <div className="space-y-2 pt-2 border-t">

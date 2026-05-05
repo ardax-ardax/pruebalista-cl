@@ -416,6 +416,7 @@ export type Database = {
           can_edit_layout: boolean
           can_export_docx: boolean
           can_use_omr: boolean
+          can_use_response_sheet: boolean
           created_at: string
           default_credits: number
           id: string
@@ -431,6 +432,7 @@ export type Database = {
           can_edit_layout?: boolean
           can_export_docx?: boolean
           can_use_omr?: boolean
+          can_use_response_sheet?: boolean
           created_at?: string
           default_credits?: number
           id: string
@@ -446,6 +448,7 @@ export type Database = {
           can_edit_layout?: boolean
           can_export_docx?: boolean
           can_use_omr?: boolean
+          can_use_response_sheet?: boolean
           created_at?: string
           default_credits?: number
           id?: string

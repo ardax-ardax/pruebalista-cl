@@ -1,0 +1,1 @@
+ALTER TABLE public.plans ADD COLUMN can_use_response_sheet boolean NOT NULL DEFAULT false;
