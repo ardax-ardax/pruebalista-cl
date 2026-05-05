@@ -16,7 +16,7 @@ import { QuestionList } from "@/components/test-builder/QuestionList";
 import { AssessmentPreview } from "@/components/test-builder/AssessmentPreview";
 import { PreviewLayoutToolbar } from "@/components/test-builder/PreviewLayoutToolbar";
 import { OmrSheetDialog } from "@/components/omr/OmrSheetDialog";
-import { ResponseSheetDialog } from "@/components/response-sheet/ResponseSheetDialog";
+
 
 import {
   computeTotalPoints,
@@ -60,8 +60,7 @@ const CrearPrueba = () => {
   const [tab, setTab] = useState<"meta" | "content" | "preview">("meta");
   const [exporting, setExporting] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
-  const [responseSheetOpen, setResponseSheetOpen] = useState(false);
-  const [includeResponseSheet, setIncludeResponseSheet] = useState(false);
+  const [includeAnswerKey, setIncludeAnswerKey] = useState(false);
   const [includeAnswerKey, setIncludeAnswerKey] = useState(false);
   const [restrictedAssignments, setRestrictedAssignments] = useState<TeacherAssignment[] | null>(null);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
