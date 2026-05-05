@@ -396,6 +396,10 @@ export default function PlansManager() {
                   <Label>Hoja de respuesta OMR</Label>
                   <Switch checked={editing.can_use_omr} onCheckedChange={(v) => setEditing({ ...editing, can_use_omr: v })} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <Label>Hoja de Respuestas Básica</Label>
+                  <Switch checked={editing.can_use_response_sheet} onCheckedChange={(v) => setEditing({ ...editing, can_use_response_sheet: v })} />
+                </div>
                 {/* Plantillas permitidas */}
                 <div className="space-y-2 pt-2 border-t">
                   <div className="flex items-center justify-between">
