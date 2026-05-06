@@ -200,7 +200,7 @@ export function UtpReviewCenter() {
         const { data: bankRows } = await supabase
           .from("question_bank")
           .select("id, prompt_preview, is_public_institution")
-          .eq("user_id", a.data ? (a as unknown as { userId?: string }).userId || "" : "")
+          .eq("user_id", a.userId)
           .limit(500);
 
         // Match by prompt preview
