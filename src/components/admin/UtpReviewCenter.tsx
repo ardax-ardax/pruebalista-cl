@@ -378,7 +378,7 @@ export function UtpReviewCenter() {
             </div>
 
             {/* Questions with institutional highlight switch */}
-            {selected?.status === "aprobado" && selectedQuestions.length > 0 && (
+            {selectedQuestions.length > 0 && (
               <div className="rounded-lg border border-border p-3 space-y-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="h-4 w-4 text-primary" />

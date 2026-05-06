@@ -24,6 +24,12 @@ const TYPES: { value: string; label: string }[] = [
   { value: "short-answer", label: "Desarrollo" },
 ];
 
+const DIFFICULTIES: { value: string; label: string }[] = [
+  { value: "fácil", label: "Fácil" },
+  { value: "medio", label: "Medio" },
+  { value: "difícil", label: "Difícil" },
+];
+
 type TabValue = "mine" | "institution";
 
 export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
@@ -41,7 +47,15 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
   const load = async () => {
     setLoading(true);
     const f: BankFilters = { ...filters };
-    if (searchText.trim()) f.search = searchText.trim();
+    if (searchText.trim()) {
+      const txt = searchText.trim();
+      // If search looks like an OA code (e.g. "OA 05", "OA05"), set oa_code filter
+      if (/^oa\s*\d+$/i.test(txt)) {
+        f.oa_code = txt.replace(/\s+/g, " ").toUpperCase();
+      } else {
+        f.search = txt;
+      }
+    }
     const data = tab === "institution"
       ? await searchInstitutionalBank(f)
       : await searchBank(f);
@@ -216,20 +230,21 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-8 h-9 text-xs"
-                  placeholder="Buscar..."
+                  placeholder={tab === "institution" ? "Buscar por enunciado o código OA…" : "Buscar..."}
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && load()}
                 />
               </div>
             </div>
-            {tab === "mine" && (
-              <MiniSelect value={filters.question_type} onChange={(v) => setFilter("question_type", v)} options={TYPES} placeholder="Tipo" />
-            )}
+            <MiniSelect value={filters.question_type} onChange={(v) => setFilter("question_type", v)} options={TYPES} placeholder="Tipo" />
             <MiniSelect value={filters.subject_value} onChange={(v) => setFilter("subject_value", v)}
               options={subjects.map((s) => ({ value: s.value, label: s.label }))} placeholder="Asignatura" />
             <MiniSelect value={filters.grade_value} onChange={(v) => setFilter("grade_value", v)}
               options={grades.map((g) => ({ value: g.value, label: g.label }))} placeholder="Nivel" />
+            {tab === "institution" && (
+              <MiniSelect value={filters.difficulty} onChange={(v) => setFilter("difficulty", v)} options={DIFFICULTIES} placeholder="Dificultad" />
+            )}
             <Button size="sm" variant="outline" onClick={load}>Filtrar</Button>
           </div>
 
