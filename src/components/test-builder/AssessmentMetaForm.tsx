@@ -152,10 +152,17 @@ export const AssessmentMetaForm = ({
     let base = grades;
     if (isPaes) base = grades.filter((g) => PAES_ALLOWED_GRADES.has(g.value));
     else if (isSimce) base = grades.filter((g) => SIMCE_ALLOWED_GRADES.has(g.value));
-    if (!isRestricted) return base;
-    const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
-    return base.filter((g) => allowed.has(g.value));
-  }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce]);
+    if (isRestricted) {
+      const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
+      base = base.filter((g) => allowed.has(g.value));
+    }
+    // Preserve current grade even if not in filtered list (e.g. editing a rejected assessment)
+    if (meta.gradeValue && !base.some((g) => g.value === meta.gradeValue)) {
+      const existing = grades.find((g) => g.value === meta.gradeValue);
+      if (existing) base = [...base, existing];
+    }
+    return base;
+  }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce, meta.gradeValue]);
 
   // Asignaturas: filtradas por nivel del curso, y además, si restringido,
   // solo las parejas (curso, asignatura) que el docente tiene asignadas.
