@@ -344,6 +344,42 @@ export function UtpReviewCenter() {
               {selected && renderStatusBadge(selected.status)}
             </div>
 
+            {/* Questions with institutional highlight switch */}
+            {selected?.status === "aprobado" && selectedQuestions.length > 0 && (
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Destacar en Banco Institucional</span>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {selectedQuestions.map((q, i) => (
+                    <div key={q.bankId || i} className="flex items-center justify-between gap-2 rounded bg-muted/30 px-2 py-1.5">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-medium mr-1.5">P{i + 1}.</span>
+                        <span className="text-xs text-muted-foreground truncate">{q.prompt?.slice(0, 80) || "(sin enunciado)"}</span>
+                      </div>
+                      {q.bankId && (
+                        <Switch
+                          checked={q.isPublic}
+                          onCheckedChange={async (checked) => {
+                            const ok = await togglePublicInstitution(q.bankId!, checked);
+                            if (ok) {
+                              setSelectedQuestions((prev) =>
+                                prev.map((sq) => sq.bankId === q.bankId ? { ...sq, isPublic: checked } : sq)
+                              );
+                              toast.success(checked ? "Pregunta destacada" : "Pregunta removida del banco");
+                            } else {
+                              toast.error("Error al actualizar");
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Previous feedback */}
             {selected?.utpFeedback && (
               <div className="rounded-lg border border-border p-3 bg-muted/30">
