@@ -88,6 +88,12 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
+  // Helper: update assessment and mark as user-edited (triggers autosave)
+  const setAssessmentByUser = useCallback((updater: Assessment | ((prev: Assessment | null) => Assessment | null)) => {
+    userHasEditedRef.current = true;
+    setAssessment(updater);
+  }, []);
+
   // Navigation guard: warn when a new test only exists as a local draft.
   const shouldBlock = isDirty && !editingId && !loadedAssessmentIdRef.current;
 
