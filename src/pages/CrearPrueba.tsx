@@ -126,7 +126,8 @@ const CrearPrueba = () => {
     listAssignmentsForTeacher(user.id).then((a) => {
       if (a.length === 0) {
         setRestrictedAssignments(null);
-        setHasZeroAssignments(true);
+        // Only block new test creation; allow editing existing tests
+        setHasZeroAssignments(!editingId);
       } else {
         // Sort newest first and keep only the active ones per plan limit
         const sorted = [...a].sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
