@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BookOpen, ExternalLink, FilePlus2, FileText, GraduationCap, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { getMyProfile } from "@/lib/profiles";
+import { supabase } from "@/integrations/supabase/client";
 import { useUserUsage } from "@/hooks/useUserUsage";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
 import { loadAppSettings } from "@/lib/app-settings";
