@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AssessmentMeta, PaesVariant, OaPosition } from "@/lib/assessment-schema";
 import { PAES_VARIANTS } from "@/lib/assessment-schema";
 import {
@@ -18,13 +19,19 @@ import { getSubjectsForGrade, type GradeOption, type SubjectOption, type Teacher
 import { getOAs, hasCurriculum } from "@/lib/curriculum-data";
 import { loadOverridesFromCloud } from "@/lib/curriculum-overrides";
 import type { TeacherAssignment } from "@/lib/teacher-assignments";
-import { Info, Lock } from "lucide-react";
+import { AlertTriangle, Info, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-// Restricciones de grado por modo ensayo.
-const SIMCE_ALLOWED_GRADES = new Set(["4ºBásico", "6ºBásico", "IIMedioA", "IIMedioB"]);
-const PAES_FORCED_GRADES = ["IVMedioA", "IVMedioB"];
+// Tipo de formato de evaluación
+export type EvaluationFormat = "estandar" | "simce" | "paes";
 
+// Restricciones de grado por modo ensayo.
+const SIMCE_ALLOWED_GRADES = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]);
+const PAES_ALLOWED_GRADES = new Set(["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]);
+
+// IDs de plantilla ensayo
+const SIMCE_TEMPLATE_ID = "ensayo-simce";
+const PAES_TEMPLATE_ID = "ensayo-paes";
 
 interface Props {
   meta: AssessmentMeta;
@@ -60,33 +67,90 @@ export const AssessmentMetaForm = ({
   // Si auto-asignación está ON, ignoramos la restricción del docente.
   const isRestricted = !!restrictedAssignments && !allowSelfAssignment;
 
-  // === Detección de modo Ensayo (SIMCE / PAES) según plantilla seleccionada ===
+  // === Formato de evaluación derivado de la plantilla seleccionada ===
   const currentTemplate = useMemo(
     () => templates.find((t) => t.id === meta.templateId) ?? null,
     [templates, meta.templateId],
   );
-  const essayMode = currentTemplate?.essayMode ?? null;
-  const isPaes = essayMode === "paes";
-  const isSimce = essayMode === "simce";
 
-  // Auto-ajuste de grado al activar PAES (forzar IV° Medio).
+  // Derive format from template
+  const evaluationFormat: EvaluationFormat = currentTemplate?.essayMode === "simce"
+    ? "simce"
+    : currentTemplate?.essayMode === "paes"
+      ? "paes"
+      : "estandar";
+
+  const isPaes = evaluationFormat === "paes";
+  const isSimce = evaluationFormat === "simce";
+
+  // Cambiar formato: auto-asignar plantilla + defaults
+  const handleFormatChange = (fmt: EvaluationFormat) => {
+    let newTemplateId = meta.templateId;
+    let newMcOptions = meta.defaultMcOptions ?? 4;
+    const updates: Partial<AssessmentMeta> = {};
+
+    if (fmt === "simce") {
+      const simceTpl = templates.find((t) => t.id === SIMCE_TEMPLATE_ID);
+      if (simceTpl) newTemplateId = SIMCE_TEMPLATE_ID;
+      newMcOptions = 4;
+      // Clear PAES-specific fields
+      updates.paesVariant = undefined;
+      updates.paesCienciasModule = undefined;
+      updates.paesAxis = "";
+      // Check if current grade is valid for SIMCE
+      if (meta.gradeValue && !SIMCE_ALLOWED_GRADES.has(meta.gradeValue)) {
+        updates.gradeValue = "";
+        updates.subjectValue = "";
+        updates.linkedOA = [];
+      }
+    } else if (fmt === "paes") {
+      const paesTpl = templates.find((t) => t.id === PAES_TEMPLATE_ID);
+      if (paesTpl) newTemplateId = PAES_TEMPLATE_ID;
+      newMcOptions = 5; // default for PAES, will adjust per variant
+      updates.linkedOA = [];
+      // Check if current grade is valid for PAES
+      if (meta.gradeValue && !PAES_ALLOWED_GRADES.has(meta.gradeValue)) {
+        // Auto-select first available PAES grade
+        const firstPaes = isRestricted
+          ? [...PAES_ALLOWED_GRADES].find((g) => restrictedAssignments!.some((a) => a.grade_value === g))
+          : [...PAES_ALLOWED_GRADES][0];
+        updates.gradeValue = firstPaes ?? "";
+        updates.subjectValue = "";
+      }
+    } else {
+      // Estándar: pick first non-essay template
+      const stdTpl = templates.find((t) => !t.essayMode);
+      if (stdTpl) newTemplateId = stdTpl.id;
+      newMcOptions = 4;
+      updates.paesVariant = undefined;
+      updates.paesCienciasModule = undefined;
+      updates.paesAxis = "";
+    }
+
+    onChange({
+      ...meta,
+      ...updates,
+      templateId: newTemplateId,
+      defaultMcOptions: newMcOptions,
+    });
+  };
+
+  // Auto-adjust alternatives when PAES variant changes
   useEffect(() => {
     if (!isPaes) return;
-    if (!PAES_FORCED_GRADES.includes(meta.gradeValue)) {
-      // Selecciona la primera variante disponible que tenga el docente o IV° Medio A por defecto.
-      const allowed = isRestricted
-        ? PAES_FORCED_GRADES.find((g) => restrictedAssignments!.some((a) => a.grade_value === g))
-        : PAES_FORCED_GRADES[0];
-      if (allowed) {
-        onChange({ ...meta, gradeValue: allowed, linkedOA: [] });
-      }
+    const newMc = meta.paesVariant === "m1" ? 4 : 5;
+    if (meta.defaultMcOptions !== newMc) {
+      onChange({ ...meta, defaultMcOptions: newMc });
     }
-  }, [isPaes, meta.templateId]);
+  }, [isPaes, meta.paesVariant]);
+
+  // SIMCE grade incompatibility warning
+  const simceGradeInvalid = isSimce && !!meta.gradeValue && !SIMCE_ALLOWED_GRADES.has(meta.gradeValue);
 
   // Cursos visibles: restricciones por essayMode + asignaciones de docente.
   const availableGrades = useMemo(() => {
     let base = grades;
-    if (isPaes) base = grades.filter((g) => PAES_FORCED_GRADES.includes(g.value));
+    if (isPaes) base = grades.filter((g) => PAES_ALLOWED_GRADES.has(g.value));
     else if (isSimce) base = grades.filter((g) => SIMCE_ALLOWED_GRADES.has(g.value));
     if (!isRestricted) return base;
     const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
@@ -137,12 +201,51 @@ export const AssessmentMetaForm = ({
 
   const noAssignments = isRestricted && availableGrades.length === 0;
 
+  // Question count suggestion
+  const suggestedQuestions = isPaes
+    ? (PAES_VARIANTS.find((v) => v.value === meta.paesVariant)?.questionGoal ?? 65)
+    : isSimce ? 35 : null;
+
+  // Only show non-essay templates in standard mode, or only the matching essay template
+  const visibleTemplates = useMemo(() => {
+    if (isPaes) return templates.filter((t) => t.id === PAES_TEMPLATE_ID);
+    if (isSimce) return templates.filter((t) => t.id === SIMCE_TEMPLATE_ID);
+    return templates.filter((t) => !t.essayMode);
+  }, [templates, isPaes, isSimce]);
+
   return (
     <Card className="shadow-card">
       <CardHeader>
         <CardTitle>Datos generales</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* === Selector de Formato === */}
+        <div>
+          <Label className="text-xs font-semibold">Formato de evaluación</Label>
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            {([
+              { value: "estandar" as const, label: "Evaluación Estándar", desc: "Formato libre" },
+              { value: "simce" as const, label: "SIMCE", desc: "4°, 6°, 8° Básico, II Medio" },
+              { value: "paes" as const, label: "PAES", desc: "III y IV Medio" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleFormatChange(opt.value)}
+                disabled={readOnlyExceptOA}
+                className={`rounded-lg border-2 p-3 text-left transition-all ${
+                  evaluationFormat === opt.value
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border hover:border-muted-foreground/30"
+                } ${readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}`}
+              >
+                <div className="text-sm font-semibold">{opt.label}</div>
+                <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* === Campos generales (readonly al editar para docentes) === */}
         <div className={readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -151,7 +254,7 @@ export const AssessmentMetaForm = ({
             <Select value={meta.templateId} onValueChange={(v) => set("templateId", v)}>
               <SelectTrigger><SelectValue placeholder="Plantilla" /></SelectTrigger>
               <SelectContent>
-                {templates.map((t) => (
+                {visibleTemplates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -177,12 +280,12 @@ export const AssessmentMetaForm = ({
           <div>
             <Label className="text-xs flex items-center gap-1">
               Curso
-              {isPaes && <Lock className="h-3 w-3 text-muted-foreground" />}
+              {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}
               {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
             </Label>
-            <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments || isPaes}>
+            <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments}>
               <SelectTrigger>
-                <SelectValue placeholder={isPaes ? "IV° Medio (forzado por PAES)" : "Selecciona"} />
+                <SelectValue placeholder="Selecciona" />
               </SelectTrigger>
               <SelectContent>
                 {availableGrades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
@@ -238,6 +341,16 @@ export const AssessmentMetaForm = ({
           </div>
         </div>
 
+        {/* SIMCE grade incompatibility warning */}
+        {simceGradeInvalid && (
+          <Alert variant="destructive" className="py-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Formato SIMCE no disponible para este nivel. Solo aplica a 4° Básico, 6° Básico, 8° Básico y II Medio.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div>
           <Label className="text-xs">Título de la evaluación <span className="text-destructive">*</span></Label>
           <Input value={meta.title} onChange={(e) => set("title", e.target.value)} placeholder="Evaluación Sumativa N°1 — Reino Animal" />
@@ -269,6 +382,12 @@ export const AssessmentMetaForm = ({
                   <SelectItem value="5">5 alternativas</SelectItem>
                 </SelectContent>
               </Select>
+              {(isPaes || isSimce) && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {isSimce ? "SIMCE: 4 alternativas (predeterminado)" : 
+                   meta.paesVariant === "m1" ? "PAES Matemática M1: 4 alternativas" : "PAES: 5 alternativas (predeterminado)"}
+                </p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Afirmaciones (Verdadero / Falso)</Label>
@@ -290,6 +409,17 @@ export const AssessmentMetaForm = ({
             Estas cantidades aplican solo a preguntas generadas por IA. Las preguntas manuales se configuran individualmente.
           </p>
         </div>
+
+        {/* === Sugerencia de cantidad de preguntas (SIMCE/PAES) === */}
+        {suggestedQuestions !== null && (
+          <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary">
+            <Info className="h-4 w-4 shrink-0" />
+            <span>
+              Se sugieren <strong>{suggestedQuestions} preguntas</strong> para el formato {isPaes ? "PAES" : "SIMCE"}.
+              {" "}Puedes agregar más o menos según tu criterio.
+            </span>
+          </div>
+        )}
 
         {/* === Modo Ensayo PAES: variante + (módulo Ciencias) + eje temático === */}
         {isPaes && (() => {
@@ -315,6 +445,8 @@ export const AssessmentMetaForm = ({
                         // Reinicia módulo y eje al cambiar variante.
                         paesCienciasModule: undefined,
                         paesAxis: "",
+                        // Ajustar alternativas: M1 = 4, resto = 5
+                        defaultMcOptions: v === "m1" ? 4 : 5,
                       })
                     }
                   >

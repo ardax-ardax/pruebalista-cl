@@ -23,6 +23,7 @@ interface Payload {
   indicators?: Indicator[];
   optionCount?: number; // 3-5
   statementCount?: number; // 2-4
+  essayMode?: "simce" | "paes" | null;
 }
 
 const COMMON_FIELDS = {
@@ -234,6 +235,12 @@ Deno.serve(async (req) => {
     const mcCount = Math.max(3, Math.min(5, body.optionCount ?? 4));
     const tfCount = Math.max(2, Math.min(4, body.statementCount ?? 3));
 
+    const essayContext = body.essayMode === "simce"
+      ? `\n- CONTEXTO: Genera una evaluación bajo el estándar oficial SIMCE de Chile para la asignatura ${body.subjectLabel}. Las preguntas deben seguir el formato y nivel de exigencia de las pruebas SIMCE oficiales.`
+      : body.essayMode === "paes"
+        ? `\n- CONTEXTO: Genera una evaluación bajo el estándar oficial PAES (Prueba de Acceso a la Educación Superior) de Chile para la asignatura ${body.subjectLabel}. Las preguntas deben seguir el formato, complejidad y estilo de las pruebas PAES oficiales del DEMRE.`
+        : "";
+
     const systemPrompt = `Eres un docente experto del sistema escolar chileno. Diseñas evaluaciones alineadas a las Bases Curriculares (Mineduc).
 Reglas estrictas:
 - IMPORTANTE: Redacta SIEMPRE el enunciado, las alternativas, las afirmaciones y la pauta en español de Chile, incluso si la asignatura es Inglés u otro idioma extranjero. Solo los textos o fragmentos que formen parte del contenido evaluado (por ejemplo, un párrafo en inglés que el alumno debe leer y comprender) pueden estar en otro idioma.
@@ -245,7 +252,7 @@ Reglas estrictas:
 - No incluyas la respuesta dentro del enunciado.
 - Estima la dificultad ("baja", "media" o "alta") según el curso.
 - Entrega siempre 'rubricExplanation': respuesta correcta detallada y criterios de corrección para la pauta.
-- Devuelve la pregunta exclusivamente vía la tool 'emit_question'.`;
+- Devuelve la pregunta exclusivamente vía la tool 'emit_question'.${essayContext}`;
 
     const indicatorsBlock =
       body.indicators && body.indicators.length > 0
