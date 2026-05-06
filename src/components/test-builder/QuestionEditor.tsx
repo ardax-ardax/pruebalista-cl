@@ -122,7 +122,7 @@ export const QuestionEditor = ({
           </div>
         </div>
 
-        <CollapsibleContent>
+        <CollapsibleContent className={isReadOnly ? "pointer-events-none opacity-80" : ""}>
         {question.type === "section-title" && (
           <div className="space-y-2">
             <Input
