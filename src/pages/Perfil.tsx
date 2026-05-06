@@ -114,6 +114,8 @@ export default function Perfil() {
     const res = await updateMyProfile({
       custom_institution_name: institutionName.trim() || null,
       custom_logo_url: logoUrl,
+      secondary_email: secondaryEmail.trim() || null,
+      document_id: documentId.trim() || null,
     });
     setSaving(false);
     if (res.ok) {
