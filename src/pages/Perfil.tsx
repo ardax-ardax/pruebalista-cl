@@ -477,8 +477,7 @@ export default function Perfil() {
             </TabsContent>
           )}
 
-          {/* Tab: Branding — oculto para admin puro */}
-          {!isAdminOnly && (
+          {!isAdminOnly && !isInstitutional && (
           <TabsContent value="branding">
             <Card>
               <CardHeader>
