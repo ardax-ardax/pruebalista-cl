@@ -132,6 +132,7 @@ export function UtpReviewCenter() {
         utpFeedback: r.utp_feedback,
         docenteName: p?.name ?? "Desconocido",
         docenteEmail: p?.email ?? "",
+        userId: r.user_id,
         data: r.data as Record<string, unknown> | null,
       };
     };
