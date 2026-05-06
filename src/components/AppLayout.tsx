@@ -27,10 +27,31 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
   const [hideCredits, setHideCredits] = useState(false);
+  const [isInstitutional, setIsInstitutional] = useState(false);
+  const [colegioNombre, setColegioNombre] = useState<string | null>(null);
 
   useEffect(() => {
     loadAppSettings().then((s) => setHideCredits(s.hide_credits_from_teachers));
   }, []);
+
+  // Detect institutional user (has colegio_id) and load colegio name
+  useEffect(() => {
+    if (!user) return;
+    getMyProfile().then(async (p) => {
+      if (p?.colegioId) {
+        setIsInstitutional(true);
+        const { data: col } = await supabase
+          .from("colegios")
+          .select("nombre")
+          .eq("id", p.colegioId)
+          .maybeSingle();
+        setColegioNombre((col as { nombre: string } | null)?.nombre ?? null);
+      } else {
+        setIsInstitutional(false);
+        setColegioNombre(null);
+      }
+    });
+  }, [user?.id]);
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
