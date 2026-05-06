@@ -23,7 +23,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 
 export default function Perfil() {
-  const { user, role, isStaff } = useAuth();
+  const { user, role, isStaff, isAdmin } = useAuth();
+  const isAdminOnly = isAdmin && role !== 'utp_head';
   const { effectivePlan, maxAssignments, planLabel, creditsAvailable, planExpiresAt, loading: usageLoading } = useUserUsage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [colegioName, setColegioName] = useState<string | null>(null);

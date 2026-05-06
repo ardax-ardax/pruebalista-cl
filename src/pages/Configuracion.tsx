@@ -337,10 +337,10 @@ const Configuracion = () => {
 
       {/* ════════════════ ADMIN: 4 pestañas ════════════════ */}
       {isAdmin && (
-        <Tabs defaultValue="colegio" className="w-full">
+        <Tabs defaultValue="colegios" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="colegio" className="flex items-center gap-1.5">
-              <Building2 className="h-4 w-4" /> Colegio
+            <TabsTrigger value="colegios" className="flex items-center gap-1.5">
+              <Building2 className="h-4 w-4" /> Colegios
             </TabsTrigger>
             <TabsTrigger value="personal" className="flex items-center gap-1.5">
               <Users className="h-4 w-4" /> Personal
@@ -353,8 +353,7 @@ const Configuracion = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="colegio" className="space-y-6">
-            {renderColegioData()}
+          <TabsContent value="colegios" className="space-y-6">
             <ColegiosManager />
           </TabsContent>
 
