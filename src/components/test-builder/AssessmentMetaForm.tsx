@@ -152,24 +152,39 @@ export const AssessmentMetaForm = ({
     let base = grades;
     if (isPaes) base = grades.filter((g) => PAES_ALLOWED_GRADES.has(g.value));
     else if (isSimce) base = grades.filter((g) => SIMCE_ALLOWED_GRADES.has(g.value));
-    if (!isRestricted) return base;
-    const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
-    return base.filter((g) => allowed.has(g.value));
-  }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce]);
+    if (isRestricted) {
+      const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
+      base = base.filter((g) => allowed.has(g.value));
+    }
+    // Preserve current grade even if not in filtered list (e.g. editing a rejected assessment)
+    if (meta.gradeValue && !base.some((g) => g.value === meta.gradeValue)) {
+      const existing = grades.find((g) => g.value === meta.gradeValue);
+      if (existing) base = [...base, existing];
+    }
+    return base;
+  }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce, meta.gradeValue]);
 
   // Asignaturas: filtradas por nivel del curso, y además, si restringido,
   // solo las parejas (curso, asignatura) que el docente tiene asignadas.
   const availableSubjects = useMemo(() => {
     if (!meta.gradeValue) return [];
     const byLevel = getSubjectsForGrade(meta.gradeValue, subjects, grades);
-    if (!isRestricted) return byLevel;
-    const allowedForGrade = new Set(
-      restrictedAssignments!
-        .filter((a) => a.grade_value === meta.gradeValue)
-        .map((a) => a.subject_value),
-    );
-    return byLevel.filter((s) => allowedForGrade.has(s.value));
-  }, [meta.gradeValue, subjects, grades, isRestricted, restrictedAssignments]);
+    let filtered = byLevel;
+    if (isRestricted) {
+      const allowedForGrade = new Set(
+        restrictedAssignments!
+          .filter((a) => a.grade_value === meta.gradeValue)
+          .map((a) => a.subject_value),
+      );
+      filtered = byLevel.filter((s) => allowedForGrade.has(s.value));
+    }
+    // Preserve current subject even if not in filtered list (e.g. editing a rejected assessment)
+    if (meta.subjectValue && !filtered.some((s) => s.value === meta.subjectValue)) {
+      const existing = byLevel.find((s) => s.value === meta.subjectValue) ?? subjects.find((s) => s.value === meta.subjectValue);
+      if (existing) filtered = [...filtered, existing];
+    }
+    return filtered;
+  }, [meta.gradeValue, meta.subjectValue, subjects, grades, isRestricted, restrictedAssignments]);
 
   const setGrade = (v: string) => {
     const subjectsForNew = isRestricted
@@ -270,7 +285,7 @@ export const AssessmentMetaForm = ({
           <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
             <Lock className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
-              Contacta al administrador para que se te asignen cursos. Mientras tanto no podrás
+              Pide a tu UTP que te asigne cursos y asignaturas. Mientras tanto no podrás
               crear pruebas porque no tienes cursos ni asignaturas asociadas.
             </span>
           </div>

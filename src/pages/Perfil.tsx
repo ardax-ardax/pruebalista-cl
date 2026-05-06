@@ -68,6 +68,7 @@ export default function Perfil() {
   );
 
   const isDocente = !!user && !isStaff;
+  const isInstitutional = !!profile?.colegioId;
 
   // Plan filtering is now handled by useAdminCourses hook
 
@@ -213,7 +214,7 @@ export default function Perfil() {
         </div>
 
         <Tabs defaultValue="datos" className="w-full">
-          <TabsList className={`grid w-full ${isDocente ? "grid-cols-3" : isAdminOnly ? "grid-cols-1" : "grid-cols-2"}`}>
+          <TabsList className={`grid w-full ${isDocente && !isInstitutional ? "grid-cols-3" : isAdminOnly ? "grid-cols-1" : isDocente ? "grid-cols-2" : "grid-cols-2"}`}>
             <TabsTrigger value="datos" className="flex items-center gap-1.5">
               <User className="h-4 w-4" /> Datos
             </TabsTrigger>
@@ -222,7 +223,7 @@ export default function Perfil() {
                 <BookOpen className="h-4 w-4" /> Mis cursos
               </TabsTrigger>
             )}
-            {!isAdminOnly && (
+            {!isAdminOnly && !isInstitutional && (
               <TabsTrigger value="branding" className="flex items-center gap-1.5">
                 <Palette className="h-4 w-4" /> Branding
               </TabsTrigger>
@@ -297,32 +298,41 @@ export default function Perfil() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Plan actual</span>
-                      <div className="font-medium flex items-center gap-2 mt-0.5">
-                        <Badge variant="outline">{planLabel}</Badge>
-                        {planExpiresAt && (
-                          <span className="text-xs text-muted-foreground">
-                            Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Créditos IA</span>
-                      <div className="font-medium mt-0.5">{usageLoading ? "…" : creditsAvailable}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Rol</span>
-                      <div className="font-medium mt-0.5 capitalize">
-                        {colegioName ? "Profesor de colegio" : "Docente autónomo"}
-                      </div>
-                    </div>
-                    {colegioName && (
-                      <div>
-                        <span className="text-muted-foreground">Colegio</span>
-                        <div className="font-medium mt-0.5">{colegioName}</div>
-                      </div>
+                    {isInstitutional ? (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground">Tipo de cuenta</span>
+                          <div className="font-medium flex items-center gap-2 mt-0.5">
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Cuenta Institucional</Badge>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Colegio</span>
+                          <div className="font-medium mt-0.5">{colegioName ?? "—"}</div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground">Plan actual</span>
+                          <div className="font-medium flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline">{planLabel}</Badge>
+                            {planExpiresAt && (
+                              <span className="text-xs text-muted-foreground">
+                                Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Créditos IA</span>
+                          <div className="font-medium mt-0.5">{usageLoading ? "…" : creditsAvailable}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Rol</span>
+                          <div className="font-medium mt-0.5 capitalize">Docente autónomo</div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -467,8 +477,7 @@ export default function Perfil() {
             </TabsContent>
           )}
 
-          {/* Tab: Branding — oculto para admin puro */}
-          {!isAdminOnly && (
+          {!isAdminOnly && !isInstitutional && (
           <TabsContent value="branding">
             <Card>
               <CardHeader>

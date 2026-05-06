@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BookOpen, ExternalLink, FilePlus2, FileText, GraduationCap, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { getMyProfile } from "@/lib/profiles";
+import { supabase } from "@/integrations/supabase/client";
 import { useUserUsage } from "@/hooks/useUserUsage";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
 import { loadAppSettings } from "@/lib/app-settings";
@@ -25,10 +27,31 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
   const [hideCredits, setHideCredits] = useState(false);
+  const [isInstitutional, setIsInstitutional] = useState(false);
+  const [colegioNombre, setColegioNombre] = useState<string | null>(null);
 
   useEffect(() => {
     loadAppSettings().then((s) => setHideCredits(s.hide_credits_from_teachers));
   }, []);
+
+  // Detect institutional user (has colegio_id) and load colegio name
+  useEffect(() => {
+    if (!user) return;
+    getMyProfile().then(async (p) => {
+      if (p?.colegioId) {
+        setIsInstitutional(true);
+        const { data: col } = await supabase
+          .from("colegios")
+          .select("nombre")
+          .eq("id", p.colegioId)
+          .maybeSingle();
+        setColegioNombre((col as { nombre: string } | null)?.nombre ?? null);
+      } else {
+        setIsInstitutional(false);
+        setColegioNombre(null);
+      }
+    });
+  }, [user?.id]);
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const displayName =
@@ -85,10 +108,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && !usageLoading && shouldHideCredits && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium">Plan Institucional</Badge>
+            {user && !usageLoading && (shouldHideCredits || isInstitutional) && (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium gap-1">
+                <Building2 className="h-3 w-3" />
+                {colegioNombre ?? "Cuenta Institucional"}
+              </Badge>
             )}
-            {user && !usageLoading && !shouldHideCredits && (
+            {user && !usageLoading && !shouldHideCredits && !isInstitutional && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA · {planLabel}
               </Badge>

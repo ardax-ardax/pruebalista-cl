@@ -142,14 +142,27 @@ const CrearPrueba = () => {
   // y para aplicar branding personalizado para usuarios individuales).
   useEffect(() => {
     if (!user) { setCurrentProfile(null); return; }
-    getMyProfile().then((p) => {
+    getMyProfile().then(async (p) => {
       console.log("[CrearPrueba] colegio_id del usuario actual:", p?.colegioId ?? null);
       setCurrentProfile(p);
-      // Si el usuario NO es staff, usar branding personalizado del perfil.
-      // Si no tiene branding configurado, dejar vacío (no usar defaults institucionales).
+      // Si el usuario NO es staff:
       if (!isStaff && p) {
-        setInstitutionName(p.customInstitutionName ?? "");
-        setLogo(p.customLogoUrl ?? null);
+        // Docente institucional: heredar branding del colegio
+        if (p.colegioId) {
+          const { data: col } = await supabase
+            .from("colegios")
+            .select("nombre, logo_url")
+            .eq("id", p.colegioId)
+            .maybeSingle();
+          if (col) {
+            setInstitutionName((col as { nombre: string }).nombre ?? "");
+            setLogo((col as { logo_url: string | null }).logo_url ?? null);
+          }
+        } else {
+          // Docente autónomo: branding personalizado del perfil
+          setInstitutionName(p.customInstitutionName ?? "");
+          setLogo(p.customLogoUrl ?? null);
+        }
       }
     });
   }, [user?.id, isStaff]);
@@ -343,18 +356,25 @@ const CrearPrueba = () => {
   }
 
   // Docente sin asignaciones: bloquear creación de pruebas nuevas
+  const isInstitutionalDocente = isDocente && !!currentProfile?.colegioId;
   if (isDocente && assignmentsLoaded && hasZeroAssignments && !editingId) {
     return (
       <AppLayout>
         <div className="max-w-lg mx-auto text-center py-20 space-y-4">
           <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
-          <h2 className="text-xl font-semibold">Configura tus cursos primero</h2>
+          <h2 className="text-xl font-semibold">
+            {isInstitutionalDocente ? "Sin cursos asignados" : "Configura tus cursos primero"}
+          </h2>
           <p className="text-muted-foreground">
-            Antes de crear pruebas, debes seleccionar los cursos y asignaturas que impartes desde tu perfil.
+            {isInstitutionalDocente
+              ? "Pide a tu UTP que te asigne cursos y asignaturas para poder crear pruebas."
+              : "Antes de crear pruebas, debes seleccionar los cursos y asignaturas que impartes desde tu perfil."}
           </p>
-          <Button onClick={() => navigate("/perfil")}>
-            Ir a mi perfil
-          </Button>
+          {!isInstitutionalDocente && (
+            <Button onClick={() => navigate("/perfil")}>
+              Ir a mi perfil
+            </Button>
+          )}
         </div>
       </AppLayout>
     );
@@ -444,8 +464,8 @@ const CrearPrueba = () => {
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
     if (!assessment.meta.title.trim()) return "Escribe un título para la evaluación";
     // Validación de compatibilidad grado/formato
-    const SIMCE_ALLOWED = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]);
-    const PAES_ALLOWED = new Set(["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]);
+    const SIMCE_ALLOWED = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedio"]);
+    const PAES_ALLOWED = new Set(["IIIMedio", "IVMedio"]);
     if (template?.essayMode === "simce" && !SIMCE_ALLOWED.has(assessment.meta.gradeValue)) {
       return "El formato SIMCE no está disponible para este nivel. Solo aplica a 4° Básico, 6° Básico, 8° Básico y II Medio.";
     }
@@ -587,7 +607,7 @@ const CrearPrueba = () => {
             {/* Docente institucional: enviar a revisión (oculto para autónomos) */}
             {!isStaff && !isAutonomous && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
               <Button size="sm" variant="default" onClick={handleSubmitForReview}>
-                <Send className="h-4 w-4" /> Enviar a Revisión UTP
+                <Send className="h-4 w-4" /> {assessmentStatus === "rechazado" ? "Re-enviar a Revisión" : "Enviar a Revisión UTP"}
               </Button>
             )}
           </div>
