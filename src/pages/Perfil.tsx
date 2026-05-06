@@ -213,7 +213,7 @@ export default function Perfil() {
         </div>
 
         <Tabs defaultValue="datos" className="w-full">
-          <TabsList className={`grid w-full ${isDocente ? "grid-cols-3" : "grid-cols-2"}`}>
+          <TabsList className={`grid w-full ${isDocente ? "grid-cols-3" : isAdminOnly ? "grid-cols-1" : "grid-cols-2"}`}>
             <TabsTrigger value="datos" className="flex items-center gap-1.5">
               <User className="h-4 w-4" /> Datos
             </TabsTrigger>
@@ -222,9 +222,11 @@ export default function Perfil() {
                 <BookOpen className="h-4 w-4" /> Mis cursos
               </TabsTrigger>
             )}
-            <TabsTrigger value="branding" className="flex items-center gap-1.5">
-              <Palette className="h-4 w-4" /> Branding
-            </TabsTrigger>
+            {!isAdminOnly && (
+              <TabsTrigger value="branding" className="flex items-center gap-1.5">
+                <Palette className="h-4 w-4" /> Branding
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Tab: Datos personales */}
