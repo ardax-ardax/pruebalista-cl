@@ -310,6 +310,10 @@ export default function Perfil() {
                           <span className="text-muted-foreground">Colegio</span>
                           <div className="font-medium mt-0.5">{colegioName ?? "—"}</div>
                         </div>
+                        <div>
+                          <span className="text-muted-foreground">Rol</span>
+                          <div className="font-medium mt-0.5">Docente institucional</div>
+                        </div>
                       </>
                     ) : (
                       <>
@@ -342,21 +346,27 @@ export default function Perfil() {
 
           {/* Tab: Mis cursos y asignaturas (solo docentes) */}
           {isDocente && (
-            <TabsContent value="cursos">
+             <TabsContent value="cursos">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" /> Mis cursos y asignaturas
+                    <BookOpen className="h-5 w-5" /> {isInstitutional ? "Mi carga académica" : "Mis cursos y asignaturas"}
                   </CardTitle>
                   <CardDescription>
-                    Selecciona los cursos y asignaturas a los que preparas pruebas. Al crear una prueba, solo verás estas opciones.
+                    {isInstitutional
+                      ? "Tu carga académica es asignada por tu UTP. Contacta a tu jefe de UTP para modificarla."
+                      : "Selecciona los cursos y asignaturas a los que preparas pruebas. Al crear una prueba, solo verás estas opciones."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Counter */}
                   <div className="flex items-center gap-2 text-sm">
                     <Info className="h-4 w-4 text-muted-foreground" />
-                    {hasLimit ? (
+                    {isInstitutional ? (
+                      <span className="text-muted-foreground">
+                        {assignments.length} asignaciones (gestionadas por UTP)
+                      </span>
+                    ) : hasLimit ? (
                       <span className="text-muted-foreground">
                         {assignments.length} de {maxAssign} asignaciones
                         <span className="ml-1 text-xs">({planLabel})</span>
@@ -388,89 +398,97 @@ export default function Perfil() {
                               </Tooltip>
                             )}
                             {getGradeLabel(a.grade_value)} {a.section_letter ?? "A"} — {getSubjectLabel(a.subject_value)}
-                            <button
-                              onClick={() => handleRemoveAssignment(a.id)}
-                              className="ml-1 hover:text-destructive transition-colors"
-                              title="Eliminar"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                            {!isInstitutional && (
+                              <button
+                                onClick={() => handleRemoveAssignment(a.id)}
+                                className="ml-1 hover:text-destructive transition-colors"
+                                title="Eliminar"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </Badge>
                         );
                       })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">
-                      No tienes asignaciones. Agrega cursos y asignaturas para filtrar al crear pruebas.
+                      {isInstitutional
+                        ? "No tienes carga académica asignada. Contacta a tu UTP."
+                        : "No tienes asignaciones. Agrega cursos y asignaturas para filtrar al crear pruebas."}
                     </p>
                   )}
 
-                  {/* Add new assignment */}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
-                    <Select
-                      value={selectedGrade}
-                      onValueChange={(v) => { setSelectedGrade(v); setSelectedSubject(""); }}
-                      disabled={!canAddMore}
-                    >
-                      <SelectTrigger className="sm:w-[180px]">
-                        <SelectValue placeholder="Curso" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {grades.map((g) => (
-                          <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {/* Add new assignment — only for autonomous docentes */}
+                  {!isInstitutional && (
+                    <>
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
+                        <Select
+                          value={selectedGrade}
+                          onValueChange={(v) => { setSelectedGrade(v); setSelectedSubject(""); }}
+                          disabled={!canAddMore}
+                        >
+                          <SelectTrigger className="sm:w-[180px]">
+                            <SelectValue placeholder="Curso" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {grades.map((g) => (
+                              <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                    <Select value={selectedLetter} onValueChange={setSelectedLetter} disabled={!canAddMore}>
-                      <SelectTrigger className="sm:w-[80px]">
-                        <SelectValue placeholder="Letra" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {["A", "B", "C", "D", "E", "F"].map((l) => (
-                          <SelectItem key={l} value={l}>{l}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        <Select value={selectedLetter} onValueChange={setSelectedLetter} disabled={!canAddMore}>
+                          <SelectTrigger className="sm:w-[80px]">
+                            <SelectValue placeholder="Letra" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["A", "B", "C", "D", "E", "F"].map((l) => (
+                              <SelectItem key={l} value={l}>{l}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                    <Select
-                      value={selectedSubject}
-                      onValueChange={setSelectedSubject}
-                      disabled={!selectedGrade || !canAddMore}
-                    >
-                      <SelectTrigger className="sm:w-[240px]">
-                        <SelectValue placeholder="Asignatura" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredSubjects.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        <Select
+                          value={selectedSubject}
+                          onValueChange={setSelectedSubject}
+                          disabled={!selectedGrade || !canAddMore}
+                        >
+                          <SelectTrigger className="sm:w-[240px]">
+                            <SelectValue placeholder="Asignatura" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredSubjects.map((s) => (
+                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                    <Button
-                      size="sm"
-                      onClick={handleAddAssignment}
-                      disabled={!selectedGrade || !selectedSubject || addingAssignment || !canAddMore || alreadyExists}
-                    >
-                      {addingAssignment ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                      ) : (
-                        <Plus className="h-4 w-4 mr-1" />
+                        <Button
+                          size="sm"
+                          onClick={handleAddAssignment}
+                          disabled={!selectedGrade || !selectedSubject || addingAssignment || !canAddMore || alreadyExists}
+                        >
+                          {addingAssignment ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-1" />
+                          )}
+                          Agregar
+                        </Button>
+                      </div>
+
+                      {!canAddMore && (
+                        <p className="text-xs text-amber-600">
+                          Has alcanzado el límite de {maxAssign} asignaciones de tu plan. Elimina una para agregar otra, o actualiza tu plan.
+                        </p>
                       )}
-                      Agregar
-                    </Button>
-                  </div>
-
-                  {!canAddMore && (
-                    <p className="text-xs text-amber-600">
-                      Has alcanzado el límite de {maxAssign} asignaciones de tu plan. Elimina una para agregar otra, o actualiza tu plan.
-                    </p>
-                  )}
-                  {alreadyExists && selectedGrade && selectedSubject && (
-                    <p className="text-xs text-amber-600">
-                      Esta combinación ya está en tus asignaciones.
-                    </p>
+                      {alreadyExists && selectedGrade && selectedSubject && (
+                        <p className="text-xs text-amber-600">
+                          Esta combinación ya está en tus asignaciones.
+                        </p>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
