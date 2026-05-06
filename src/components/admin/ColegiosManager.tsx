@@ -425,7 +425,7 @@ export const ColegiosManager = () => {
                                 <SelectContent>
                                   {unlinkedUsers.map((u) => (
                                     <SelectItem key={u.id} value={u.id} className="text-xs">
-                                      {userLabel(u)}
+                                      {userLabel(u)}{u.document_id ? ` · RUT: ${u.document_id}` : ""}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
