@@ -368,6 +368,9 @@ export const ColegiosManager = () => {
                                 <span className="truncate max-w-[200px]">
                                   {userLabel(m)}
                                 </span>
+                                {m.document_id && (
+                                  <span className="text-[10px] text-muted-foreground shrink-0">RUT: {m.document_id}</span>
+                                )}
                                 <Badge className={`text-[10px] border-0 ${ROLE_BADGE_CLASSES[m.role] ?? ""}`}>
                                   {ROLE_LABELS[m.role] ?? m.role}
                                 </Badge>
