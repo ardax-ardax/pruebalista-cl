@@ -33,6 +33,8 @@ export const listProfiles = async (): Promise<ListProfilesResult> => {
     customInstitutionName: (r as Record<string, unknown>).custom_institution_name as string | null,
     customLogoUrl: (r as Record<string, unknown>).custom_logo_url as string | null,
     colegioId: (r as Record<string, unknown>).colegio_id as string | null,
+    secondaryEmail: (r as Record<string, unknown>).secondary_email as string | null,
+    documentId: (r as Record<string, unknown>).document_id as string | null,
   }));
   return { profiles, error: null };
 };
@@ -42,7 +44,7 @@ export const getMyProfile = async (): Promise<Profile | null> => {
   if (!user) return null;
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id")
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id")
     .eq("id", user.id)
     .maybeSingle();
   if (error || !data) return null;
@@ -54,6 +56,8 @@ export const getMyProfile = async (): Promise<Profile | null> => {
     customInstitutionName: (data as Record<string, unknown>).custom_institution_name as string | null,
     customLogoUrl: (data as Record<string, unknown>).custom_logo_url as string | null,
     colegioId: (data as Record<string, unknown>).colegio_id as string | null,
+    secondaryEmail: (data as Record<string, unknown>).secondary_email as string | null,
+    documentId: (data as Record<string, unknown>).document_id as string | null,
   };
 };
 
