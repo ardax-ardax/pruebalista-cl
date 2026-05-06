@@ -34,6 +34,8 @@ interface UserRow {
   plan_type: string;
   credits_available: number;
   plan_expires_at: string | null;
+  colegio_id: string | null;
+  role: string | null;
 }
 
 /* ───────── Component ───────── */
