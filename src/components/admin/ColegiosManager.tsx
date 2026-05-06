@@ -77,6 +77,45 @@ export const ColegiosManager = () => {
       memberMap.set(p.colegio_id, arr);
     }
     setMembers(memberMap);
+
+    // Load unlinked users (no colegio_id)
+    const { data: unlinked } = await supabase
+      .from("profiles")
+      .select("id, email, display_name")
+      .is("colegio_id", null);
+    setUnlinkedUsers(unlinked ?? []);
+  };
+
+  const handleLinkUser = async (userId: string, colegioId: string) => {
+    setBusy(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ colegio_id: colegioId })
+      .eq("id", userId);
+    setBusy(false);
+    if (error) {
+      toast.error("Error al vincular: " + error.message);
+      return;
+    }
+    toast.success("Usuario vinculado al colegio.");
+    setSelectedUserToLink("");
+    await refresh();
+  };
+
+  const handleUnlinkUser = async (userId: string, displayLabel: string) => {
+    if (!confirm(`¿Desvincular a "${displayLabel}" de este colegio?`)) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ colegio_id: null })
+      .eq("id", userId);
+    setBusy(false);
+    if (error) {
+      toast.error("Error al desvincular: " + error.message);
+      return;
+    }
+    toast.success("Usuario desvinculado del colegio.");
+    await refresh();
   };
 
   useEffect(() => {
