@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Plus, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
+import { Building2, Clock, Mail, Plus, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,10 +25,30 @@ interface ColegioMember {
   role: string;
 }
 
+interface PendingInv {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  utp_head: "Jefe UTP",
+  docente: "Docente",
+};
+
+const ROLE_BADGE_CLASSES: Record<string, string> = {
+  admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  utp_head: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  docente: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+};
+
 export const ColegiosManager = () => {
   const { user } = useAuth();
   const [colegios, setColegios] = useState<Colegio[]>([]);
   const [members, setMembers] = useState<Map<string, ColegioMember[]>>(new Map());
+  const [pendingInvitations, setPendingInvitations] = useState<Map<string, PendingInv[]>>(new Map());
   const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null }>>([]);
   const [selectedUserToLink, setSelectedUserToLink] = useState<string>("");
   const [newNombre, setNewNombre] = useState("");
@@ -84,6 +104,22 @@ export const ColegiosManager = () => {
       .select("id, email, display_name")
       .is("colegio_id", null);
     setUnlinkedUsers(unlinked ?? []);
+
+    // Load pending invitations per colegio
+    const { data: invData } = await supabase
+      .from("pending_invitations")
+      .select("id, email, role, created_at, colegio_id")
+      .is("consumed_at", null)
+      .not("colegio_id", "is", null)
+      .order("created_at", { ascending: false });
+
+    const invMap = new Map<string, PendingInv[]>();
+    for (const inv of (invData ?? []) as Array<{ id: string; email: string; role: string; created_at: string; colegio_id: string }>) {
+      const arr = invMap.get(inv.colegio_id) ?? [];
+      arr.push({ id: inv.id, email: inv.email, role: inv.role, created_at: inv.created_at });
+      invMap.set(inv.colegio_id, arr);
+    }
+    setPendingInvitations(invMap);
   };
 
   const handleLinkUser = async (userId: string, colegioId: string) => {
@@ -134,7 +170,6 @@ export const ColegiosManager = () => {
 
     setBusy(true);
     try {
-      // Create colegio
       const { data: colegio, error: colegioErr } = await supabase
         .from("colegios")
         .insert({ nombre: newNombre.trim(), created_by: user?.id })
@@ -142,7 +177,6 @@ export const ColegiosManager = () => {
         .single();
       if (colegioErr) throw colegioErr;
 
-      // Create pending invitation for UTP with colegio_id
       const { error: invErr } = await supabase
         .from("pending_invitations")
         .upsert(
@@ -180,10 +214,9 @@ export const ColegiosManager = () => {
     await refresh();
   };
 
-  const ROLE_LABELS: Record<string, string> = {
-    admin: "Admin",
-    utp_head: "Jefe UTP",
-    docente: "Docente",
+  const userLabel = (u: { display_name: string | null; email: string | null; id: string }) => {
+    if (u.display_name && u.email) return `${u.display_name} (${u.email})`;
+    return u.display_name || u.email || u.id.slice(0, 8);
   };
 
   return (
@@ -245,6 +278,7 @@ export const ColegiosManager = () => {
             <div className="rounded-md border border-border divide-y">
               {colegios.map((c) => {
                 const mems = members.get(c.id) ?? [];
+                const invs = pendingInvitations.get(c.id) ?? [];
                 const isExpanded = expandedId === c.id;
                 return (
                   <div key={c.id} className="px-3 py-2.5">
@@ -255,6 +289,12 @@ export const ColegiosManager = () => {
                           <Users className="h-3 w-3 mr-1" />
                           {mems.length}
                         </Badge>
+                        {invs.length > 0 && (
+                          <Badge className="text-[10px] shrink-0 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {invs.length} pendiente{invs.length > 1 ? "s" : ""}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button
@@ -281,27 +321,51 @@ export const ColegiosManager = () => {
                       <div className="mt-3 pl-2 space-y-3">
                         {/* Existing members */}
                         {mems.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">Sin miembros aún.</p>
+                          <p className="text-xs text-muted-foreground">Sin miembros registrados aún.</p>
                         ) : (
                           <div className="space-y-1">
                             {mems.map((m) => (
                               <div key={m.id} className="flex items-center gap-2 text-xs">
                                 <span className="truncate max-w-[200px]">
-                                  {m.display_name || m.email || m.id.slice(0, 8)}
+                                  {userLabel(m)}
                                 </span>
-                                <Badge variant="secondary" className="text-[10px]">
+                                <Badge className={`text-[10px] border-0 ${ROLE_BADGE_CLASSES[m.role] ?? ""}`}>
                                   {ROLE_LABELS[m.role] ?? m.role}
                                 </Badge>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 text-destructive hover:text-destructive/80 ml-auto"
-                                  onClick={() => handleUnlinkUser(m.id, m.display_name || m.email || m.id.slice(0, 8))}
+                                  onClick={() => handleUnlinkUser(m.id, userLabel(m))}
                                   disabled={busy}
                                   title="Desvincular del colegio"
                                 >
                                   <UserMinus className="h-3.5 w-3.5" />
                                 </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Pending invitations */}
+                        {invs.length > 0 && (
+                          <div className="pt-2 border-t border-border space-y-1">
+                            <h5 className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              Invitaciones pendientes
+                            </h5>
+                            {invs.map((inv) => (
+                              <div key={inv.id} className="flex items-center gap-2 text-xs">
+                                <span className="truncate max-w-[200px]">{inv.email}</span>
+                                <Badge className={`text-[10px] border-0 ${ROLE_BADGE_CLASSES[inv.role] ?? ""}`}>
+                                  {ROLE_LABELS[inv.role] ?? inv.role}
+                                </Badge>
+                                <Badge className="text-[10px] border-0 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                  Pendiente
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {new Date(inv.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -319,7 +383,7 @@ export const ColegiosManager = () => {
                                 <SelectContent>
                                   {unlinkedUsers.map((u) => (
                                     <SelectItem key={u.id} value={u.id} className="text-xs">
-                                      {u.display_name || u.email || u.id.slice(0, 8)}
+                                      {userLabel(u)}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
