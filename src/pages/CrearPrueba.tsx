@@ -142,14 +142,27 @@ const CrearPrueba = () => {
   // y para aplicar branding personalizado para usuarios individuales).
   useEffect(() => {
     if (!user) { setCurrentProfile(null); return; }
-    getMyProfile().then((p) => {
+    getMyProfile().then(async (p) => {
       console.log("[CrearPrueba] colegio_id del usuario actual:", p?.colegioId ?? null);
       setCurrentProfile(p);
-      // Si el usuario NO es staff, usar branding personalizado del perfil.
-      // Si no tiene branding configurado, dejar vacío (no usar defaults institucionales).
+      // Si el usuario NO es staff:
       if (!isStaff && p) {
-        setInstitutionName(p.customInstitutionName ?? "");
-        setLogo(p.customLogoUrl ?? null);
+        // Docente institucional: heredar branding del colegio
+        if (p.colegioId) {
+          const { data: col } = await supabase
+            .from("colegios")
+            .select("nombre, logo_url")
+            .eq("id", p.colegioId)
+            .maybeSingle();
+          if (col) {
+            setInstitutionName((col as { nombre: string }).nombre ?? "");
+            setLogo((col as { logo_url: string | null }).logo_url ?? null);
+          }
+        } else {
+          // Docente autónomo: branding personalizado del perfil
+          setInstitutionName(p.customInstitutionName ?? "");
+          setLogo(p.customLogoUrl ?? null);
+        }
       }
     });
   }, [user?.id, isStaff]);
