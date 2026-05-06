@@ -472,8 +472,10 @@ export type Database = {
           custom_institution_name: string | null
           custom_logo_url: string | null
           display_name: string | null
+          document_id: string | null
           email: string | null
           id: string
+          secondary_email: string | null
           updated_at: string
         }
         Insert: {
@@ -483,8 +485,10 @@ export type Database = {
           custom_institution_name?: string | null
           custom_logo_url?: string | null
           display_name?: string | null
+          document_id?: string | null
           email?: string | null
           id: string
+          secondary_email?: string | null
           updated_at?: string
         }
         Update: {
@@ -494,8 +498,10 @@ export type Database = {
           custom_institution_name?: string | null
           custom_logo_url?: string | null
           display_name?: string | null
+          document_id?: string | null
           email?: string | null
           id?: string
+          secondary_email?: string | null
           updated_at?: string
         }
         Relationships: [
