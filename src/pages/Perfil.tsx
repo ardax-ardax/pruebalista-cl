@@ -68,6 +68,7 @@ export default function Perfil() {
   );
 
   const isDocente = !!user && !isStaff;
+  const isInstitutional = !!profile?.colegioId;
 
   // Plan filtering is now handled by useAdminCourses hook
 
