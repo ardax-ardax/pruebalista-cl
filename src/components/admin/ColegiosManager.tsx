@@ -72,7 +72,7 @@ export const ColegiosManager = () => {
     // Load members for each colegio
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, email, display_name, colegio_id")
+      .select("id, email, display_name, colegio_id, document_id")
       .not("colegio_id", "is", null);
 
     const { data: roles } = await supabase
@@ -88,13 +88,14 @@ export const ColegiosManager = () => {
     }
 
     const memberMap = new Map<string, ColegioMember[]>();
-    for (const p of (profiles ?? []) as Array<{ id: string; email: string | null; display_name: string | null; colegio_id: string }>) {
+    for (const p of (profiles ?? []) as Array<{ id: string; email: string | null; display_name: string | null; colegio_id: string; document_id: string | null }>) {
       const arr = memberMap.get(p.colegio_id) ?? [];
       arr.push({
         id: p.id,
         email: p.email,
         display_name: p.display_name,
         role: roleMap.get(p.id) ?? "docente",
+        document_id: p.document_id ?? null,
       });
       memberMap.set(p.colegio_id, arr);
     }
@@ -103,9 +104,14 @@ export const ColegiosManager = () => {
     // Load unlinked users (no colegio_id)
     const { data: unlinked } = await supabase
       .from("profiles")
-      .select("id, email, display_name")
+      .select("id, email, display_name, document_id")
       .is("colegio_id", null);
-    setUnlinkedUsers(unlinked ?? []);
+    setUnlinkedUsers((unlinked ?? []).map((u) => ({
+      id: u.id,
+      email: u.email,
+      display_name: u.display_name,
+      document_id: (u as Record<string, unknown>).document_id as string | null,
+    })));
 
     // Load pending invitations per colegio
     const { data: invData } = await supabase
