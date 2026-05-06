@@ -1,60 +1,63 @@
 
-## Plan: Jerarquía institucional y persistencia de datos
+## Plan: Corrección de persistencia y verificación de features institucionales
 
-### 1. Restricción de carga académica para docente institucional (`Perfil.tsx`)
+### Diagnóstico
 
-**Problema**: En la pestaña "Mis cursos", el docente institucional (con `colegio_id`) puede agregar y eliminar sus propias asignaciones. Solo deberia ver las que la UTP le asignó, en modo lectura.
+Tras revisar el código, los puntos 3 (branding), 4 (badge institucional) y 5 (botón re-envío) ya están implementados. El bug crítico es el punto 1: pérdida de `gradeValue`/`subjectValue` al editar pruebas.
 
-**Cambios**:
-- En `Perfil.tsx`, cuando `isInstitutional` es `true`:
-  - Ocultar el formulario de "Agregar asignación" (selectores de curso/asignatura/letra + botón).
-  - Ocultar los botones de eliminar (X) en cada badge de asignación.
-  - Cambiar el texto descriptivo a: "Tu carga académica es asignada por tu UTP. Contacta a tu jefe de UTP para modificarla."
-  - Si no tiene asignaciones: mostrar "No tienes carga académica asignada. Contacta a tu UTP."
+**Causa raíz del bug de persistencia**: El autosave (`useEffect` línea 275) usa `initialLoadRef` para saltar el primer render, pero efectos secundarios como el auto-assign de docente (línea 323) o la recarga de templates cuando `allowedTemplates` cambia (línea 227) provocan renders adicionales que disparan el autosave antes de que el estado esté completo. Además, el efecto de carga principal (línea 185) tiene `[editingId, allowedTemplates, isStaff]` como dependencias — cuando `allowedTemplates` cambia asincrónicamente, el efecto recarga la prueba y puede crear condiciones de carrera.
 
-### 2. Bug de persistencia de `gradeValue` al editar pruebas (`CrearPrueba.tsx`)
+### Cambios
 
-**Problema**: Al cargar una prueba existente (especialmente rechazada), el `gradeValue` se pierde porque el autosave se dispara durante la carga inicial antes de que los datos estén completos, sobrescribiendo con valores parciales.
+#### 1. Fix persistencia de gradeValue/subjectValue (`CrearPrueba.tsx`)
 
-**Cambios en `CrearPrueba.tsx`**:
-- Mover `initialLoadRef.current = false` para que solo se setee a `false` DESPUES del primer render completo con datos cargados (no en el primer efecto de autosave).
-- Agregar una guarda en el `useEffect` de autosave: si `initialLoadRef.current` es `true`, no ejecutar upsert ni saveDraft. Solo marcar como loaded.
-- En el `useEffect` que carga asignaciones (linea 123-139): cuando `isDocente` y se está editando (`editingId`), NO setear `hasZeroAssignments = true` si hay asignaciones = 0, ya que la prueba ya existe y el docente debe poder verla.
+- Reemplazar `initialLoadRef` por un mecanismo más robusto: un **contador de cambios del usuario** (`userEditCountRef`). El autosave solo se activa cuando el usuario ha hecho al menos un cambio explícito.
+- Marcar el assessment como "cargado desde DB" con un ref (`loadedAssessmentIdRef`) para evitar que la auto-asignación de docente o los re-renders por carga de grades/templates disparen el autosave.
+- En el `useEffect` de auto-assign de docente (línea 323): no incrementar el contador de edición del usuario — es un cambio automático, no del usuario.
+- Agregar un debounce de 1.5s al autosave para evitar múltiples llamadas rápidas.
 
-**Cambios en `AssessmentMetaForm.tsx`**:
-- Ya se preserva `meta.gradeValue` en `availableGrades` (linea 159-163) — verificar que funciona correctamente.
-- Agregar protección adicional: no resetear `gradeValue`/`subjectValue` en `handleFormatChange` si estamos en modo edición (cuando `meta.gradeValue` ya tiene valor y no estamos cambiando de formato activamente).
+#### 2. Sincronización UTP (`CrearPrueba.tsx`)
 
-### 3. Herencia institucional (ya implementada, ajustes menores)
+- Verificado: `upsertAssessment` ya guarda en el registro principal. El `ownerId` se preserva correctamente. No requiere cambios adicionales.
+- Agregar un `console.log` al cargar la prueba para confirmar que `gradeValue` y `subjectValue` vienen correctos desde la DB.
 
-**Verificación**: La herencia de branding del colegio ya está implementada en `CrearPrueba.tsx` (lineas 151-160) y `AppLayout.tsx`. El branding tab ya se oculta en `Perfil.tsx` para institucionales (linea 226-230, 480).
+#### 3. Branding institucional — ya implementado, sin cambios
 
-**Ajuste menor en `Perfil.tsx`**:
-- En la sección "Plan y cuenta" para institucionales: agregar el rol "Docente institucional" en lugar de solo mostrar "Cuenta Institucional".
+- Líneas 152-161: docentes con `colegioId` heredan nombre/logo del colegio.
+- `Perfil.tsx`: tab de branding oculto para institucionales.
 
-### 4. Flujo de revisión UTP (ya implementado, verificación)
+#### 4. Badge institucional — ya implementado, sin cambios
 
-- El autosave ya guarda cambios de UTP via `upsertAssessment` (linea 279).
-- El botón "Re-enviar a Revisión" ya está implementado (linea 610).
-- No requiere cambios adicionales.
+- `AppLayout.tsx` línea 109-113: badge "Cuenta Institucional" visible para usuarios con `colegioId`.
 
-### 5. Visibilidad de asignaciones — RLS ya correcto
+#### 5. Botón re-envío — ya implementado, sin cambios
 
-Las policies de `teacher_assignments` ya restringen INSERT/DELETE/UPDATE a `is_staff()` o `teacher_user_id = auth.uid()`. El docente institucional técnicamente puede insertar sus propias asignaciones via RLS. 
-
-**Cambio en RLS** (migración):
-- Remover las policies "Teachers can delete own assignments" y "Teachers can insert own assignments" para docentes que tengan `colegio_id`. Alternativa más simple: dejar el RLS como está pero bloquear completamente desde la UI (punto 1), ya que el RLS actual permite self-assignment para docentes autónomos que sí lo necesitan.
-
-**Decision**: Bloquear solo desde UI para institucionales, mantener RLS actual para no romper flujo de autónomos.
-
----
+- Línea 614-618: botón muestra "Re-enviar a Revisión" cuando `assessmentStatus === "rechazado"`.
 
 ### Archivos a modificar
 
-| Archivo | Cambios |
+| Archivo | Cambio |
 |---|---|
-| `src/pages/Perfil.tsx` | Ocultar form de asignaciones para institucionales, mensaje "contacta tu UTP" |
-| `src/pages/CrearPrueba.tsx` | Fix initialLoadRef para evitar autosave prematuro, no bloquear edición de prueba existente cuando asignaciones=0 |
-| `src/components/test-builder/AssessmentMetaForm.tsx` | Protección adicional contra reset de gradeValue en edición |
+| `src/pages/CrearPrueba.tsx` | Reemplazar `initialLoadRef` por mecanismo de userEditCount + debounce en autosave |
 
-No se requieren migraciones de base de datos.
+### Detalle técnico
+
+El nuevo mecanismo de autosave:
+
+```
+const userHasEditedRef = useRef(false);
+const loadedAssessmentIdRef = useRef<string | null>(null);
+
+// Cuando cargamos assessment de DB:
+loadedAssessmentIdRef.current = found.id;
+userHasEditedRef.current = false;
+
+// onChange del usuario (en setAssessment manual):
+// Wrapper que marca userHasEditedRef = true
+
+// Autosave effect:
+if (!userHasEditedRef.current) return; // skip automatic changes
+// ... debounced upsert
+```
+
+Esto elimina la posibilidad de que cambios automáticos (auto-assign docente, recarga de templates) disparen un save prematuro con datos incompletos.
