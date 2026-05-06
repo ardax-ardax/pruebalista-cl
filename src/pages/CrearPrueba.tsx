@@ -73,7 +73,12 @@ const CrearPrueba = () => {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isDirty, setIsDirty] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const initialLoadRef = useRef(true);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  // Tracks whether the user has made an explicit edit (vs automatic changes like
+  // teacher auto-assign or template reload). Autosave only fires when this is true.
+  const userHasEditedRef = useRef(false);
+  // Tracks which assessment ID was last loaded from DB to avoid re-saving on load.
+  const loadedAssessmentIdRef = useRef<string | null>(null);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
@@ -83,8 +88,14 @@ const CrearPrueba = () => {
   const editingId = searchParams.get("id");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
+  // Helper: update assessment and mark as user-edited (triggers autosave)
+  const setAssessmentByUser = useCallback((updater: Assessment | ((prev: Assessment | null) => Assessment | null)) => {
+    userHasEditedRef.current = true;
+    setAssessment(updater);
+  }, []);
+
   // Navigation guard: warn when a new test only exists as a local draft.
-  const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
+  const shouldBlock = isDirty && !editingId && !loadedAssessmentIdRef.current;
 
   useEffect(() => {
     if (!shouldBlock) return;
@@ -210,6 +221,9 @@ const CrearPrueba = () => {
       if (editingId) {
         const found = await getAssessment(editingId);
         if (found) {
+          console.log("[CrearPrueba] Loaded from DB — gradeValue:", found.meta.gradeValue, "subjectValue:", found.meta.subjectValue, "status:", found.status);
+          loadedAssessmentIdRef.current = found.id;
+          userHasEditedRef.current = false;
           setAssessment(found);
         } else if (t.length > 0) {
           toast.error("No se encontró la prueba");
@@ -217,6 +231,7 @@ const CrearPrueba = () => {
         }
       } else if (isNew) {
         clearDraft();
+        userHasEditedRef.current = false;
         if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
       } else {
         const draft = loadDraft();
@@ -268,32 +283,32 @@ const CrearPrueba = () => {
     return assessmentStatus === "pendiente_revision" || assessmentStatus === "aprobado";
   })();
 
-  // Autosave: si editamos una prueba guardada, actualizamos en la nube.
-  // Si es una nueva, guardamos como borrador local.
-  // IMPORTANT: Skip the very first render (initial load) to avoid overwriting
-  // the loaded assessment with partial/incomplete state.
+  // Autosave: only fires when the user has explicitly edited something.
+  // Automatic changes (teacher auto-assign, template reload) do NOT trigger saves.
+  // Uses a 1.5s debounce to batch rapid edits into a single save.
   useEffect(() => {
     if (!assessment || readOnly) return;
-    if (initialLoadRef.current) {
-      // Mark initial load as done but do NOT trigger save
-      initialLoadRef.current = false;
-      return;
-    }
+    if (!userHasEditedRef.current) return; // skip automatic/programmatic changes
+
     setIsDirty(true);
+    clearTimeout(debounceTimerRef.current);
+
     if (editingId) {
-      setSaveStatus("saving");
-      clearTimeout(saveTimerRef.current);
-      upsertAssessment(assessment)
-        .then(() => {
-          setSaveStatus("saved");
-          setIsDirty(false);
-          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
-        })
-        .catch((e) => {
-          console.warn("autosave", e);
-          setSaveStatus("error");
-          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
-        });
+      debounceTimerRef.current = setTimeout(() => {
+        setSaveStatus("saving");
+        clearTimeout(saveTimerRef.current);
+        upsertAssessment(assessment)
+          .then(() => {
+            setSaveStatus("saved");
+            setIsDirty(false);
+            saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+          })
+          .catch((e) => {
+            console.warn("autosave", e);
+            setSaveStatus("error");
+            saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
+          });
+      }, 1500);
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
@@ -301,7 +316,10 @@ const CrearPrueba = () => {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
-    return () => clearTimeout(saveTimerRef.current);
+    return () => {
+      clearTimeout(saveTimerRef.current);
+      clearTimeout(debounceTimerRef.current);
+    };
   }, [assessment, editingId, readOnly]);
 
   const template = useMemo(
@@ -392,6 +410,8 @@ const CrearPrueba = () => {
       : "¿Empezar una nueva prueba? Se descartará el borrador actual.";
     if (!confirm(msg)) return;
     clearDraft();
+    userHasEditedRef.current = false;
+    loadedAssessmentIdRef.current = null;
     setAssessment(emptyAssessment(templates[0]?.id ?? template.id));
     if (editingId) setSearchParams({});
     setTab("meta");
@@ -696,7 +716,7 @@ const CrearPrueba = () => {
             <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
               <AssessmentMetaForm
                 meta={assessment.meta}
-                onChange={(m) => setAssessment({ ...assessment, meta: m })}
+                onChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                 templates={templates}
                 subjects={subjects}
                 grades={grades}
@@ -715,7 +735,7 @@ const CrearPrueba = () => {
                 <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
                   <QuestionList
                     questions={assessment.questions}
-                    onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                    onChange={(qs) => setAssessmentByUser({ ...assessment, questions: qs })}
                     meta={assessment.meta}
                     gradeLabel={renderCtx.gradeLabel}
                     subjectLabel={renderCtx.subjectLabel}
@@ -726,7 +746,7 @@ const CrearPrueba = () => {
                 <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
                   <PreviewLayoutToolbar
                     meta={assessment.meta}
-                    onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+                    onMetaChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                     canEdit={isStaff || canEditLayout}
                   />
                   <Card className="shadow-card">
@@ -740,7 +760,7 @@ const CrearPrueba = () => {
               <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
                 <QuestionList
                   questions={assessment.questions}
-                  onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                  onChange={(qs) => setAssessmentByUser({ ...assessment, questions: qs })}
                   meta={assessment.meta}
                   gradeLabel={renderCtx.gradeLabel}
                   subjectLabel={renderCtx.subjectLabel}
@@ -754,7 +774,7 @@ const CrearPrueba = () => {
             <TabsContent value="preview" className="mt-4 space-y-4">
               <PreviewLayoutToolbar
                 meta={assessment.meta}
-                onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+                onMetaChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                 canEdit={isStaff || canEditLayout}
               />
               <Card className="shadow-card">
