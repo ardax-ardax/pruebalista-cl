@@ -442,6 +442,15 @@ const CrearPrueba = () => {
     if (!assessment.meta.gradeValue) return "Selecciona el curso";
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
     if (!assessment.meta.title.trim()) return "Escribe un título para la evaluación";
+    // Validación de compatibilidad grado/formato
+    const SIMCE_ALLOWED = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]);
+    const PAES_ALLOWED = new Set(["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]);
+    if (template?.essayMode === "simce" && !SIMCE_ALLOWED.has(assessment.meta.gradeValue)) {
+      return "El formato SIMCE no está disponible para este nivel. Solo aplica a 4° Básico, 6° Básico, 8° Básico y II Medio.";
+    }
+    if (template?.essayMode === "paes" && !PAES_ALLOWED.has(assessment.meta.gradeValue)) {
+      return "El formato PAES solo aplica a III y IV Medio.";
+    }
     // Validación PAES: variante + (módulo si Ciencias) + eje obligatorios.
     if (template?.essayMode === "paes") {
       if (!assessment.meta.paesVariant) return "Selecciona la Variante PAES";
