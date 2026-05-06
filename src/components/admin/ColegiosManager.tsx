@@ -318,7 +318,6 @@ export const ColegiosManager = () => {
               {colegios.filter((c) => !colegioSearch.trim() || c.nombre.toLowerCase().includes(colegioSearch.toLowerCase())).map((c) => {
                 const mems = members.get(c.id) ?? [];
                 const invs = pendingInvitations.get(c.id) ?? [];
-                const invs = pendingInvitations.get(c.id) ?? [];
                 const isExpanded = expandedId === c.id;
                 return (
                   <div key={c.id} className="px-3 py-2.5">
