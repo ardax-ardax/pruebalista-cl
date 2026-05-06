@@ -20,6 +20,7 @@ export interface GenerateQuestionParams {
   indicators?: { code: string; description: string }[];
   optionCount?: number; // 3-5 for MC
   statementCount?: number; // 2-4 for TF
+  essayMode?: "simce" | "paes" | null;
 }
 
 interface RawGenerated {
