@@ -183,10 +183,40 @@ export function UtpReviewCenter() {
     load();
   };
 
-  const openReview = (a: AssessmentRow) => {
+  const openReview = async (a: AssessmentRow) => {
     setSelected(a);
     setShowReject(false);
     setFeedbackText("");
+    setSelectedQuestions([]);
+
+    // Load questions from assessment data and match with bank entries
+    if (a.status === "aprobado" && a.data) {
+      const questions = (a.data as Record<string, unknown>).questions as Question[] | undefined;
+      if (questions && questions.length > 0) {
+        const evaluable = questions.filter((q) => q.type !== "info-block" && q.type !== "section-title");
+        // Try to find matching bank entries for this user's questions
+        const { data: bankRows } = await supabase
+          .from("question_bank")
+          .select("id, prompt_preview, is_public_institution")
+          .eq("user_id", a.data ? (a as unknown as { userId?: string }).userId || "" : "")
+          .limit(500);
+
+        // Match by prompt preview
+        const bankMap = new Map((bankRows ?? []).map((r) => [(r.prompt_preview ?? "").slice(0, 60), r]));
+
+        setSelectedQuestions(
+          evaluable.map((q) => {
+            const preview = (q.prompt || "").slice(0, 60);
+            const match = bankMap.get(preview);
+            return {
+              prompt: q.prompt,
+              bankId: match?.id,
+              isPublic: match ? (match as Record<string, unknown>).is_public_institution === true : false,
+            };
+          })
+        );
+      }
+    }
   };
 
   const formatDate = (ts: string) =>
