@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Clock, Mail, Plus, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
+import { Building2, Clock, Mail, Plus, Search, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +23,7 @@ interface ColegioMember {
   email: string | null;
   display_name: string | null;
   role: string;
+  document_id: string | null;
 }
 
 interface PendingInv {
