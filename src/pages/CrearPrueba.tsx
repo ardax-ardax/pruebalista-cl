@@ -457,8 +457,8 @@ const CrearPrueba = () => {
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
     if (!assessment.meta.title.trim()) return "Escribe un título para la evaluación";
     // Validación de compatibilidad grado/formato
-    const SIMCE_ALLOWED = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]);
-    const PAES_ALLOWED = new Set(["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]);
+    const SIMCE_ALLOWED = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedio"]);
+    const PAES_ALLOWED = new Set(["IIIMedio", "IVMedio"]);
     if (template?.essayMode === "simce" && !SIMCE_ALLOWED.has(assessment.meta.gradeValue)) {
       return "El formato SIMCE no está disponible para este nivel. Solo aplica a 4° Básico, 6° Básico, 8° Básico y II Medio.";
     }
