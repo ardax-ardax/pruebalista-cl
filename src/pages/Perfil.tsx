@@ -30,6 +30,8 @@ export default function Perfil() {
   const [colegioName, setColegioName] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [secondaryEmail, setSecondaryEmail] = useState("");
+  const [documentId, setDocumentId] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
