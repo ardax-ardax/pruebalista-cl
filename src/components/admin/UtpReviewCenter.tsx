@@ -80,10 +80,12 @@ export function UtpReviewCenter() {
   const [showReject, setShowReject] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<Array<{ prompt?: string; bankId?: string; isPublic: boolean }>>([]);
+  const [noColegioLinked, setNoColegioLinked] = useState(false);
 
   const load = async () => {
     const profile = await getMyProfile();
     if (!profile?.colegioId) {
+      setNoColegioLinked(true);
       setLoading(false);
       return;
     }
