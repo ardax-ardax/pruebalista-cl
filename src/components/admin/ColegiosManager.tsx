@@ -121,13 +121,33 @@ export const ColegiosManager = () => {
       .not("colegio_id", "is", null)
       .order("created_at", { ascending: false });
 
+    // Auto-consume invitations for users who already registered
+    const allProfileEmails = new Set([
+      ...(profiles ?? []).map((p) => (p.email ?? "").toLowerCase()),
+      ...(unlinked ?? []).map((u) => (u.email ?? "").toLowerCase()),
+    ]);
+
+    const toConsume: string[] = [];
     const invMap = new Map<string, PendingInv[]>();
     for (const inv of (invData ?? []) as Array<{ id: string; email: string; role: string; created_at: string; colegio_id: string }>) {
-      const arr = invMap.get(inv.colegio_id) ?? [];
-      arr.push({ id: inv.id, email: inv.email, role: inv.role, created_at: inv.created_at });
-      invMap.set(inv.colegio_id, arr);
+      if (allProfileEmails.has(inv.email.toLowerCase())) {
+        toConsume.push(inv.id);
+      } else {
+        const arr = invMap.get(inv.colegio_id) ?? [];
+        arr.push({ id: inv.id, email: inv.email, role: inv.role, created_at: inv.created_at });
+        invMap.set(inv.colegio_id, arr);
+      }
     }
     setPendingInvitations(invMap);
+
+    // Mark consumed in background
+    if (toConsume.length > 0) {
+      supabase
+        .from("pending_invitations")
+        .update({ consumed_at: new Date().toISOString() })
+        .in("id", toConsume)
+        .then(() => {});
+    }
   };
 
   const handleLinkUser = async (userId: string, colegioId: string) => {
