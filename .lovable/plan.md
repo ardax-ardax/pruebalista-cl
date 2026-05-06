@@ -1,75 +1,39 @@
 
-# Formatos Especiales SIMCE/PAES
+## Context
 
-## Resumen
+The project uses `colegio_id` in the `profiles` table (not `organization_id`). The existing `UtpTeamManager` and `UtpReviewCenter` already query by `colegio_id`, but when it's NULL the UI silently shows nothing. There's also no admin tool to manually assign existing users to a colegio.
 
-Agregar un selector de formato explícito ("Evaluación Estándar", "SIMCE", "PAES") al inicio del creador de pruebas, con reglas dinámicas que restrinjan grados, alternativas, OA y cantidad de preguntas según el formato elegido. También incluir contexto de formato en el prompt de IA.
+## Changes
 
-## Cambios
+### 1. Add friendly empty state when `colegioId` is NULL
 
-### 1. Selector de formato en AssessmentMetaForm
+**Files:** `UtpReviewCenter.tsx`, `UtpTeamManager.tsx`
 
-Agregar un selector de 3 opciones al inicio del formulario (antes de la plantilla). Al cambiar formato:
+When `profile.colegioId` is null, show a clear message: *"Tu cuenta aún no ha sido vinculada a un establecimiento. Contacta al administrador."* instead of silently returning empty content.
 
-- **Estándar**: comportamiento actual, sin restricciones.
-- **SIMCE**: filtra plantilla a `ensayo-simce`, auto-selecciona 4 alternativas, sugiere 35 preguntas.
-- **PAES**: filtra plantilla a `ensayo-paes`, auto-selecciona alternativas según asignatura (4 para Mat M1, 5 resto), sugiere 65 preguntas.
+- `UtpTeamManager` already has this partially (shows "No tienes un colegio vinculado") -- improve the message.
+- `UtpReviewCenter` silently returns with `setLoading(false)` -- add explicit empty state card.
 
-El selector reemplaza la necesidad de que el usuario elija manualmente la plantilla de ensayo. Al cambiar formato se auto-asigna el `templateId` correspondiente.
+### 2. Admin: User-Colegio linking tool in ColegiosManager
 
-### 2. Restricciones de grado
+**File:** `ColegiosManager.tsx`
 
-**Archivos**: `src/components/test-builder/AssessmentMetaForm.tsx`
+Add a section within each expanded colegio to allow the admin to:
+- See a dropdown/input of users NOT currently linked to any colegio
+- Assign them to that colegio (update `profiles.colegio_id`)
+- Remove a user from the colegio (set `colegio_id` to null)
 
-- **SIMCE**: Actualizar `SIMCE_ALLOWED_GRADES` para incluir `8ºBásico`: `["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]`.
-- **PAES**: Actualizar `PAES_FORCED_GRADES` para incluir III Medio: `["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]`. Dejar el selector habilitado (no bloqueado) para que el docente elija entre III y IV.
-- **SIMCE aviso**: Si el grado seleccionado no está en `SIMCE_ALLOWED_GRADES`, mostrar alerta "Formato no disponible para este nivel" e impedir avanzar.
+This uses existing RLS policies (admin can update all profiles).
 
-### 3. Alternativas automáticas
+### 3. No database changes needed
 
-Al seleccionar formato o cambiar asignatura:
-- **SIMCE**: `defaultMcOptions = 4`
-- **PAES + Matemática M1 (variante "m1")**: `defaultMcOptions = 4`
-- **PAES + resto**: `defaultMcOptions = 5`
+The schema already has `colegio_id` on `profiles`, `is_same_colegio()` function, and appropriate RLS policies. No migrations required.
 
-El selector de alternativas sigue visible para ajuste manual.
+### Technical Details
 
-### 4. Sugerencia de cantidad de preguntas
-
-Agregar campo `suggestedQuestionCount` al meta (o mostrarlo como hint en la UI):
-- **SIMCE**: mostrar hint "Se sugieren 35 preguntas" junto al contenido.
-- **PAES**: mostrar hint "Se sugieren 65 preguntas" (varía por variante, ya existe en `PAES_VARIANTS`).
-
-No se bloquea, es informativo.
-
-### 5. OA oculto en PAES
-
-Ya implementado. Se mantiene sin cambios.
-
-### 6. Contexto IA (edge function)
-
-**Archivos**: `src/lib/assessment-ai.ts`, `supabase/functions/generate-question/index.ts`
-
-- Agregar campo opcional `essayMode?: "simce" | "paes"` al payload de `GenerateQuestionParams` y al body del edge function.
-- En el prompt del sistema del edge function, si `essayMode` está presente, agregar: "Genera una evaluación bajo el estándar oficial de [SIMCE/PAES] de Chile para la asignatura [subjectLabel]."
-
-### 7. Validación
-
-**Archivo**: `src/pages/CrearPrueba.tsx`
-
-- Si formato es SIMCE y grado no está en los permitidos: error "El formato SIMCE no está disponible para este nivel".
-- Si formato es PAES y grado no es III/IV Medio: error "El formato PAES solo aplica a III y IV Medio".
-
-Estas validaciones se agregan al `validate()` existente.
-
-## Archivos a modificar
-
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/test-builder/AssessmentMetaForm.tsx` | Selector de formato, restricciones de grado, auto-alternativas, hints |
-| `src/pages/CrearPrueba.tsx` | Validación de compatibilidad grado/formato |
-| `src/lib/assessment-ai.ts` | Agregar `essayMode` al payload |
-| `supabase/functions/generate-question/index.ts` | Incluir contexto SIMCE/PAES en prompt |
-| `src/components/test-builder/AIGenerateDialog.tsx` | Pasar `essayMode` a `generateQuestion` |
-
-No se requieren migraciones de base de datos.
+- `UtpReviewCenter.tsx`: After `getMyProfile()`, if `!profile?.colegioId`, render an info card with Building2 icon and the message instead of empty content.
+- `UtpTeamManager.tsx`: Update the existing "no colegio" message text to be more descriptive.
+- `ColegiosManager.tsx`: In the expanded colegio view, add:
+  - A combo/select of unlinked users (profiles where `colegio_id IS NULL`)
+  - "Vincular" button that updates `profiles.colegio_id`
+  - "Desvincular" button on existing members that sets `colegio_id = null`
