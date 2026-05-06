@@ -71,13 +71,14 @@ export const QuestionEditor = ({
 
   const isCounted = question.type !== "section-title" && question.type !== "info-block";
   const isTf = question.type === "true-false";
+  const isReadOnly = question.readOnly === true;
 
   return (
     <Collapsible open={!collapsed} onOpenChange={() => onToggleCollapse?.()}>
-    <Card className="shadow-card">
+    <Card className={`shadow-card ${isReadOnly ? "border-amber-300/50 dark:border-amber-700/50" : ""}`}>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
-          {dragHandleProps && (
+          {dragHandleProps && !isReadOnly && (
             <button type="button" className="cursor-grab touch-none text-muted-foreground hover:text-foreground" {...dragHandleProps}>
               <GripVertical className="h-4 w-4" />
             </button>
@@ -86,6 +87,11 @@ export const QuestionEditor = ({
             {visibleNumber !== null ? visibleNumber : "—"}
           </span>
           <span className="text-xs text-muted-foreground">{QUESTION_TYPE_LABEL[question.type]}</span>
+          {isReadOnly && (
+            <span className="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded font-medium">
+              Banco del Colegio
+            </span>
+          )}
           {collapsed && question.prompt && (
             <span className="text-xs text-muted-foreground truncate max-w-[200px]">{question.prompt.slice(0, 60)}</span>
           )}
@@ -97,16 +103,20 @@ export const QuestionEditor = ({
                 </Button>
               </CollapsibleTrigger>
             )}
-            <Button type="button" size="icon" variant="ghost" disabled={!canUp} onClick={onMoveUp} title="Subir">
-              <ChevronUp className="h-4 w-4" />
-            </Button>
-            <Button type="button" size="icon" variant="ghost" disabled={!canDown} onClick={onMoveDown} title="Bajar">
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-            <Button type="button" size="icon" variant="ghost" onClick={onDuplicate} title="Duplicar">
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button type="button" size="icon" variant="ghost" onClick={onDelete} title="Eliminar">
+            {!isReadOnly && (
+              <>
+                <Button type="button" size="icon" variant="ghost" disabled={!canUp} onClick={onMoveUp} title="Subir">
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" disabled={!canDown} onClick={onMoveDown} title="Bajar">
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" onClick={onDuplicate} title="Duplicar">
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            <Button type="button" size="icon" variant="ghost" onClick={onDelete} title="Eliminar de la prueba">
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
