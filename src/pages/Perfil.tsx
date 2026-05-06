@@ -23,12 +23,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 
 export default function Perfil() {
-  const { user, role, isStaff } = useAuth();
+  const { user, role, isStaff, isAdmin } = useAuth();
+  const isAdminOnly = isAdmin && role !== 'utp_head';
   const { effectivePlan, maxAssignments, planLabel, creditsAvailable, planExpiresAt, loading: usageLoading } = useUserUsage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [colegioName, setColegioName] = useState<string | null>(null);
   const [institutionName, setInstitutionName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [secondaryEmail, setSecondaryEmail] = useState("");
+  const [documentId, setDocumentId] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -74,6 +77,8 @@ export default function Perfil() {
         setProfile(p);
         setInstitutionName(p.customInstitutionName ?? "");
         setLogoUrl(p.customLogoUrl);
+        setSecondaryEmail(p.secondaryEmail ?? "");
+        setDocumentId(p.documentId ?? "");
         // Load colegio name if linked
         if (user) {
           const { data: prof } = await supabase
@@ -109,6 +114,8 @@ export default function Perfil() {
     const res = await updateMyProfile({
       custom_institution_name: institutionName.trim() || null,
       custom_logo_url: logoUrl,
+      secondary_email: secondaryEmail.trim() || null,
+      document_id: documentId.trim() || null,
     });
     setSaving(false);
     if (res.ok) {
@@ -206,7 +213,7 @@ export default function Perfil() {
         </div>
 
         <Tabs defaultValue="datos" className="w-full">
-          <TabsList className={`grid w-full ${isDocente ? "grid-cols-3" : "grid-cols-2"}`}>
+          <TabsList className={`grid w-full ${isDocente ? "grid-cols-3" : isAdminOnly ? "grid-cols-1" : "grid-cols-2"}`}>
             <TabsTrigger value="datos" className="flex items-center gap-1.5">
               <User className="h-4 w-4" /> Datos
             </TabsTrigger>
@@ -215,9 +222,11 @@ export default function Perfil() {
                 <BookOpen className="h-4 w-4" /> Mis cursos
               </TabsTrigger>
             )}
-            <TabsTrigger value="branding" className="flex items-center gap-1.5">
-              <Palette className="h-4 w-4" /> Branding
-            </TabsTrigger>
+            {!isAdminOnly && (
+              <TabsTrigger value="branding" className="flex items-center gap-1.5">
+                <Palette className="h-4 w-4" /> Branding
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Tab: Datos personales */}
@@ -243,45 +252,82 @@ export default function Perfil() {
               </CardContent>
             </Card>
 
-            {/* Plan, rol y colegio */}
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" /> Plan y cuenta
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Plan actual</span>
-                    <div className="font-medium flex items-center gap-2 mt-0.5">
-                      <Badge variant="outline">{planLabel}</Badge>
-                      {planExpiresAt && (
-                        <span className="text-xs text-muted-foreground">
-                          Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
-                        </span>
-                      )}
-                    </div>
+            {/* Campos editables para docentes */}
+            {!isAdminOnly && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="text-lg">Información adicional</CardTitle>
+                  <CardDescription>Estos datos son opcionales y te ayudan a identificarte dentro del sistema.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="document-id">RUT</Label>
+                    <Input
+                      id="document-id"
+                      placeholder="Ej: 12.345.678-9"
+                      value={documentId}
+                      onChange={(e) => setDocumentId(e.target.value)}
+                    />
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Créditos IA</span>
-                    <div className="font-medium mt-0.5">{usageLoading ? "…" : creditsAvailable}</div>
+                  <div className="space-y-2">
+                    <Label htmlFor="secondary-email">Correo electrónico adicional</Label>
+                    <Input
+                      id="secondary-email"
+                      type="email"
+                      placeholder="correo@alternativo.cl"
+                      value={secondaryEmail}
+                      onChange={(e) => setSecondaryEmail(e.target.value)}
+                    />
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Rol</span>
-                    <div className="font-medium mt-0.5 capitalize">
-                      {colegioName ? "Profesor de colegio" : "Docente autónomo"}
-                    </div>
-                  </div>
-                  {colegioName && (
+                  <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1">
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Guardar
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Plan, rol y colegio — oculto para admin puro */}
+            {!isAdminOnly && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sparkles className="h-5 w-5" /> Plan y cuenta
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Colegio</span>
-                      <div className="font-medium mt-0.5">{colegioName}</div>
+                      <span className="text-muted-foreground">Plan actual</span>
+                      <div className="font-medium flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline">{planLabel}</Badge>
+                        {planExpiresAt && (
+                          <span className="text-xs text-muted-foreground">
+                            Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    <div>
+                      <span className="text-muted-foreground">Créditos IA</span>
+                      <div className="font-medium mt-0.5">{usageLoading ? "…" : creditsAvailable}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Rol</span>
+                      <div className="font-medium mt-0.5 capitalize">
+                        {colegioName ? "Profesor de colegio" : "Docente autónomo"}
+                      </div>
+                    </div>
+                    {colegioName && (
+                      <div>
+                        <span className="text-muted-foreground">Colegio</span>
+                        <div className="font-medium mt-0.5">{colegioName}</div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Tab: Mis cursos y asignaturas (solo docentes) */}
@@ -421,7 +467,8 @@ export default function Perfil() {
             </TabsContent>
           )}
 
-          {/* Tab: Branding */}
+          {/* Tab: Branding — oculto para admin puro */}
+          {!isAdminOnly && (
           <TabsContent value="branding">
             <Card>
               <CardHeader>
@@ -494,6 +541,7 @@ export default function Perfil() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
       </div>
     </AppLayout>

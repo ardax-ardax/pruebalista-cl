@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Clock, Mail, Plus, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
+import { Building2, Clock, Mail, Plus, Search, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +23,7 @@ interface ColegioMember {
   email: string | null;
   display_name: string | null;
   role: string;
+  document_id: string | null;
 }
 
 interface PendingInv {
@@ -49,7 +50,8 @@ export const ColegiosManager = () => {
   const [colegios, setColegios] = useState<Colegio[]>([]);
   const [members, setMembers] = useState<Map<string, ColegioMember[]>>(new Map());
   const [pendingInvitations, setPendingInvitations] = useState<Map<string, PendingInv[]>>(new Map());
-  const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null }>>([]);
+  const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null; document_id: string | null }>>([]);
+  const [colegioSearch, setColegioSearch] = useState("");
   const [selectedUserToLink, setSelectedUserToLink] = useState<string>("");
   const [newNombre, setNewNombre] = useState("");
   const [newUtpEmail, setNewUtpEmail] = useState("");
@@ -70,7 +72,7 @@ export const ColegiosManager = () => {
     // Load members for each colegio
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, email, display_name, colegio_id")
+      .select("id, email, display_name, colegio_id, document_id")
       .not("colegio_id", "is", null);
 
     const { data: roles } = await supabase
@@ -86,13 +88,14 @@ export const ColegiosManager = () => {
     }
 
     const memberMap = new Map<string, ColegioMember[]>();
-    for (const p of (profiles ?? []) as Array<{ id: string; email: string | null; display_name: string | null; colegio_id: string }>) {
+    for (const p of (profiles ?? []) as Array<{ id: string; email: string | null; display_name: string | null; colegio_id: string; document_id: string | null }>) {
       const arr = memberMap.get(p.colegio_id) ?? [];
       arr.push({
         id: p.id,
         email: p.email,
         display_name: p.display_name,
         role: roleMap.get(p.id) ?? "docente",
+        document_id: p.document_id ?? null,
       });
       memberMap.set(p.colegio_id, arr);
     }
@@ -101,9 +104,14 @@ export const ColegiosManager = () => {
     // Load unlinked users (no colegio_id)
     const { data: unlinked } = await supabase
       .from("profiles")
-      .select("id, email, display_name")
+      .select("id, email, display_name, document_id")
       .is("colegio_id", null);
-    setUnlinkedUsers(unlinked ?? []);
+    setUnlinkedUsers((unlinked ?? []).map((u) => ({
+      id: u.id,
+      email: u.email,
+      display_name: u.display_name,
+      document_id: (u as Record<string, unknown>).document_id as string | null,
+    })));
 
     // Load pending invitations per colegio
     const { data: invData } = await supabase
@@ -113,13 +121,33 @@ export const ColegiosManager = () => {
       .not("colegio_id", "is", null)
       .order("created_at", { ascending: false });
 
+    // Auto-consume invitations for users who already registered
+    const allProfileEmails = new Set([
+      ...(profiles ?? []).map((p) => (p.email ?? "").toLowerCase()),
+      ...(unlinked ?? []).map((u) => (u.email ?? "").toLowerCase()),
+    ]);
+
+    const toConsume: string[] = [];
     const invMap = new Map<string, PendingInv[]>();
     for (const inv of (invData ?? []) as Array<{ id: string; email: string; role: string; created_at: string; colegio_id: string }>) {
-      const arr = invMap.get(inv.colegio_id) ?? [];
-      arr.push({ id: inv.id, email: inv.email, role: inv.role, created_at: inv.created_at });
-      invMap.set(inv.colegio_id, arr);
+      if (allProfileEmails.has(inv.email.toLowerCase())) {
+        toConsume.push(inv.id);
+      } else {
+        const arr = invMap.get(inv.colegio_id) ?? [];
+        arr.push({ id: inv.id, email: inv.email, role: inv.role, created_at: inv.created_at });
+        invMap.set(inv.colegio_id, arr);
+      }
     }
     setPendingInvitations(invMap);
+
+    // Mark consumed in background
+    if (toConsume.length > 0) {
+      supabase
+        .from("pending_invitations")
+        .update({ consumed_at: new Date().toISOString() })
+        .in("id", toConsume)
+        .then(() => {});
+    }
   };
 
   const handleLinkUser = async (userId: string, colegioId: string) => {
@@ -270,13 +298,24 @@ export const ColegiosManager = () => {
             <Badge variant="secondary" className="text-[10px]">{colegios.length}</Badge>
           </div>
 
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar colegio por nombre..."
+              value={colegioSearch}
+              onChange={(e) => setColegioSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+
           {colegios.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6">
               No hay colegios creados aún.
             </p>
           ) : (
             <div className="rounded-md border border-border divide-y">
-              {colegios.map((c) => {
+              {colegios.filter((c) => !colegioSearch.trim() || c.nombre.toLowerCase().includes(colegioSearch.toLowerCase())).map((c) => {
                 const mems = members.get(c.id) ?? [];
                 const invs = pendingInvitations.get(c.id) ?? [];
                 const isExpanded = expandedId === c.id;
@@ -329,6 +368,9 @@ export const ColegiosManager = () => {
                                 <span className="truncate max-w-[200px]">
                                   {userLabel(m)}
                                 </span>
+                                {m.document_id && (
+                                  <span className="text-[10px] text-muted-foreground shrink-0">RUT: {m.document_id}</span>
+                                )}
                                 <Badge className={`text-[10px] border-0 ${ROLE_BADGE_CLASSES[m.role] ?? ""}`}>
                                   {ROLE_LABELS[m.role] ?? m.role}
                                 </Badge>
@@ -383,7 +425,7 @@ export const ColegiosManager = () => {
                                 <SelectContent>
                                   {unlinkedUsers.map((u) => (
                                     <SelectItem key={u.id} value={u.id} className="text-xs">
-                                      {userLabel(u)}
+                                      {userLabel(u)}{u.document_id ? ` · RUT: ${u.document_id}` : ""}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

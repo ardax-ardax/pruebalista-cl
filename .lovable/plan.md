@@ -1,64 +1,70 @@
 
-## Plan: Ajustes críticos de interfaz administrativa
+## Plan: Limpieza de Roles y Vistas
 
-### 1. Refactorización de "Gestión de Consumo" (`UtpUsageManager.tsx`)
+### 1. Restricciones para Admin puro
 
-Reemplazar los inputs inline + botones pequeños ("Cuota", "+Créditos") por dos botones claros en la columna de acciones:
+**AppLayout.tsx** - Sidebar/nav:
+- El `isAdminOnly` ya oculta "Crear prueba", "Banco" y "Mis pruebas". Adicionalmente ocultar "Cursos" para admin puro (actualmente solo se muestra si `isUtpHead`, ya correcto).
+- Confirmar que el menú admin solo muestra: Inicio, Configuración, Admin.
 
-- **"Ajustar Límite"**: Abre un `Dialog` modal con un input numérico para establecer la cuota mensual (0 = sin límite). Llama a la misma lógica `handleSetQuota`.
-- **"Añadir Créditos"**: Abre un `Dialog` modal con un input numérico para sumar créditos. Llama a `handleRechargeCredits`.
+**Configuracion.tsx** - Pestaña Admin:
+- Eliminar la sección "Datos de Colegio" (`renderColegioData()`) del tab "Colegio" del admin. Mantener solo `ColegiosManager` (gestión de colegios de terceros).
+- Renombrar el tab "Colegio" a "Colegios" para reflejar que gestiona colegios ajenos.
 
-Se eliminan los estados `editingQuota` y `editingCredits` en favor de un estado de modal (`modalTarget: { userId, type: 'quota' | 'credits' } | null`) y un valor numérico temporal.
+**Perfil.tsx** - Para admin puro:
+- Ocultar las pestañas "Branding" y "Mis cursos".
+- Ocultar la card "Plan y cuenta" (créditos, plan asociado). El admin es usuario de sistema.
 
-### 2. Selector de vinculación con nombre + email (`ColegiosManager.tsx`)
+**AdminDashboard.tsx** - Filtrado de usuarios:
+- En la pestaña "Usuarios", filtrar la lista para mostrar solo Docentes Autónomos (`colegio_id = NULL`) y usuarios con rol `utp_head`. Los docentes institucionales (con `colegio_id`) no aparecen aquí.
+- Esto requiere cargar `colegio_id` y `role` junto con los profiles/usage.
 
-En el `SelectItem` del selector de usuarios no vinculados (línea 321), cambiar la etiqueta de:
+### 2. Mejoras en Gestión de Colegios (ColegiosManager.tsx)
+
+- **Buscador de colegios**: Agregar un input de búsqueda por nombre de colegio en la parte superior de la lista.
+- **Selector de vinculación**: Filtrar el dropdown para mostrar solo usuarios con `colegio_id = NULL` (Docentes Autónomos y UTPs sin colegio).
+- **RUT en listado**: Mostrar el campo `document_id` (RUT) junto al nombre/email en el selector y en la lista de miembros del colegio. Esto requiere que el campo exista en `profiles` (ver punto 3).
+- **Fix de invitaciones pendientes**: Al cargar invitaciones pendientes de un colegio, cruzar con `profiles` por email. Si el perfil ya existe, marcar la invitación como consumida automáticamente (`consumed_at = now()`).
+
+### 3. Nuevos campos en perfil Docente
+
+**Migración SQL** - Añadir dos columnas a `profiles`:
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS secondary_email text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS document_id text;
 ```
-{u.display_name || u.email || u.id.slice(0, 8)}
-```
-a:
-```
-{u.display_name && u.email
-  ? `${u.display_name} (${u.email})`
-  : u.display_name || u.email || u.id.slice(0, 8)}
-```
 
-### 3. Restricción del rol Admin (`AppLayout.tsx`)
+**Perfil.tsx** - Tab "Datos":
+- Agregar campos editables "Correo electrónico adicional" (`secondary_email`) y "RUT" (`document_id`) en la card de datos personales.
+- Usar `updateMyProfile` extendido para guardar estos campos.
+- Visible solo para docentes (no admin).
 
-- Ocultar "Crear prueba" si `isAdmin && !isUtpHead && !isDocente` (admin puro).
-- Ocultar "Mis pruebas" y "Banco" para admin puro.
-- "Cursos" ya solo se muestra para `isUtpHead`, no requiere cambio.
+**profiles.ts** - Extender las interfaces y queries para incluir `secondary_email` y `document_id`.
 
-Se añade una variable `isAdminOnly = isAdmin && !isUtpHead` y se condiciona la visibilidad de esos NavItems con `!isAdminOnly`.
+### 4. Lógica de asignaciones
 
-### 4. Invitaciones pendientes en ColegiosManager
+- Las asignaciones docente-curso-asignatura ya no aparecen en el Admin Dashboard (no hay tab de asignaciones allí actualmente).
+- Confirmar que la gestión de asignaciones solo existe en:
+  - **Perfil.tsx** tab "Mis cursos" (para docentes autónomos e institucionales).
+  - **UTP panel** (Configuracion.tsx tab "equipo" via UtpTeamManager).
+- No se requieren cambios adicionales aquí; el admin ya no tiene acceso a estas tablas desde la UI.
 
-Dentro de cada colegio expandido, después de la lista de miembros y antes del selector de vinculación, mostrar una sección "Invitaciones pendientes":
+### 5. Limpieza visual (UX)
 
-- Al hacer `refresh()`, cargar también `pending_invitations` filtrando por cada `colegio_id`.
-- Mostrar cada email pendiente con un badge "Pendiente" en amarillo y la fecha de creación.
-- Esto explica por qué un colegio puede tener 0 miembros pero ya tiene una invitación UTP.
-
-### 5. Limpieza visual: badges de rol y mensaje "no vinculado"
-
-- Definir colores consistentes para badges de rol en todo el proyecto:
-  - Admin: `bg-red-100 text-red-800`
-  - Jefe UTP: `bg-blue-100 text-blue-800`
-  - Docente: `bg-green-100 text-green-800`
-- Aplicar estos colores en `ColegiosManager` (miembros), `StaffManager`, y `UtpTeamManager`.
-- En `UtpReviewCenter` y `UtpTeamManager`, el mensaje "cuenta no vinculada" solo se muestra si el rol es `utp_head` o `docente` (no admin). Verificar que no se dispare para admin.
-
----
+- Verificar que el nav del Admin solo muestre: Inicio, Configuración, Admin.
+- Los badges de rol ya usan colores consistentes (rojo/azul/verde) en ColegiosManager.
 
 ### Archivos a modificar
 
-| Archivo | Cambios |
-|---|---|
-| `src/components/admin/UtpUsageManager.tsx` | Reemplazar inputs inline por modales de Dialog |
-| `src/components/admin/ColegiosManager.tsx` | Selector nombre+email, sección invitaciones pendientes |
-| `src/components/AppLayout.tsx` | Ocultar nav items para admin puro |
-| `src/components/admin/UtpReviewCenter.tsx` | Badge colores, verificar condición no-vinculado |
-| `src/components/admin/UtpTeamManager.tsx` | Badge colores, verificar condición no-vinculado |
-| `src/components/admin/StaffManager.tsx` | Badge colores consistentes |
+| Archivo | Cambio |
+|---------|--------|
+| `src/components/AppLayout.tsx` | Confirmar restricciones nav admin |
+| `src/pages/AdminDashboard.tsx` | Filtrar usuarios (solo autónomos + UTP) |
+| `src/pages/Configuracion.tsx` | Eliminar "Datos de Colegio" del admin |
+| `src/pages/Perfil.tsx` | Ocultar branding/plan para admin, agregar campos RUT y email secundario |
+| `src/components/admin/ColegiosManager.tsx` | Buscador, filtro vinculación, RUT, fix invitaciones |
+| `src/lib/profiles.ts` | Extender con secondary_email y document_id |
 
-No se requieren cambios de base de datos.
+### Cambios de base de datos
+
+Una migración para agregar `secondary_email` y `document_id` a la tabla `profiles`.

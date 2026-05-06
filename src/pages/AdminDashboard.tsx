@@ -34,6 +34,8 @@ interface UserRow {
   plan_type: string;
   credits_available: number;
   plan_expires_at: string | null;
+  colegio_id: string | null;
+  role: string | null;
 }
 
 /* ───────── Component ───────── */
@@ -65,23 +67,33 @@ export default function AdminDashboard() {
 
   const loadUsers = async () => {
     setLoadingUsers(true);
-    // Join profiles + user_usage
-    const { data: profiles } = await supabase.from("profiles").select("id, email, display_name");
-    const { data: usages } = await supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at");
+    const [{ data: profiles }, { data: usages }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("id, email, display_name, colegio_id"),
+      supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at"),
+      supabase.from("user_roles").select("user_id, role"),
+    ]);
 
     if (profiles && usages) {
       const usageMap = new Map(usages.map((u) => [u.user_id, u]));
-      const merged: UserRow[] = profiles.map((p) => {
-        const u = usageMap.get(p.id);
-        return {
-          user_id: p.id,
-          email: p.email,
-          display_name: p.display_name,
-          plan_type: u?.plan_type ?? "free",
-          credits_available: u?.credits_available ?? 0,
-          plan_expires_at: u?.plan_expires_at ?? null,
-        };
-      });
+      const roleMap = new Map((roles ?? []).map((r) => [r.user_id, r.role as string]));
+      const merged: UserRow[] = profiles
+        .map((p) => {
+          const u = usageMap.get(p.id);
+          const r = roleMap.get(p.id) ?? null;
+          const cId = (p as Record<string, unknown>).colegio_id as string | null;
+          return {
+            user_id: p.id,
+            email: p.email,
+            display_name: p.display_name,
+            plan_type: u?.plan_type ?? "free",
+            credits_available: u?.credits_available ?? 0,
+            plan_expires_at: u?.plan_expires_at ?? null,
+            colegio_id: cId,
+            role: r,
+          };
+        })
+        // Filter: show only autonomous docentes (colegio_id = NULL) and utp_head users
+        .filter((u) => u.role === 'utp_head' || u.role === 'admin' || !u.colegio_id);
       setUsers(merged);
     }
     setLoadingUsers(false);

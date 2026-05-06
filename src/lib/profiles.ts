@@ -8,6 +8,8 @@ export interface Profile {
   customInstitutionName: string | null;
   customLogoUrl: string | null;
   colegioId: string | null;
+  secondaryEmail: string | null;
+  documentId: string | null;
 }
 
 export interface ListProfilesResult {
@@ -18,7 +20,7 @@ export interface ListProfilesResult {
 export const listProfiles = async (): Promise<ListProfilesResult> => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id");
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id");
   if (error) {
     console.error("listProfiles", error);
     return { profiles: [], error: error.message };
@@ -31,6 +33,8 @@ export const listProfiles = async (): Promise<ListProfilesResult> => {
     customInstitutionName: (r as Record<string, unknown>).custom_institution_name as string | null,
     customLogoUrl: (r as Record<string, unknown>).custom_logo_url as string | null,
     colegioId: (r as Record<string, unknown>).colegio_id as string | null,
+    secondaryEmail: (r as Record<string, unknown>).secondary_email as string | null,
+    documentId: (r as Record<string, unknown>).document_id as string | null,
   }));
   return { profiles, error: null };
 };
@@ -40,7 +44,7 @@ export const getMyProfile = async (): Promise<Profile | null> => {
   if (!user) return null;
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id")
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id")
     .eq("id", user.id)
     .maybeSingle();
   if (error || !data) return null;
@@ -52,6 +56,8 @@ export const getMyProfile = async (): Promise<Profile | null> => {
     customInstitutionName: (data as Record<string, unknown>).custom_institution_name as string | null,
     customLogoUrl: (data as Record<string, unknown>).custom_logo_url as string | null,
     colegioId: (data as Record<string, unknown>).colegio_id as string | null,
+    secondaryEmail: (data as Record<string, unknown>).secondary_email as string | null,
+    documentId: (data as Record<string, unknown>).document_id as string | null,
   };
 };
 
@@ -59,6 +65,8 @@ export const updateMyProfile = async (updates: {
   custom_institution_name?: string | null;
   custom_logo_url?: string | null;
   display_name?: string;
+  secondary_email?: string | null;
+  document_id?: string | null;
 }): Promise<{ ok: boolean; error?: string }> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
