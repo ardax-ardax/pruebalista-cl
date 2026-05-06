@@ -716,7 +716,7 @@ const CrearPrueba = () => {
             <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
               <AssessmentMetaForm
                 meta={assessment.meta}
-                onChange={(m) => setAssessment({ ...assessment, meta: m })}
+                onChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                 templates={templates}
                 subjects={subjects}
                 grades={grades}
@@ -735,7 +735,7 @@ const CrearPrueba = () => {
                 <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
                   <QuestionList
                     questions={assessment.questions}
-                    onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                    onChange={(qs) => setAssessmentByUser({ ...assessment, questions: qs })}
                     meta={assessment.meta}
                     gradeLabel={renderCtx.gradeLabel}
                     subjectLabel={renderCtx.subjectLabel}
@@ -746,7 +746,7 @@ const CrearPrueba = () => {
                 <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
                   <PreviewLayoutToolbar
                     meta={assessment.meta}
-                    onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+                    onMetaChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                     canEdit={isStaff || canEditLayout}
                   />
                   <Card className="shadow-card">
@@ -760,7 +760,7 @@ const CrearPrueba = () => {
               <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
                 <QuestionList
                   questions={assessment.questions}
-                  onChange={(qs) => setAssessment({ ...assessment, questions: qs })}
+                  onChange={(qs) => setAssessmentByUser({ ...assessment, questions: qs })}
                   meta={assessment.meta}
                   gradeLabel={renderCtx.gradeLabel}
                   subjectLabel={renderCtx.subjectLabel}
@@ -774,7 +774,7 @@ const CrearPrueba = () => {
             <TabsContent value="preview" className="mt-4 space-y-4">
               <PreviewLayoutToolbar
                 meta={assessment.meta}
-                onMetaChange={(m) => setAssessment({ ...assessment, meta: m })}
+                onMetaChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                 canEdit={isStaff || canEditLayout}
               />
               <Card className="shadow-card">
