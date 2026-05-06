@@ -356,18 +356,25 @@ const CrearPrueba = () => {
   }
 
   // Docente sin asignaciones: bloquear creación de pruebas nuevas
+  const isInstitutionalDocente = isDocente && !!currentProfile?.colegioId;
   if (isDocente && assignmentsLoaded && hasZeroAssignments && !editingId) {
     return (
       <AppLayout>
         <div className="max-w-lg mx-auto text-center py-20 space-y-4">
           <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
-          <h2 className="text-xl font-semibold">Configura tus cursos primero</h2>
+          <h2 className="text-xl font-semibold">
+            {isInstitutionalDocente ? "Sin cursos asignados" : "Configura tus cursos primero"}
+          </h2>
           <p className="text-muted-foreground">
-            Antes de crear pruebas, debes seleccionar los cursos y asignaturas que impartes desde tu perfil.
+            {isInstitutionalDocente
+              ? "Pide a tu UTP que te asigne cursos y asignaturas para poder crear pruebas."
+              : "Antes de crear pruebas, debes seleccionar los cursos y asignaturas que impartes desde tu perfil."}
           </p>
-          <Button onClick={() => navigate("/perfil")}>
-            Ir a mi perfil
-          </Button>
+          {!isInstitutionalDocente && (
+            <Button onClick={() => navigate("/perfil")}>
+              Ir a mi perfil
+            </Button>
+          )}
         </div>
       </AppLayout>
     );
