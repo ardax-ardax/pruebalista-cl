@@ -410,6 +410,8 @@ const CrearPrueba = () => {
       : "¿Empezar una nueva prueba? Se descartará el borrador actual.";
     if (!confirm(msg)) return;
     clearDraft();
+    userHasEditedRef.current = false;
+    loadedAssessmentIdRef.current = null;
     setAssessment(emptyAssessment(templates[0]?.id ?? template.id));
     if (editingId) setSearchParams({});
     setTab("meta");
