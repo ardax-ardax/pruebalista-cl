@@ -65,6 +65,8 @@ export const updateMyProfile = async (updates: {
   custom_institution_name?: string | null;
   custom_logo_url?: string | null;
   display_name?: string;
+  secondary_email?: string | null;
+  document_id?: string | null;
 }): Promise<{ ok: boolean; error?: string }> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
