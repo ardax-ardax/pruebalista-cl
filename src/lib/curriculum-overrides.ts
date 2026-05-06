@@ -36,9 +36,11 @@ export const naturalSortByCode = <T extends { code?: string; oa_code?: string }>
 
 export const listOverrides = (gradeValue?: string, subjectValue?: string): OverrideOA[] => {
   const all = cache ?? [];
-  const filtered = (!gradeValue || !subjectValue)
-    ? all
-    : all.filter((o) => o.grade_value === gradeValue && o.subject_value === subjectValue);
+  const filtered = all.filter((o) => {
+    if (gradeValue && o.grade_value !== gradeValue) return false;
+    if (subjectValue && o.subject_value !== subjectValue) return false;
+    return true;
+  });
   return naturalSortByCode(filtered);
 };
 
