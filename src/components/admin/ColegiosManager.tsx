@@ -29,6 +29,8 @@ export const ColegiosManager = () => {
   const { user } = useAuth();
   const [colegios, setColegios] = useState<Colegio[]>([]);
   const [members, setMembers] = useState<Map<string, ColegioMember[]>>(new Map());
+  const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null }>>([]);
+  const [selectedUserToLink, setSelectedUserToLink] = useState<string>("");
   const [newNombre, setNewNombre] = useState("");
   const [newUtpEmail, setNewUtpEmail] = useState("");
   const [busy, setBusy] = useState(false);
