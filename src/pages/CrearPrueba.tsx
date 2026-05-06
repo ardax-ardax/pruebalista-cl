@@ -137,7 +137,7 @@ const CrearPrueba = () => {
       }
       setAssignmentsLoaded(true);
     });
-  }, [user, isDocente, authLoading, maxAssignments]);
+  }, [user, isDocente, authLoading, maxAssignments, editingId]);
 
   // Cargamos el perfil del usuario actual (para mostrar el nombre como docente bloqueado
   // y para aplicar branding personalizado para usuarios individuales).
