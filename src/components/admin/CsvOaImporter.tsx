@@ -8,6 +8,7 @@ import { Upload, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { saveBulkOAs, type OverrideOA } from "@/lib/curriculum-overrides";
 import type { Indicator } from "@/lib/curriculum-data";
+import * as XLSX from "xlsx";
 
 interface Props {
   open: boolean;
@@ -24,15 +25,14 @@ interface ParsedOA {
   indicators: Indicator[];
 }
 
-const parseCSV = (text: string): { oas: ParsedOA[]; errors: string[] } => {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return { oas: [], errors: ["El archivo está vacío o solo tiene encabezado."] };
+const normalizeRows = (rows: string[][]): { oas: ParsedOA[]; errors: string[] } => {
+  if (rows.length < 2) return { oas: [], errors: ["El archivo está vacío o solo tiene encabezado."] };
 
   const errors: string[] = [];
   const map = new Map<string, ParsedOA>();
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(/[;,](?=(?:[^"]*"[^"]*")*[^"]*$)/).map((c) => c.replace(/^"|"$/g, "").trim());
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i].map((c) => (c ?? "").toString().trim());
     if (cols.length < 4) {
       errors.push(`Fila ${i + 1}: menos de 4 columnas.`);
       continue;
@@ -62,6 +62,22 @@ const parseCSV = (text: string): { oas: ParsedOA[]; errors: string[] } => {
   return { oas: Array.from(map.values()), errors };
 };
 
+const parseCSV = (text: string): string[][] => {
+  return text
+    .split(/\r?\n/)
+    .filter((l) => l.trim())
+    .map((line) =>
+      line.split(/[;,](?=(?:[^"]*"[^"]*")*[^"]*$)/).map((c) => c.replace(/^"|"$/g, "").trim()),
+    );
+};
+
+const parseXLSX = (buffer: ArrayBuffer): string[][] => {
+  const wb = XLSX.read(buffer, { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const json: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  return json;
+};
+
 export const CsvOaImporter = ({ open, onOpenChange, onImported }: Props) => {
   const [parsed, setParsed] = useState<ParsedOA[] | null>(null);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
@@ -76,14 +92,29 @@ export const CsvOaImporter = ({ open, onOpenChange, onImported }: Props) => {
 
   const handleFile = useCallback((file: File) => {
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const { oas, errors } = parseCSV(text);
-      setParsed(oas);
-      setParseErrors(errors);
-    };
-    reader.readAsText(file, "UTF-8");
+    const isExcel = /\.xlsx?$/i.test(file.name);
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        const rows = parseXLSX(buffer);
+        const { oas, errors } = normalizeRows(rows);
+        setParsed(oas);
+        setParseErrors(errors);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const rows = parseCSV(text);
+        const { oas, errors } = normalizeRows(rows);
+        setParsed(oas);
+        setParseErrors(errors);
+      };
+      reader.readAsText(file, "UTF-8");
+    }
   }, []);
 
   const handleImport = async () => {
@@ -109,10 +140,10 @@ export const CsvOaImporter = ({ open, onOpenChange, onImported }: Props) => {
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Importar OAs desde CSV</DialogTitle>
+          <DialogTitle>Importar OAs desde archivo</DialogTitle>
           <DialogDescription>
-            Formato: <code className="text-xs bg-muted px-1 rounded">curso,asignatura,codigo_oa,descripcion,eje,indicador_codigo,indicador_descripcion</code>.
-            Varias filas con el mismo código agrupan indicadores.
+            Formato: <code className="text-xs bg-muted px-1 rounded">curso, asignatura, codigo_oa, descripcion, eje, indicador_codigo, indicador_descripcion</code>.
+            Soporta archivos <strong>.csv</strong> y <strong>.xlsx</strong>. Varias filas con el mismo código agrupan indicadores.
           </DialogDescription>
         </DialogHeader>
 
@@ -122,15 +153,15 @@ export const CsvOaImporter = ({ open, onOpenChange, onImported }: Props) => {
               <Upload className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <div className="font-medium text-foreground">Arrastra tu archivo CSV aquí</div>
+              <div className="font-medium text-foreground">Arrastra tu archivo aquí</div>
               <div className="text-sm text-muted-foreground mt-1">o haz clic para seleccionar</div>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <FileText className="h-3.5 w-3.5" /> Archivos .csv (separados por coma o punto y coma)
+              <FileText className="h-3.5 w-3.5" /> Archivos .csv o .xlsx
             </div>
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
