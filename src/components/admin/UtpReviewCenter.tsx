@@ -48,6 +48,7 @@ interface AssessmentRow {
   utpFeedback: string | null;
   docenteName: string;
   docenteEmail: string;
+  userId: string;
   data: Record<string, unknown> | null;
 }
 
