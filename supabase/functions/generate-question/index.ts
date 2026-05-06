@@ -23,6 +23,7 @@ interface Payload {
   indicators?: Indicator[];
   optionCount?: number; // 3-5
   statementCount?: number; // 2-4
+  essayMode?: "simce" | "paes" | null;
 }
 
 const COMMON_FIELDS = {
