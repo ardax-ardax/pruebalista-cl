@@ -1,45 +1,53 @@
 
-## Plan: Panel UTP — Equipo Docente + Centro de Revisión Pedagógica
+# Plan: Gestión Curricular Mejorada para Admin
 
-### 1. Nuevo componente: `src/components/admin/UtpTeamManager.tsx`
+## Contexto
 
-Pestaña "Mi Equipo Docente" con:
-- **Vincular Nuevo Docente**: Campo email + botón "Asignar al Colegio". Lógica:
-  - Busca en `profiles` por email. Si existe y sin colegio, actualiza `colegio_id`.
-  - Si ya pertenece al mismo colegio, muestra info. Si pertenece a otro, error.
-  - Si no existe, inserta en `pending_invitations` con `colegio_id` y `role=docente`. El trigger `handle_new_user` ya lo vincula automáticamente al registrarse.
-- **Equipo actual**: Lista de docentes vinculados al colegio (profiles con mismo `colegio_id`), mostrando avatar, nombre y email.
-- **Invitaciones pendientes**: Lista de invitaciones no consumidas del colegio, con opción de eliminar.
+El proyecto ya cuenta con:
+- Tabla `curriculum_base` con upsert por `(grade_value, subject_value, oa_code)` — ya cumple la función de `learning_objectives`.
+- `CurriculumManager` con formulario manual y carga CSV.
+- RLS configurado: staff puede escribir, autenticados pueden leer.
+- Pestaña "curriculum" visible solo para admin en `/configuracion`.
 
-### 2. Nuevo componente: `src/components/admin/UtpReviewCenter.tsx`
+No se necesita crear una nueva tabla `learning_objectives` ya que `curriculum_base` tiene exactamente la misma estructura y lógica de upsert solicitada.
 
-Pestaña "Evaluaciones por Revisar" con:
-- **Tabla de evaluaciones** pendientes: Consulta `assessments` con `status = 'pendiente_revision'` de docentes del mismo colegio (via join con profiles).
-- **Columnas**: Nombre, Docente, Fecha, Estado, Acciones.
-- **Modal de revisión**: Al hacer clic, abre un Dialog con:
-  - Vista previa del contenido (título, asignatura, curso, cantidad de preguntas).
-  - Botón "Aprobar" → cambia `status` a `aprobado`.
-  - Botón "Rechazar con Observaciones" → muestra textarea, guarda `utp_feedback` y cambia `status` a `rechazado`.
-- **Iconos de estado**: Clock (pendiente), CheckCircle verde (aprobado), AlertTriangle naranja (rechazado).
-- **Historial reciente**: Muestra también las últimas 10 evaluaciones aprobadas/rechazadas para referencia.
+## Cambios propuestos
 
-### 3. Actualizar `src/pages/Configuracion.tsx`
+### 1. Soporte Excel (.xlsx) en el importador
 
-Reemplazar las 3 pestañas actuales del UTP (`catalogos`, `politicas`, `docentes`) por 5 pestañas:
-1. **Mi Equipo** → `UtpTeamManager`
-2. **Evaluaciones** → `UtpReviewCenter`
-3. **Catálogos** → existente (asignaturas, cursos, docentes)
-4. **Políticas** → existente (auto-asignación, créditos)
-5. **Docentes** → existente `UtpUsageManager`
+Modificar `CsvOaImporter.tsx` para aceptar archivos `.xlsx` además de `.csv`:
+- Agregar la librería `xlsx` (SheetJS) para parsear archivos Excel.
+- Detectar el tipo de archivo por extensión y procesar con el parser adecuado.
+- Renombrar el componente a algo más genérico (ej: "Importar OAs").
 
-### 4. No se necesitan migraciones
+### 2. Vista global con buscador y paginación
 
-La tabla `pending_invitations` ya tiene `colegio_id`. La tabla `assessments` ya tiene `status` y `utp_feedback`. La tabla `profiles` ya tiene `colegio_id`. Las políticas RLS existentes permiten que staff actualice assessments y profiles del mismo colegio. No hay cambios de esquema necesarios.
+Reescribir `CurriculumManager.tsx` para incluir:
+- **Vista global**: mostrar todos los OAs sin requerir seleccionar grado+asignatura primero (los filtros serán opcionales).
+- **Buscador de texto**: filtrar por código, descripción o eje.
+- **Filtros por Grado y Asignatura**: mantener los selectores actuales pero como filtros opcionales.
+- **Paginación**: mostrar 20 OAs por página con controles de navegación.
+- **Contador**: mostrar total de resultados filtrados.
 
-### Resumen de archivos
+### 3. Mantener funcionalidad existente
 
-| Archivo | Acción |
-|---|---|
-| `src/components/admin/UtpTeamManager.tsx` | Nuevo |
-| `src/components/admin/UtpReviewCenter.tsx` | Nuevo |
-| `src/pages/Configuracion.tsx` | Editar pestañas UTP |
+- El formulario manual de creación/edición de OA permanece sin cambios.
+- La lógica de upsert en `curriculum-overrides.ts` ya funciona correctamente.
+- Los botones de editar/eliminar por OA se mantienen.
+
+### 4. Seguridad (sin cambios necesarios)
+
+Las políticas RLS de `curriculum_base` ya están correctamente configuradas:
+- SELECT: todos los autenticados
+- INSERT/UPDATE/DELETE: solo staff (admin + utp_head)
+
+No se requieren migraciones de base de datos.
+
+## Detalle técnico
+
+| Archivo | Cambio |
+|---------|--------|
+| `package.json` | Agregar dependencia `xlsx` |
+| `src/components/admin/CsvOaImporter.tsx` | Aceptar `.xlsx`, parsear con SheetJS |
+| `src/components/admin/CurriculumManager.tsx` | Agregar buscador, paginación, vista global sin requerir filtros previos |
+| `src/lib/curriculum-overrides.ts` | Aumentar límite de query de 5000 si es necesario para paginación |
