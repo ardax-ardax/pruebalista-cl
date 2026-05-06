@@ -1,55 +1,75 @@
 
-# Plan: Banco de Preguntas Institucional
+# Formatos Especiales SIMCE/PAES
 
 ## Resumen
 
-Implementar un banco de preguntas institucional donde la UTP puede destacar preguntas para compartirlas (anónimamente) con docentes del mismo colegio. Las preguntas importadas del banco institucional son de solo lectura.
+Agregar un selector de formato explícito ("Evaluación Estándar", "SIMCE", "PAES") al inicio del creador de pruebas, con reglas dinámicas que restrinjan grados, alternativas, OA y cantidad de preguntas según el formato elegido. También incluir contexto de formato en el prompt de IA.
 
 ## Cambios
 
-### 1. Migración de Base de Datos
+### 1. Selector de formato en AssessmentMetaForm
 
-Agregar columna `is_public_institution` (boolean, default false) a `question_bank`. Crear índice parcial para queries eficientes. Agregar política RLS para que staff pueda actualizar el flag en preguntas de su colegio.
+Agregar un selector de 3 opciones al inicio del formulario (antes de la plantilla). Al cambiar formato:
 
-### 2. Schema (`src/lib/assessment-schema.ts`)
+- **Estándar**: comportamiento actual, sin restricciones.
+- **SIMCE**: filtra plantilla a `ensayo-simce`, auto-selecciona 4 alternativas, sugiere 35 preguntas.
+- **PAES**: filtra plantilla a `ensayo-paes`, auto-selecciona alternativas según asignatura (4 para Mat M1, 5 resto), sugiere 65 preguntas.
 
-Agregar campo opcional `readOnly?: boolean` a la interfaz `Question` para marcar preguntas importadas del banco institucional.
+El selector reemplaza la necesidad de que el usuario elija manualmente la plantilla de ensayo. Al cambiar formato se auto-asigna el `templateId` correspondiente.
 
-### 3. Funciones de Banco (`src/lib/question-bank.ts`)
+### 2. Restricciones de grado
 
-- Agregar función `searchInstitutionalBank(filters)` que consulta preguntas con `is_public_institution = true` del mismo colegio del usuario actual (via join con profiles), excluyendo `user_id` del resultado.
-- Agregar función `togglePublicInstitution(questionId, value)` para que UTP active/desactive el flag.
+**Archivos**: `src/components/test-builder/AssessmentMetaForm.tsx`
 
-### 4. UTP Review Center (`src/components/admin/UtpReviewCenter.tsx`)
+- **SIMCE**: Actualizar `SIMCE_ALLOWED_GRADES` para incluir `8ºBásico`: `["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]`.
+- **PAES**: Actualizar `PAES_FORCED_GRADES` para incluir III Medio: `["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]`. Dejar el selector habilitado (no bloqueado) para que el docente elija entre III y IV.
+- **SIMCE aviso**: Si el grado seleccionado no está en `SIMCE_ALLOWED_GRADES`, mostrar alerta "Formato no disponible para este nivel" e impedir avanzar.
 
-En el diálogo de revisión, cuando la evaluación está aprobada, mostrar las preguntas individuales con un switch "Destacar en Banco Institucional" junto a cada una. Al activar/desactivar el switch, llamar `togglePublicInstitution`.
+### 3. Alternativas automáticas
 
-### 5. Question Bank Dialog (`src/components/test-builder/QuestionBankDialog.tsx`)
+Al seleccionar formato o cambiar asignatura:
+- **SIMCE**: `defaultMcOptions = 4`
+- **PAES + Matemática M1 (variante "m1")**: `defaultMcOptions = 4`
+- **PAES + resto**: `defaultMcOptions = 5`
 
-Agregar tabs "Mis Preguntas" y "Banco del Colegio":
-- **Mis Preguntas**: funcionalidad actual sin cambios.
-- **Banco del Colegio**: llama a `searchInstitutionalBank`, oculta autor, filtra por grado y OA. Al importar, marca las preguntas con `readOnly: true`.
+El selector de alternativas sigue visible para ajuste manual.
 
-### 6. QuestionEditor (`src/components/test-builder/QuestionEditor.tsx`)
+### 4. Sugerencia de cantidad de preguntas
 
-Si `question.readOnly === true`:
-- Ocultar botones de Editar, Duplicar, mover arriba/abajo.
-- Mostrar solo el botón Eliminar (de la prueba actual).
-- Renderizar el contenido en modo vista (campos deshabilitados o solo texto).
+Agregar campo `suggestedQuestionCount` al meta (o mostrarlo como hint en la UI):
+- **SIMCE**: mostrar hint "Se sugieren 35 preguntas" junto al contenido.
+- **PAES**: mostrar hint "Se sugieren 65 preguntas" (varía por variante, ya existe en `PAES_VARIANTS`).
 
-### 7. Seguridad
+No se bloquea, es informativo.
 
-- La query institucional filtra por `colegio_id` del usuario via join con profiles, garantizando aislamiento entre colegios.
-- El campo `user_id` no se expone en la UI del banco institucional (anonimato).
-- Solo staff puede modificar `is_public_institution` (política RLS).
+### 5. OA oculto en PAES
 
-## Detalle técnico
+Ya implementado. Se mantiene sin cambios.
+
+### 6. Contexto IA (edge function)
+
+**Archivos**: `src/lib/assessment-ai.ts`, `supabase/functions/generate-question/index.ts`
+
+- Agregar campo opcional `essayMode?: "simce" | "paes"` al payload de `GenerateQuestionParams` y al body del edge function.
+- En el prompt del sistema del edge function, si `essayMode` está presente, agregar: "Genera una evaluación bajo el estándar oficial de [SIMCE/PAES] de Chile para la asignatura [subjectLabel]."
+
+### 7. Validación
+
+**Archivo**: `src/pages/CrearPrueba.tsx`
+
+- Si formato es SIMCE y grado no está en los permitidos: error "El formato SIMCE no está disponible para este nivel".
+- Si formato es PAES y grado no es III/IV Medio: error "El formato PAES solo aplica a III y IV Medio".
+
+Estas validaciones se agregan al `validate()` existente.
+
+## Archivos a modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| `supabase/migrations/...` | ALTER TABLE + índice + RLS policy |
-| `src/lib/assessment-schema.ts` | `readOnly?: boolean` en Question |
-| `src/lib/question-bank.ts` | `searchInstitutionalBank()`, `togglePublicInstitution()` |
-| `src/components/admin/UtpReviewCenter.tsx` | Switch por pregunta en diálogo de revisión |
-| `src/components/test-builder/QuestionBankDialog.tsx` | Tab "Banco del Colegio" |
-| `src/components/test-builder/QuestionEditor.tsx` | Modo readOnly |
+| `src/components/test-builder/AssessmentMetaForm.tsx` | Selector de formato, restricciones de grado, auto-alternativas, hints |
+| `src/pages/CrearPrueba.tsx` | Validación de compatibilidad grado/formato |
+| `src/lib/assessment-ai.ts` | Agregar `essayMode` al payload |
+| `supabase/functions/generate-question/index.ts` | Incluir contexto SIMCE/PAES en prompt |
+| `src/components/test-builder/AIGenerateDialog.tsx` | Pasar `essayMode` a `generateQuestion` |
+
+No se requieren migraciones de base de datos.
