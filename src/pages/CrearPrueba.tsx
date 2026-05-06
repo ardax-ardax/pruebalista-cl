@@ -73,7 +73,12 @@ const CrearPrueba = () => {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isDirty, setIsDirty] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const initialLoadRef = useRef(true);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  // Tracks whether the user has made an explicit edit (vs automatic changes like
+  // teacher auto-assign or template reload). Autosave only fires when this is true.
+  const userHasEditedRef = useRef(false);
+  // Tracks which assessment ID was last loaded from DB to avoid re-saving on load.
+  const loadedAssessmentIdRef = useRef<string | null>(null);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
