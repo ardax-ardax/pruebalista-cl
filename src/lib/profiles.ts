@@ -8,6 +8,8 @@ export interface Profile {
   customInstitutionName: string | null;
   customLogoUrl: string | null;
   colegioId: string | null;
+  secondaryEmail: string | null;
+  documentId: string | null;
 }
 
 export interface ListProfilesResult {
@@ -18,7 +20,7 @@ export interface ListProfilesResult {
 export const listProfiles = async (): Promise<ListProfilesResult> => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id");
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id");
   if (error) {
     console.error("listProfiles", error);
     return { profiles: [], error: error.message };
