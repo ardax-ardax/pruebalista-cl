@@ -273,32 +273,32 @@ const CrearPrueba = () => {
     return assessmentStatus === "pendiente_revision" || assessmentStatus === "aprobado";
   })();
 
-  // Autosave: si editamos una prueba guardada, actualizamos en la nube.
-  // Si es una nueva, guardamos como borrador local.
-  // IMPORTANT: Skip the very first render (initial load) to avoid overwriting
-  // the loaded assessment with partial/incomplete state.
+  // Autosave: only fires when the user has explicitly edited something.
+  // Automatic changes (teacher auto-assign, template reload) do NOT trigger saves.
+  // Uses a 1.5s debounce to batch rapid edits into a single save.
   useEffect(() => {
     if (!assessment || readOnly) return;
-    if (initialLoadRef.current) {
-      // Mark initial load as done but do NOT trigger save
-      initialLoadRef.current = false;
-      return;
-    }
+    if (!userHasEditedRef.current) return; // skip automatic/programmatic changes
+
     setIsDirty(true);
+    clearTimeout(debounceTimerRef.current);
+
     if (editingId) {
-      setSaveStatus("saving");
-      clearTimeout(saveTimerRef.current);
-      upsertAssessment(assessment)
-        .then(() => {
-          setSaveStatus("saved");
-          setIsDirty(false);
-          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
-        })
-        .catch((e) => {
-          console.warn("autosave", e);
-          setSaveStatus("error");
-          saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
-        });
+      debounceTimerRef.current = setTimeout(() => {
+        setSaveStatus("saving");
+        clearTimeout(saveTimerRef.current);
+        upsertAssessment(assessment)
+          .then(() => {
+            setSaveStatus("saved");
+            setIsDirty(false);
+            saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+          })
+          .catch((e) => {
+            console.warn("autosave", e);
+            setSaveStatus("error");
+            saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
+          });
+      }, 1500);
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
@@ -306,7 +306,10 @@ const CrearPrueba = () => {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
-    return () => clearTimeout(saveTimerRef.current);
+    return () => {
+      clearTimeout(saveTimerRef.current);
+      clearTimeout(debounceTimerRef.current);
+    };
   }, [assessment, editingId, readOnly]);
 
   const template = useMemo(
