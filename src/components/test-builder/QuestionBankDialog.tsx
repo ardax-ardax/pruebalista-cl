@@ -24,6 +24,12 @@ const TYPES: { value: string; label: string }[] = [
   { value: "short-answer", label: "Desarrollo" },
 ];
 
+const DIFFICULTIES: { value: string; label: string }[] = [
+  { value: "fácil", label: "Fácil" },
+  { value: "medio", label: "Medio" },
+  { value: "difícil", label: "Difícil" },
+];
+
 type TabValue = "mine" | "institution";
 
 export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
