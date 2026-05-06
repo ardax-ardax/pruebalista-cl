@@ -607,7 +607,7 @@ const CrearPrueba = () => {
             {/* Docente institucional: enviar a revisión (oculto para autónomos) */}
             {!isStaff && !isAutonomous && editingId && (assessmentStatus === "borrador" || assessmentStatus === "rechazado") && (
               <Button size="sm" variant="default" onClick={handleSubmitForReview}>
-                <Send className="h-4 w-4" /> Enviar a Revisión UTP
+                <Send className="h-4 w-4" /> {assessmentStatus === "rechazado" ? "Re-enviar a Revisión" : "Enviar a Revisión UTP"}
               </Button>
             )}
           </div>
