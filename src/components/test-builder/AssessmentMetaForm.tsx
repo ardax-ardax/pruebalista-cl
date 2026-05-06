@@ -26,8 +26,8 @@ import { useEffect, useMemo, useState } from "react";
 export type EvaluationFormat = "estandar" | "simce" | "paes";
 
 // Restricciones de grado por modo ensayo.
-const SIMCE_ALLOWED_GRADES = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedioA", "IIMedioB"]);
-const PAES_ALLOWED_GRADES = new Set(["IIIMedioA", "IIIMedioB", "IVMedioA", "IVMedioB"]);
+const SIMCE_ALLOWED_GRADES = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedio"]);
+const PAES_ALLOWED_GRADES = new Set(["IIIMedio", "IVMedio"]);
 
 // IDs de plantilla ensayo
 const SIMCE_TEMPLATE_ID = "ensayo-simce";

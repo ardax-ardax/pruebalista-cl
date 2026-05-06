@@ -40,6 +40,7 @@ export function UtpTeamManager() {
       return;
     }
     setColegioId(profile.colegioId);
+    console.log("[UtpTeamManager] colegio_id del usuario actual:", profile.colegioId);
 
     const { data: teamData } = await supabase
       .from("profiles")

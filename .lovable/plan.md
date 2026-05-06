@@ -1,70 +1,55 @@
+## Problem Analysis
 
-## Plan: Limpieza de Roles y Vistas
+### 1. UTP Visibility (Docentes)
+The code in `UtpTeamManager` and `UtpReviewCenter` is **correct** — it queries `profiles` filtered by `colegio_id`. The RLS policy allows UTP (via `is_staff`) to read all profiles. The actual issue is that **no docentes currently have `colegio_id` set** in the database matching the UTP's colegio. Only the UTP user (`ardax.ardax@gmail.com`) has `colegio_id = b061bcad-...`. Once docentes are linked to the colegio (via ColegiosManager), they will appear.
 
-### 1. Restricciones para Admin puro
+However, to aid debugging, we'll add a `console.log` as requested.
 
-**AppLayout.tsx** - Sidebar/nav:
-- El `isAdminOnly` ya oculta "Crear prueba", "Banco" y "Mis pruebas". Adicionalmente ocultar "Cursos" para admin puro (actualmente solo se muestra si `isUtpHead`, ya correcto).
-- Confirmar que el menú admin solo muestra: Inicio, Configuración, Admin.
+### 2. PAES Filter (Empty courses)
+The `PAES_ALLOWED_GRADES` constant uses values with section letters appended (`IIIMedioA`, `IIIMedioB`, `IVMedioA`, `IVMedioB`), but the actual `grade_value` in the system is just `IIIMedio` and `IVMedio`. This means the filter never matches any grade, resulting in an empty selector.
 
-**Configuracion.tsx** - Pestaña Admin:
-- Eliminar la sección "Datos de Colegio" (`renderColegioData()`) del tab "Colegio" del admin. Mantener solo `ColegiosManager` (gestión de colegios de terceros).
-- Renombrar el tab "Colegio" a "Colegios" para reflejar que gestiona colegios ajenos.
+### 3. SIMCE Filter (Missing II Medio)
+Similarly, `SIMCE_ALLOWED_GRADES` uses `IIMedioA` and `IIMedioB`, but the real value is `IIMedio`.
 
-**Perfil.tsx** - Para admin puro:
-- Ocultar las pestañas "Branding" y "Mis cursos".
-- Ocultar la card "Plan y cuenta" (créditos, plan asociado). El admin es usuario de sistema.
+---
 
-**AdminDashboard.tsx** - Filtrado de usuarios:
-- En la pestaña "Usuarios", filtrar la lista para mostrar solo Docentes Autónomos (`colegio_id = NULL`) y usuarios con rol `utp_head`. Los docentes institucionales (con `colegio_id`) no aparecen aquí.
-- Esto requiere cargar `colegio_id` y `role` junto con los profiles/usage.
+## Changes
 
-### 2. Mejoras en Gestión de Colegios (ColegiosManager.tsx)
+### File: `src/components/test-builder/AssessmentMetaForm.tsx`
 
-- **Buscador de colegios**: Agregar un input de búsqueda por nombre de colegio en la parte superior de la lista.
-- **Selector de vinculación**: Filtrar el dropdown para mostrar solo usuarios con `colegio_id = NULL` (Docentes Autónomos y UTPs sin colegio).
-- **RUT en listado**: Mostrar el campo `document_id` (RUT) junto al nombre/email en el selector y en la lista de miembros del colegio. Esto requiere que el campo exista en `profiles` (ver punto 3).
-- **Fix de invitaciones pendientes**: Al cargar invitaciones pendientes de un colegio, cruzar con `profiles` por email. Si el perfil ya existe, marcar la invitación como consumida automáticamente (`consumed_at = now()`).
+**Lines 29-30** — Fix the grade constants:
 
-### 3. Nuevos campos en perfil Docente
-
-**Migración SQL** - Añadir dos columnas a `profiles`:
-```sql
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS secondary_email text;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS document_id text;
+```typescript
+const SIMCE_ALLOWED_GRADES = new Set(["4ºBásico", "6ºBásico", "8ºBásico", "IIMedio"]);
+const PAES_ALLOWED_GRADES = new Set(["IIIMedio", "IVMedio"]);
 ```
 
-**Perfil.tsx** - Tab "Datos":
-- Agregar campos editables "Correo electrónico adicional" (`secondary_email`) y "RUT" (`document_id`) en la card de datos personales.
-- Usar `updateMyProfile` extendido para guardar estos campos.
-- Visible solo para docentes (no admin).
+### File: `src/components/admin/UtpTeamManager.tsx`
 
-**profiles.ts** - Extender las interfaces y queries para incluir `secondary_email` y `document_id`.
+Add a `console.log` after resolving `profile.colegioId` (around line 42) to print the colegio_id for debugging:
 
-### 4. Lógica de asignaciones
+```typescript
+console.log("[UtpTeamManager] colegio_id del usuario actual:", profile.colegioId);
+```
 
-- Las asignaciones docente-curso-asignatura ya no aparecen en el Admin Dashboard (no hay tab de asignaciones allí actualmente).
-- Confirmar que la gestión de asignaciones solo existe en:
-  - **Perfil.tsx** tab "Mis cursos" (para docentes autónomos e institucionales).
-  - **UTP panel** (Configuracion.tsx tab "equipo" via UtpTeamManager).
-- No se requieren cambios adicionales aquí; el admin ya no tiene acceso a estas tablas desde la UI.
+### File: `src/components/admin/UtpReviewCenter.tsx`
 
-### 5. Limpieza visual (UX)
+Add a similar `console.log` after resolving the profile's colegioId (around line 83):
 
-- Verificar que el nav del Admin solo muestre: Inicio, Configuración, Admin.
-- Los badges de rol ya usan colores consistentes (rojo/azul/verde) en ColegiosManager.
+```typescript
+console.log("[UtpReviewCenter] colegio_id del usuario actual:", profile.colegioId);
+```
 
-### Archivos a modificar
+### File: `src/pages/Configuracion.tsx` (or wherever config loads)
 
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/AppLayout.tsx` | Confirmar restricciones nav admin |
-| `src/pages/AdminDashboard.tsx` | Filtrar usuarios (solo autónomos + UTP) |
-| `src/pages/Configuracion.tsx` | Eliminar "Datos de Colegio" del admin |
-| `src/pages/Perfil.tsx` | Ocultar branding/plan para admin, agregar campos RUT y email secundario |
-| `src/components/admin/ColegiosManager.tsx` | Buscador, filtro vinculación, RUT, fix invitaciones |
-| `src/lib/profiles.ts` | Extender con secondary_email y document_id |
+Add a log when the user profile is loaded to confirm colegio_id is read correctly.
 
-### Cambios de base de datos
+---
 
-Una migración para agregar `secondary_email` y `document_id` a la tabla `profiles`.
+## Summary of Root Causes
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| UTP can't see docentes | No docentes have matching `colegio_id` in DB | Data issue — code is correct. Add debug logs. |
+| PAES courses empty | `PAES_ALLOWED_GRADES` has `IIIMedioA/B` instead of `IIIMedio` | Fix constant |
+| SIMCE missing II Medio | `SIMCE_ALLOWED_GRADES` has `IIMedioA/B` instead of `IIMedio` | Fix constant |

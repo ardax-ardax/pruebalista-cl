@@ -84,6 +84,7 @@ export function UtpReviewCenter() {
 
   const load = async () => {
     const profile = await getMyProfile();
+    console.log("[UtpReviewCenter] colegio_id del usuario actual:", profile?.colegioId ?? null);
     if (!profile?.colegioId) {
       setNoColegioLinked(true);
       setLoading(false);
