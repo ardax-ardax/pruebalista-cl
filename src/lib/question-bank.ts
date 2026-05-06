@@ -127,3 +127,74 @@ export async function hideFromBank(id: string, userId: string): Promise<boolean>
   }
   return true;
 }
+
+/**
+ * Toggle the is_public_institution flag on a question.
+ * Only callable by staff (UTP/Admin) for questions in their colegio.
+ */
+export async function togglePublicInstitution(questionId: string, value: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from("question_bank")
+    .update({ is_public_institution: value } as never)
+    .eq("id", questionId);
+  if (error) {
+    console.error("togglePublicInstitution", error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Search the institutional question bank (questions marked as public by UTP).
+ * Filters by the user's colegio_id. Author info is NOT returned.
+ */
+export async function searchInstitutionalBank(filters: BankFilters = {}): Promise<QuestionBankRow[]> {
+  // Get current user's colegio_id
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("colegio_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const colegioId = (profile as Record<string, unknown> | null)?.colegio_id as string | null;
+  if (!colegioId) return [];
+
+  // Get all user IDs in the same colegio
+  const { data: colegioProfiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("colegio_id", colegioId);
+
+  if (!colegioProfiles || colegioProfiles.length === 0) return [];
+  const userIds = colegioProfiles.map((p) => p.id);
+
+  let query = supabase
+    .from("question_bank")
+    .select("id, question_data, question_type, subject_value, grade_value, oa_code, difficulty, source, title, prompt_preview, content_hash, created_at")
+    .eq("is_public_institution", true)
+    .in("user_id", userIds)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (filters.question_type) query = query.eq("question_type", filters.question_type);
+  if (filters.subject_value) query = query.eq("subject_value", filters.subject_value);
+  if (filters.grade_value) query = query.eq("grade_value", filters.grade_value);
+  if (filters.oa_code) query = query.eq("oa_code", filters.oa_code);
+  if (filters.search) query = query.ilike("prompt_preview", `%${filters.search}%`);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("searchInstitutionalBank", error);
+    return [];
+  }
+
+  // Return without user_id for anonymity
+  return (data ?? []).map((r) => ({
+    ...r,
+    user_id: "",
+    question_data: r.question_data as unknown as Question,
+  })) as unknown as QuestionBankRow[];
+}
