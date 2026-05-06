@@ -215,6 +215,9 @@ const CrearPrueba = () => {
       if (editingId) {
         const found = await getAssessment(editingId);
         if (found) {
+          console.log("[CrearPrueba] Loaded from DB — gradeValue:", found.meta.gradeValue, "subjectValue:", found.meta.subjectValue, "status:", found.status);
+          loadedAssessmentIdRef.current = found.id;
+          userHasEditedRef.current = false;
           setAssessment(found);
         } else if (t.length > 0) {
           toast.error("No se encontró la prueba");
@@ -222,6 +225,7 @@ const CrearPrueba = () => {
         }
       } else if (isNew) {
         clearDraft();
+        userHasEditedRef.current = false;
         if (t.length > 0) setAssessment(emptyAssessment(t[0].id));
       } else {
         const draft = loadDraft();
