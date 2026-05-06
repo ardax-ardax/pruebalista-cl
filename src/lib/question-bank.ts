@@ -182,7 +182,8 @@ export async function searchInstitutionalBank(filters: BankFilters = {}): Promis
   if (filters.question_type) query = query.eq("question_type", filters.question_type);
   if (filters.subject_value) query = query.eq("subject_value", filters.subject_value);
   if (filters.grade_value) query = query.eq("grade_value", filters.grade_value);
-  if (filters.oa_code) query = query.eq("oa_code", filters.oa_code);
+  if (filters.oa_code) query = query.ilike("oa_code", `%${filters.oa_code}%`);
+  if (filters.difficulty) query = query.eq("difficulty", filters.difficulty);
   if (filters.search) query = query.ilike("prompt_preview", `%${filters.search}%`);
 
   const { data, error } = await query;
