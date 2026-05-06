@@ -310,6 +310,10 @@ export default function Perfil() {
                           <span className="text-muted-foreground">Colegio</span>
                           <div className="font-medium mt-0.5">{colegioName ?? "—"}</div>
                         </div>
+                        <div>
+                          <span className="text-muted-foreground">Rol</span>
+                          <div className="font-medium mt-0.5">Docente institucional</div>
+                        </div>
                       </>
                     ) : (
                       <>
