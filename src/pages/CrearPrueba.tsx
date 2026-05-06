@@ -89,7 +89,7 @@ const CrearPrueba = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Navigation guard: warn when a new test only exists as a local draft.
-  const shouldBlock = isDirty && !editingId && !initialLoadRef.current;
+  const shouldBlock = isDirty && !editingId && !loadedAssessmentIdRef.current;
 
   useEffect(() => {
     if (!shouldBlock) return;
