@@ -143,6 +143,7 @@ const CrearPrueba = () => {
   useEffect(() => {
     if (!user) { setCurrentProfile(null); return; }
     getMyProfile().then((p) => {
+      console.log("[CrearPrueba] colegio_id del usuario actual:", p?.colegioId ?? null);
       setCurrentProfile(p);
       // Si el usuario NO es staff, usar branding personalizado del perfil.
       // Si no tiene branding configurado, dejar vacío (no usar defaults institucionales).
