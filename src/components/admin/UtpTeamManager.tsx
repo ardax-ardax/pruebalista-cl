@@ -185,8 +185,11 @@ export function UtpTeamManager() {
   if (!colegioId) {
     return (
       <Card className="shadow-card">
-        <CardContent className="py-10 text-center text-muted-foreground">
-          No tienes un colegio vinculado a tu cuenta.
+        <CardContent className="py-12 text-center space-y-3">
+          <Users className="h-10 w-10 mx-auto text-muted-foreground/60" />
+          <p className="text-sm text-muted-foreground">
+            Tu cuenta aún no ha sido vinculada a un colegio. Contacta al administrador para que te asigne a uno.
+          </p>
         </CardContent>
       </Card>
     );

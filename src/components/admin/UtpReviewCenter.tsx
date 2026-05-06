@@ -80,10 +80,12 @@ export function UtpReviewCenter() {
   const [showReject, setShowReject] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<Array<{ prompt?: string; bankId?: string; isPublic: boolean }>>([]);
+  const [noColegioLinked, setNoColegioLinked] = useState(false);
 
   const load = async () => {
     const profile = await getMyProfile();
     if (!profile?.colegioId) {
+      setNoColegioLinked(true);
       setLoading(false);
       return;
     }
@@ -240,6 +242,19 @@ export function UtpReviewCenter() {
       <div className="flex items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin mr-2" /> Cargando evaluaciones…
       </div>
+    );
+  }
+
+  if (noColegioLinked) {
+    return (
+      <Card className="shadow-card">
+        <CardContent className="py-12 text-center space-y-3">
+          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/60" />
+          <p className="text-sm text-muted-foreground">
+            Tu cuenta aún no ha sido vinculada a un colegio. Contacta al administrador para que te asigne a uno.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 

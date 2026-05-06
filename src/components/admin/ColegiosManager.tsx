@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Plus, Trash2, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Building2, Plus, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +29,8 @@ export const ColegiosManager = () => {
   const { user } = useAuth();
   const [colegios, setColegios] = useState<Colegio[]>([]);
   const [members, setMembers] = useState<Map<string, ColegioMember[]>>(new Map());
+  const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null }>>([]);
+  const [selectedUserToLink, setSelectedUserToLink] = useState<string>("");
   const [newNombre, setNewNombre] = useState("");
   const [newUtpEmail, setNewUtpEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,6 +77,45 @@ export const ColegiosManager = () => {
       memberMap.set(p.colegio_id, arr);
     }
     setMembers(memberMap);
+
+    // Load unlinked users (no colegio_id)
+    const { data: unlinked } = await supabase
+      .from("profiles")
+      .select("id, email, display_name")
+      .is("colegio_id", null);
+    setUnlinkedUsers(unlinked ?? []);
+  };
+
+  const handleLinkUser = async (userId: string, colegioId: string) => {
+    setBusy(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ colegio_id: colegioId })
+      .eq("id", userId);
+    setBusy(false);
+    if (error) {
+      toast.error("Error al vincular: " + error.message);
+      return;
+    }
+    toast.success("Usuario vinculado al colegio.");
+    setSelectedUserToLink("");
+    await refresh();
+  };
+
+  const handleUnlinkUser = async (userId: string, displayLabel: string) => {
+    if (!confirm(`¿Desvincular a "${displayLabel}" de este colegio?`)) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ colegio_id: null })
+      .eq("id", userId);
+    setBusy(false);
+    if (error) {
+      toast.error("Error al desvincular: " + error.message);
+      return;
+    }
+    toast.success("Usuario desvinculado del colegio.");
+    await refresh();
   };
 
   useEffect(() => {
@@ -236,20 +278,63 @@ export const ColegiosManager = () => {
                     </div>
 
                     {isExpanded && (
-                      <div className="mt-2 pl-2 space-y-1">
+                      <div className="mt-3 pl-2 space-y-3">
+                        {/* Existing members */}
                         {mems.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Sin miembros aún.</p>
                         ) : (
-                          mems.map((m) => (
-                            <div key={m.id} className="flex items-center gap-2 text-xs">
-                              <span className="truncate max-w-[200px]">
-                                {m.display_name || m.email || m.id.slice(0, 8)}
-                              </span>
-                              <Badge variant="secondary" className="text-[10px]">
-                                {ROLE_LABELS[m.role] ?? m.role}
-                              </Badge>
+                          <div className="space-y-1">
+                            {mems.map((m) => (
+                              <div key={m.id} className="flex items-center gap-2 text-xs">
+                                <span className="truncate max-w-[200px]">
+                                  {m.display_name || m.email || m.id.slice(0, 8)}
+                                </span>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {ROLE_LABELS[m.role] ?? m.role}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive/80 ml-auto"
+                                  onClick={() => handleUnlinkUser(m.id, m.display_name || m.email || m.id.slice(0, 8))}
+                                  disabled={busy}
+                                  title="Desvincular del colegio"
+                                >
+                                  <UserMinus className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Link new user */}
+                        {unlinkedUsers.length > 0 && (
+                          <div className="flex items-end gap-2 pt-2 border-t border-border">
+                            <div className="flex-1">
+                              <Label className="text-[10px] text-muted-foreground">Vincular usuario existente</Label>
+                              <Select value={selectedUserToLink} onValueChange={setSelectedUserToLink}>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Seleccionar usuario…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {unlinkedUsers.map((u) => (
+                                    <SelectItem key={u.id} value={u.id} className="text-xs">
+                                      {u.display_name || u.email || u.id.slice(0, 8)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
-                          ))
+                            <Button
+                              size="sm"
+                              className="h-8 gap-1 text-xs"
+                              disabled={!selectedUserToLink || busy}
+                              onClick={() => handleLinkUser(selectedUserToLink, c.id)}
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                              Vincular
+                            </Button>
+                          </div>
                         )}
                       </div>
                     )}
