@@ -285,7 +285,7 @@ export const AssessmentMetaForm = ({
           <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
             <Lock className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
-              Contacta al administrador para que se te asignen cursos. Mientras tanto no podrás
+              Pide a tu UTP que te asigne cursos y asignaturas. Mientras tanto no podrás
               crear pruebas porque no tienes cursos ni asignaturas asociadas.
             </span>
           </div>
