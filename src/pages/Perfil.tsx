@@ -77,6 +77,8 @@ export default function Perfil() {
         setProfile(p);
         setInstitutionName(p.customInstitutionName ?? "");
         setLogoUrl(p.customLogoUrl);
+        setSecondaryEmail(p.secondaryEmail ?? "");
+        setDocumentId(p.documentId ?? "");
         // Load colegio name if linked
         if (user) {
           const { data: prof } = await supabase
