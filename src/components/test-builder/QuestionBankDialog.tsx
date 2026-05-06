@@ -47,7 +47,15 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
   const load = async () => {
     setLoading(true);
     const f: BankFilters = { ...filters };
-    if (searchText.trim()) f.search = searchText.trim();
+    if (searchText.trim()) {
+      const txt = searchText.trim();
+      // If search looks like an OA code (e.g. "OA 05", "OA05"), set oa_code filter
+      if (/^oa\s*\d+$/i.test(txt)) {
+        f.oa_code = txt.replace(/\s+/g, " ").toUpperCase();
+      } else {
+        f.search = txt;
+      }
+    }
     const data = tab === "institution"
       ? await searchInstitutionalBank(f)
       : await searchBank(f);
