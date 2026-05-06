@@ -269,10 +269,16 @@ const CrearPrueba = () => {
 
   // Autosave: si editamos una prueba guardada, actualizamos en la nube.
   // Si es una nueva, guardamos como borrador local.
+  // IMPORTANT: Skip the very first render (initial load) to avoid overwriting
+  // the loaded assessment with partial/incomplete state.
   useEffect(() => {
     if (!assessment || readOnly) return;
-    const isInitial = initialLoadRef.current;
-    if (!isInitial) setIsDirty(true);
+    if (initialLoadRef.current) {
+      // Mark initial load as done but do NOT trigger save
+      initialLoadRef.current = false;
+      return;
+    }
+    setIsDirty(true);
     if (editingId) {
       setSaveStatus("saving");
       clearTimeout(saveTimerRef.current);
@@ -290,11 +296,10 @@ const CrearPrueba = () => {
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
-      setIsDirty(!isInitial);
+      setIsDirty(true);
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
-    initialLoadRef.current = false;
     return () => clearTimeout(saveTimerRef.current);
   }, [assessment, editingId, readOnly]);
 
