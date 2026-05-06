@@ -541,6 +541,7 @@ export default function Perfil() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
       </div>
     </AppLayout>
