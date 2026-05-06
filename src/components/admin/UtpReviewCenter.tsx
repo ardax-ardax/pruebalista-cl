@@ -245,6 +245,19 @@ export function UtpReviewCenter() {
     );
   }
 
+  if (noColegioLinked) {
+    return (
+      <Card className="shadow-card">
+        <CardContent className="py-12 text-center space-y-3">
+          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/60" />
+          <p className="text-sm text-muted-foreground">
+            Tu cuenta aún no ha sido vinculada a un colegio. Contacta al administrador para que te asigne a uno.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const renderStatusBadge = (status: string) => {
     const cfg = STATUS_CONFIG[status];
     if (!cfg) return <Badge variant="outline">{status}</Badge>;
