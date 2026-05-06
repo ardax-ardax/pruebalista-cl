@@ -1,53 +1,55 @@
 
-# Plan: Gestión Curricular Mejorada para Admin
+# Plan: Banco de Preguntas Institucional
 
-## Contexto
+## Resumen
 
-El proyecto ya cuenta con:
-- Tabla `curriculum_base` con upsert por `(grade_value, subject_value, oa_code)` — ya cumple la función de `learning_objectives`.
-- `CurriculumManager` con formulario manual y carga CSV.
-- RLS configurado: staff puede escribir, autenticados pueden leer.
-- Pestaña "curriculum" visible solo para admin en `/configuracion`.
+Implementar un banco de preguntas institucional donde la UTP puede destacar preguntas para compartirlas (anónimamente) con docentes del mismo colegio. Las preguntas importadas del banco institucional son de solo lectura.
 
-No se necesita crear una nueva tabla `learning_objectives` ya que `curriculum_base` tiene exactamente la misma estructura y lógica de upsert solicitada.
+## Cambios
 
-## Cambios propuestos
+### 1. Migración de Base de Datos
 
-### 1. Soporte Excel (.xlsx) en el importador
+Agregar columna `is_public_institution` (boolean, default false) a `question_bank`. Crear índice parcial para queries eficientes. Agregar política RLS para que staff pueda actualizar el flag en preguntas de su colegio.
 
-Modificar `CsvOaImporter.tsx` para aceptar archivos `.xlsx` además de `.csv`:
-- Agregar la librería `xlsx` (SheetJS) para parsear archivos Excel.
-- Detectar el tipo de archivo por extensión y procesar con el parser adecuado.
-- Renombrar el componente a algo más genérico (ej: "Importar OAs").
+### 2. Schema (`src/lib/assessment-schema.ts`)
 
-### 2. Vista global con buscador y paginación
+Agregar campo opcional `readOnly?: boolean` a la interfaz `Question` para marcar preguntas importadas del banco institucional.
 
-Reescribir `CurriculumManager.tsx` para incluir:
-- **Vista global**: mostrar todos los OAs sin requerir seleccionar grado+asignatura primero (los filtros serán opcionales).
-- **Buscador de texto**: filtrar por código, descripción o eje.
-- **Filtros por Grado y Asignatura**: mantener los selectores actuales pero como filtros opcionales.
-- **Paginación**: mostrar 20 OAs por página con controles de navegación.
-- **Contador**: mostrar total de resultados filtrados.
+### 3. Funciones de Banco (`src/lib/question-bank.ts`)
 
-### 3. Mantener funcionalidad existente
+- Agregar función `searchInstitutionalBank(filters)` que consulta preguntas con `is_public_institution = true` del mismo colegio del usuario actual (via join con profiles), excluyendo `user_id` del resultado.
+- Agregar función `togglePublicInstitution(questionId, value)` para que UTP active/desactive el flag.
 
-- El formulario manual de creación/edición de OA permanece sin cambios.
-- La lógica de upsert en `curriculum-overrides.ts` ya funciona correctamente.
-- Los botones de editar/eliminar por OA se mantienen.
+### 4. UTP Review Center (`src/components/admin/UtpReviewCenter.tsx`)
 
-### 4. Seguridad (sin cambios necesarios)
+En el diálogo de revisión, cuando la evaluación está aprobada, mostrar las preguntas individuales con un switch "Destacar en Banco Institucional" junto a cada una. Al activar/desactivar el switch, llamar `togglePublicInstitution`.
 
-Las políticas RLS de `curriculum_base` ya están correctamente configuradas:
-- SELECT: todos los autenticados
-- INSERT/UPDATE/DELETE: solo staff (admin + utp_head)
+### 5. Question Bank Dialog (`src/components/test-builder/QuestionBankDialog.tsx`)
 
-No se requieren migraciones de base de datos.
+Agregar tabs "Mis Preguntas" y "Banco del Colegio":
+- **Mis Preguntas**: funcionalidad actual sin cambios.
+- **Banco del Colegio**: llama a `searchInstitutionalBank`, oculta autor, filtra por grado y OA. Al importar, marca las preguntas con `readOnly: true`.
+
+### 6. QuestionEditor (`src/components/test-builder/QuestionEditor.tsx`)
+
+Si `question.readOnly === true`:
+- Ocultar botones de Editar, Duplicar, mover arriba/abajo.
+- Mostrar solo el botón Eliminar (de la prueba actual).
+- Renderizar el contenido en modo vista (campos deshabilitados o solo texto).
+
+### 7. Seguridad
+
+- La query institucional filtra por `colegio_id` del usuario via join con profiles, garantizando aislamiento entre colegios.
+- El campo `user_id` no se expone en la UI del banco institucional (anonimato).
+- Solo staff puede modificar `is_public_institution` (política RLS).
 
 ## Detalle técnico
 
 | Archivo | Cambio |
 |---------|--------|
-| `package.json` | Agregar dependencia `xlsx` |
-| `src/components/admin/CsvOaImporter.tsx` | Aceptar `.xlsx`, parsear con SheetJS |
-| `src/components/admin/CurriculumManager.tsx` | Agregar buscador, paginación, vista global sin requerir filtros previos |
-| `src/lib/curriculum-overrides.ts` | Aumentar límite de query de 5000 si es necesario para paginación |
+| `supabase/migrations/...` | ALTER TABLE + índice + RLS policy |
+| `src/lib/assessment-schema.ts` | `readOnly?: boolean` en Question |
+| `src/lib/question-bank.ts` | `searchInstitutionalBank()`, `togglePublicInstitution()` |
+| `src/components/admin/UtpReviewCenter.tsx` | Switch por pregunta en diálogo de revisión |
+| `src/components/test-builder/QuestionBankDialog.tsx` | Tab "Banco del Colegio" |
+| `src/components/test-builder/QuestionEditor.tsx` | Modo readOnly |
