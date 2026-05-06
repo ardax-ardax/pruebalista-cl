@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import {
   AlertTriangle,
+  Building2,
   CheckCircle2,
   Clock,
   Eye,
@@ -33,6 +36,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile } from "@/lib/profiles";
+import { togglePublicInstitution } from "@/lib/question-bank";
+import type { Question } from "@/lib/assessment-schema";
 
 interface AssessmentRow {
   id: string;
@@ -43,6 +48,7 @@ interface AssessmentRow {
   utpFeedback: string | null;
   docenteName: string;
   docenteEmail: string;
+  userId: string;
   data: Record<string, unknown> | null;
 }
 
@@ -73,6 +79,7 @@ export function UtpReviewCenter() {
   const [feedbackText, setFeedbackText] = useState("");
   const [showReject, setShowReject] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedQuestions, setSelectedQuestions] = useState<Array<{ prompt?: string; bankId?: string; isPublic: boolean }>>([]);
 
   const load = async () => {
     const profile = await getMyProfile();
@@ -125,6 +132,7 @@ export function UtpReviewCenter() {
         utpFeedback: r.utp_feedback,
         docenteName: p?.name ?? "Desconocido",
         docenteEmail: p?.email ?? "",
+        userId: r.user_id,
         data: r.data as Record<string, unknown> | null,
       };
     };
@@ -177,10 +185,40 @@ export function UtpReviewCenter() {
     load();
   };
 
-  const openReview = (a: AssessmentRow) => {
+  const openReview = async (a: AssessmentRow) => {
     setSelected(a);
     setShowReject(false);
     setFeedbackText("");
+    setSelectedQuestions([]);
+
+    // Load questions from assessment data and match with bank entries
+    if (a.status === "aprobado" && a.data) {
+      const questions = (a.data as Record<string, unknown>).questions as Question[] | undefined;
+      if (questions && questions.length > 0) {
+        const evaluable = questions.filter((q) => q.type !== "info-block" && q.type !== "section-title");
+        // Try to find matching bank entries for this user's questions
+        const { data: bankRows } = await supabase
+          .from("question_bank")
+          .select("id, prompt_preview, is_public_institution")
+          .eq("user_id", a.userId)
+          .limit(500);
+
+        // Match by prompt preview
+        const bankMap = new Map((bankRows ?? []).map((r) => [(r.prompt_preview ?? "").slice(0, 60), r]));
+
+        setSelectedQuestions(
+          evaluable.map((q) => {
+            const preview = (q.prompt || "").slice(0, 60);
+            const match = bankMap.get(preview);
+            return {
+              prompt: q.prompt,
+              bankId: match?.id,
+              isPublic: match ? (match as Record<string, unknown>).is_public_institution === true : false,
+            };
+          })
+        );
+      }
+    }
   };
 
   const formatDate = (ts: string) =>
@@ -338,6 +376,42 @@ export function UtpReviewCenter() {
               <span className="text-sm text-muted-foreground">Estado actual:</span>
               {selected && renderStatusBadge(selected.status)}
             </div>
+
+            {/* Questions with institutional highlight switch */}
+            {selected?.status === "aprobado" && selectedQuestions.length > 0 && (
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Destacar en Banco Institucional</span>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {selectedQuestions.map((q, i) => (
+                    <div key={q.bankId || i} className="flex items-center justify-between gap-2 rounded bg-muted/30 px-2 py-1.5">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-medium mr-1.5">P{i + 1}.</span>
+                        <span className="text-xs text-muted-foreground truncate">{q.prompt?.slice(0, 80) || "(sin enunciado)"}</span>
+                      </div>
+                      {q.bankId && (
+                        <Switch
+                          checked={q.isPublic}
+                          onCheckedChange={async (checked) => {
+                            const ok = await togglePublicInstitution(q.bankId!, checked);
+                            if (ok) {
+                              setSelectedQuestions((prev) =>
+                                prev.map((sq) => sq.bankId === q.bankId ? { ...sq, isPublic: checked } : sq)
+                              );
+                              toast.success(checked ? "Pregunta destacada" : "Pregunta removida del banco");
+                            } else {
+                              toast.error("Error al actualizar");
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Previous feedback */}
             {selected?.utpFeedback && (

@@ -516,6 +516,7 @@ export type Database = {
           grade_value: string | null
           hidden_by_users: string[]
           id: string
+          is_public_institution: boolean
           oa_code: string | null
           prompt_preview: string | null
           question_data: Json
@@ -532,6 +533,7 @@ export type Database = {
           grade_value?: string | null
           hidden_by_users?: string[]
           id?: string
+          is_public_institution?: boolean
           oa_code?: string | null
           prompt_preview?: string | null
           question_data: Json
@@ -548,6 +550,7 @@ export type Database = {
           grade_value?: string | null
           hidden_by_users?: string[]
           id?: string
+          is_public_institution?: boolean
           oa_code?: string | null
           prompt_preview?: string | null
           question_data?: Json

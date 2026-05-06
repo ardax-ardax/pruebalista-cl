@@ -65,6 +65,7 @@ export interface Question {
   rubric?: string;                  // explicación / criterio para corregir
   sourceOA?: string;                // OA con el que se generó esta pregunta
   sourceIndicators?: string[];      // códigos de indicadores usados
+  readOnly?: boolean;               // pregunta del banco institucional — no editable
 }
 
 // Optimización de Diseño y Papel: overrides opcionales por prueba.
