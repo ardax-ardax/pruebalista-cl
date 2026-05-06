@@ -169,14 +169,22 @@ export const AssessmentMetaForm = ({
   const availableSubjects = useMemo(() => {
     if (!meta.gradeValue) return [];
     const byLevel = getSubjectsForGrade(meta.gradeValue, subjects, grades);
-    if (!isRestricted) return byLevel;
-    const allowedForGrade = new Set(
-      restrictedAssignments!
-        .filter((a) => a.grade_value === meta.gradeValue)
-        .map((a) => a.subject_value),
-    );
-    return byLevel.filter((s) => allowedForGrade.has(s.value));
-  }, [meta.gradeValue, subjects, grades, isRestricted, restrictedAssignments]);
+    let filtered = byLevel;
+    if (isRestricted) {
+      const allowedForGrade = new Set(
+        restrictedAssignments!
+          .filter((a) => a.grade_value === meta.gradeValue)
+          .map((a) => a.subject_value),
+      );
+      filtered = byLevel.filter((s) => allowedForGrade.has(s.value));
+    }
+    // Preserve current subject even if not in filtered list (e.g. editing a rejected assessment)
+    if (meta.subjectValue && !filtered.some((s) => s.value === meta.subjectValue)) {
+      const existing = byLevel.find((s) => s.value === meta.subjectValue) ?? subjects.find((s) => s.value === meta.subjectValue);
+      if (existing) filtered = [...filtered, existing];
+    }
+    return filtered;
+  }, [meta.gradeValue, meta.subjectValue, subjects, grades, isRestricted, restrictedAssignments]);
 
   const setGrade = (v: string) => {
     const subjectsForNew = isRestricted
