@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import {
   AlertTriangle,
+  Building2,
   CheckCircle2,
   Clock,
   Eye,
@@ -33,6 +36,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile } from "@/lib/profiles";
+import { togglePublicInstitution } from "@/lib/question-bank";
+import type { Question } from "@/lib/assessment-schema";
 
 interface AssessmentRow {
   id: string;
