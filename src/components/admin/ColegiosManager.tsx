@@ -50,7 +50,8 @@ export const ColegiosManager = () => {
   const [colegios, setColegios] = useState<Colegio[]>([]);
   const [members, setMembers] = useState<Map<string, ColegioMember[]>>(new Map());
   const [pendingInvitations, setPendingInvitations] = useState<Map<string, PendingInv[]>>(new Map());
-  const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null }>>([]);
+  const [unlinkedUsers, setUnlinkedUsers] = useState<Array<{ id: string; email: string | null; display_name: string | null; document_id: string | null }>>([]);
+  const [colegioSearch, setColegioSearch] = useState("");
   const [selectedUserToLink, setSelectedUserToLink] = useState<string>("");
   const [newNombre, setNewNombre] = useState("");
   const [newUtpEmail, setNewUtpEmail] = useState("");
