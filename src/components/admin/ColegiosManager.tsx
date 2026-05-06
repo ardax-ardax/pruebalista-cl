@@ -298,14 +298,26 @@ export const ColegiosManager = () => {
             <Badge variant="secondary" className="text-[10px]">{colegios.length}</Badge>
           </div>
 
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar colegio por nombre..."
+              value={colegioSearch}
+              onChange={(e) => setColegioSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+
           {colegios.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6">
               No hay colegios creados aún.
             </p>
           ) : (
             <div className="rounded-md border border-border divide-y">
-              {colegios.map((c) => {
+              {colegios.filter((c) => !colegioSearch.trim() || c.nombre.toLowerCase().includes(colegioSearch.toLowerCase())).map((c) => {
                 const mems = members.get(c.id) ?? [];
+                const invs = pendingInvitations.get(c.id) ?? [];
                 const invs = pendingInvitations.get(c.id) ?? [];
                 const isExpanded = expandedId === c.id;
                 return (
