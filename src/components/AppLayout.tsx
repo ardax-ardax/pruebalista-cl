@@ -67,9 +67,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </NavLink>
           <nav className="flex items-center gap-1">
             <NavItem to="/" label="Inicio" icon={Home} />
-            <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} />
-            <NavItem to="/banco-preguntas" label="Banco" icon={Library} />
-            <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />
+            {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} />}
+            {!isAdminOnly && <NavItem to="/banco-preguntas" label="Banco" icon={Library} />}
+            {!isAdminOnly && <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />}
             {isUtpHead && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
             {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
