@@ -749,7 +749,6 @@ const CrearPrueba = () => {
             ) : (
               <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
                 <AssessmentMetaForm
-                  key={gradesLoading ? "loading" : "ready"}
                   meta={assessment.meta}
                   onChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                   templates={templates}
@@ -760,7 +759,7 @@ const CrearPrueba = () => {
                   canChooseTeacher={canChooseTeacher}
                   lockedTeacherLabel={lockedTeacherLabel}
                   allowSelfAssignment={appSettings.allow_self_assignment}
-                  readOnlyExceptOA={!isStaff && !!editingId && !readOnly}
+                  readOnlyExceptOA={!isStaff && !!editingId && !readOnly && !!(assessment?.meta.gradeValue && assessment?.meta.subjectValue)}
                 />
               </div>
             )}
