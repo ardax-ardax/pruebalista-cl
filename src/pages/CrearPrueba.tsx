@@ -79,6 +79,9 @@ const CrearPrueba = () => {
   const userHasEditedRef = useRef(false);
   // Tracks which assessment ID was last loaded from DB to avoid re-saving on load.
   const loadedAssessmentIdRef = useRef<string | null>(null);
+  // Preserva valores originales de curso/asignatura cargados desde DB
+  // para evitar que el autosave los sobrescriba con valores vacíos durante re-mount.
+  const originalMetaRef = useRef<{ gradeValue: string; subjectValue: string } | null>(null);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
