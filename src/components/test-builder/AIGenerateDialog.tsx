@@ -27,13 +27,14 @@ interface Props {
   onCreditsUsed?: () => void;
   defaultMcOptions?: number;
   defaultTfStatements?: number;
+  isInstitutional?: boolean;
 }
 
 type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
 
 export const AIGenerateDialog = ({
   open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, essayMode, onGenerated,
-  creditsAvailable, onCreditsUsed, defaultMcOptions = 4, defaultTfStatements = 3,
+  creditsAvailable, onCreditsUsed, defaultMcOptions = 4, defaultTfStatements = 3, isInstitutional,
 }: Props) => {
   const [oaCode, setOaCode] = useState<string>(linkedOA[0] ?? "");
   const [type, setType] = useState<SupportedType>("multiple-choice");
@@ -118,7 +119,7 @@ export const AIGenerateDialog = ({
         {creditsAvailable !== undefined && (
           <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${noCredits ? "border-destructive bg-destructive/10 text-destructive" : "border-border bg-muted/50 text-muted-foreground"}`}>
             <Coins className="h-4 w-4" />
-            <span>Créditos disponibles: <strong>{creditsAvailable}</strong></span>
+            <span>{isInstitutional ? "Créditos institucionales disponibles" : "Créditos disponibles"}: <strong>{creditsAvailable}</strong></span>
             {noCredits && <span className="ml-auto text-xs">Necesitas créditos para generar preguntas</span>}
           </div>
         )}

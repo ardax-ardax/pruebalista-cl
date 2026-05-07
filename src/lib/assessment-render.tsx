@@ -241,7 +241,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           <td class="pa-info-cell">
             <div class="pa-inst-name">${escape(institutionName)}</div>
             <div class="pa-row"><span><strong>Profesor/a:</strong> ${escape(teacherLabel || "")}</span></div>
-            <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
+            <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span>${meta.semester ? `<span><strong>Semestre:</strong> ${escape(meta.semester === "anual" ? "Anual" : meta.semester + "°")}</span>` : ""}</div>
             ${oaLine}
             ${meta.date ? `<div class="pa-row"><span><strong>Fecha:</strong> ${escape(meta.date)}</span></div>` : ""}
           </td>

@@ -170,8 +170,15 @@ const CrearPrueba = () => {
             .eq("id", p.colegioId)
             .maybeSingle();
           if (col) {
-            setInstitutionName((col as { nombre: string }).nombre ?? "");
-            setLogo((col as { logo_url: string | null }).logo_url ?? null);
+            const colTyped = col as { nombre: string; logo_url: string | null };
+            setInstitutionName(colTyped.nombre ?? "");
+            let resolvedLogo = colTyped.logo_url ?? null;
+            // Si logo_url es un path relativo de storage, construir URL pública
+            if (resolvedLogo && !resolvedLogo.startsWith("http")) {
+              const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(resolvedLogo);
+              resolvedLogo = urlData?.publicUrl ?? resolvedLogo;
+            }
+            setLogo(resolvedLogo);
           }
         } else {
           // Docente autónomo: branding personalizado del perfil
@@ -446,7 +453,7 @@ const CrearPrueba = () => {
   };
 
   const handleSave = async () => {
-    const err = validate();
+    const err = validateMeta();
     if (err) { toast.error(err); return; }
     // Límite de pruebas según plan (solo al crear nueva, no al editar)
     if (!editingId && maxAssessments !== null) {
@@ -512,7 +519,8 @@ const CrearPrueba = () => {
     }
   };
 
-  const validate = (): string | null => {
+  /** Validates only metadata fields (curso, asignatura, docente, título). */
+  const validateMeta = (): string | null => {
     if (!assessment.meta.subjectValue) return "Selecciona la asignatura";
     if (!assessment.meta.gradeValue) return "Selecciona el curso";
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
@@ -536,6 +544,13 @@ const CrearPrueba = () => {
         return "Debes seleccionar un Eje Temático para guardar el ensayo PAES";
       }
     }
+    return null;
+  };
+
+  /** Full validation: metadata + at least one question. */
+  const validate = (): string | null => {
+    const metaErr = validateMeta();
+    if (metaErr) return metaErr;
     const counted = assessment.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block");
     if (counted.length === 0) return "Agrega al menos una pregunta";
     return null;
@@ -721,21 +736,26 @@ const CrearPrueba = () => {
 
         {(() => {
           const metaComplete = !!(assessment?.meta.gradeValue && assessment?.meta.subjectValue && assessment?.meta.title?.trim());
+          const contentUnlocked = metaComplete && !!editingId;
           return (
             <Tabs value={tab} onValueChange={(v) => {
-              if (!metaComplete && v !== "meta") {
-                toast.error("Completa los datos generales primero (curso, asignatura y título).");
+              if (v !== "meta" && !contentUnlocked) {
+                if (!metaComplete) {
+                  toast.error("Completa los datos generales primero (curso, asignatura y título).");
+                } else {
+                  toast.error("Guarda los datos generales primero antes de agregar contenido.");
+                }
                 return;
               }
               setTab(v as typeof tab);
             }}>
               <TabsList>
                 <TabsTrigger value="meta"><Pencil className="h-4 w-4 mr-1" /> Datos</TabsTrigger>
-                <TabsTrigger value="content" disabled={!metaComplete} title={!metaComplete ? "Completa curso, asignatura y título primero" : undefined}>
+                <TabsTrigger value="content" disabled={!contentUnlocked} title={!contentUnlocked ? (metaComplete ? "Guarda los datos generales primero" : "Completa curso, asignatura y título primero") : undefined}>
                   <FileText className="h-4 w-4 mr-1" /> {isDesktop ? "Contenido + Preview" : "Contenido"}
                 </TabsTrigger>
                 {!isDesktop && (
-                  <TabsTrigger value="preview" disabled={!metaComplete} title={!metaComplete ? "Completa curso, asignatura y título primero" : undefined}>
+                  <TabsTrigger value="preview" disabled={!contentUnlocked} title={!contentUnlocked ? "Guarda los datos generales primero" : undefined}>
                     <Eye className="h-4 w-4 mr-1" /> Vista previa
                   </TabsTrigger>
                 )}
@@ -776,6 +796,7 @@ const CrearPrueba = () => {
                     subjectLabel={renderCtx.subjectLabel}
                     creditsAvailable={creditsAvailable}
                     onCreditsUsed={refreshUsage}
+                    isInstitutional={!!currentProfile?.colegioId}
                   />
                 </div>
                 <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
@@ -801,6 +822,7 @@ const CrearPrueba = () => {
                   subjectLabel={renderCtx.subjectLabel}
                   creditsAvailable={creditsAvailable}
                   onCreditsUsed={refreshUsage}
+                  isInstitutional={!!currentProfile?.colegioId}
                 />
               </div>
             )}

@@ -28,6 +28,7 @@ interface Props {
   subjectLabel: string;
   creditsAvailable?: number;
   onCreditsUsed?: () => void;
+  isInstitutional?: boolean;
 }
 
 const ADDABLE: { type: QuestionType; label: string; icon: typeof Plus }[] = [
@@ -84,7 +85,7 @@ const SortableQuestionItem = (props: {
   );
 };
 
-export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel, creditsAvailable, onCreditsUsed }: Props) => {
+export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel, creditsAvailable, onCreditsUsed, isInstitutional }: Props) => {
   const mcOpts = meta.defaultMcOptions ?? 4;
   const tfStmts = meta.defaultTfStatements ?? 3;
 
@@ -274,6 +275,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         onCreditsUsed={onCreditsUsed}
         defaultMcOptions={mcOpts}
         defaultTfStatements={tfStmts}
+        isInstitutional={isInstitutional}
       />
 
       <QuestionBankDialog
