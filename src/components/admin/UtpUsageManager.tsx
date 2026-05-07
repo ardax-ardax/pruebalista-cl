@@ -18,7 +18,7 @@ import { BarChart3, Download, RefreshCw, Sparkles, SlidersHorizontal, PlusCircle
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 
 interface UsageRow {
   user_id: string;
