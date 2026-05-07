@@ -83,7 +83,8 @@ const CrearPrueba = () => {
   // para evitar que el autosave los sobrescriba con valores vacíos durante re-mount.
   const originalMetaRef = useRef<{ gradeValue: string; subjectValue: string } | null>(null);
 
-  const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
+  const { user, isStaff, isAdmin, isUtpHead, loading: authLoading } = useAuth();
+  const isAdminOnly = isAdmin && !isUtpHead;
   const isDocente = !!user && !isStaff;
   const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseAnswerKey, allowedTemplates, planLabel } = useUserUsage();
   const navigate = useNavigate();
