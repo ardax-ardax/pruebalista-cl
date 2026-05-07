@@ -34,7 +34,7 @@ type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "s
 
 export const AIGenerateDialog = ({
   open, onOpenChange, linkedOA, gradeValue, gradeLabel, subjectValue, subjectLabel, essayMode, onGenerated,
-  creditsAvailable, onCreditsUsed, defaultMcOptions = 4, defaultTfStatements = 3,
+  creditsAvailable, onCreditsUsed, defaultMcOptions = 4, defaultTfStatements = 3, isInstitutional,
 }: Props) => {
   const [oaCode, setOaCode] = useState<string>(linkedOA[0] ?? "");
   const [type, setType] = useState<SupportedType>("multiple-choice");
