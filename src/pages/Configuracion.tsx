@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Building2, BookOpen, ClipboardCheck, Copy, LayoutTemplate, Plus, Save, Shield, Trash2, Upload, Users, X, BarChart3 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { getMyProfile } from "@/lib/profiles";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
@@ -77,6 +79,31 @@ const Configuracion = () => {
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [savingSetting, setSavingSetting] = useState(false);
+  const [utpColegioNombre, setUtpColegioNombre] = useState<string | null>(null);
+  const [utpColegioLogo, setUtpColegioLogo] = useState<string | null>(null);
+
+  // UTP: load colegio branding (readonly)
+  useEffect(() => {
+    if (!isUtpHead || isAdmin) return;
+    getMyProfile().then(async (p) => {
+      if (!p?.colegioId) return;
+      const { data: col } = await supabase
+        .from("colegios")
+        .select("nombre, logo_url")
+        .eq("id", p.colegioId)
+        .maybeSingle();
+      if (col) {
+        const c = col as { nombre: string; logo_url: string | null };
+        setUtpColegioNombre(c.nombre ?? null);
+        let resolvedLogo = c.logo_url ?? null;
+        if (resolvedLogo && !resolvedLogo.startsWith("http") && !resolvedLogo.startsWith("data:")) {
+          const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(resolvedLogo);
+          resolvedLogo = urlData?.publicUrl ?? resolvedLogo;
+        }
+        setUtpColegioLogo(resolvedLogo);
+      }
+    });
+  }, [isUtpHead, isAdmin]);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -417,6 +444,37 @@ const Configuracion = () => {
           </TabsContent>
 
           <TabsContent value="politicas" className="space-y-6">
+            {/* Branding del colegio (solo lectura para UTP) */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Datos del colegio
+                </CardTitle>
+                <CardDescription>El branding del colegio es gestionado por el Administrador.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label>Logo del colegio</Label>
+                    <div className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 overflow-hidden">
+                      {utpColegioLogo ? (
+                        <img src={utpColegioLogo} alt="Logo del colegio" className="max-h-full max-w-full object-contain" />
+                      ) : (
+                        <Building2 className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Solo el Administrador puede cambiar el logo.</p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>Nombre del colegio</Label>
+                    <p className="text-sm font-medium">{utpColegioNombre ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground">Solo el Administrador puede cambiar el nombre.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="shadow-card border-primary/40">
               <CardHeader>
                 <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>

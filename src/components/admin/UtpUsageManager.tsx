@@ -17,7 +17,8 @@ import {
 import { BarChart3, Download, RefreshCw, Sparkles, SlidersHorizontal, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
+import { useAuth } from "@/hooks/useAuth";
+import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 
 interface UsageRow {
   user_id: string;
@@ -44,6 +45,7 @@ interface ModalState {
 }
 
 export const UtpUsageManager = () => {
+  const { isAdmin } = useAuth();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -53,6 +55,10 @@ export const UtpUsageManager = () => {
   const refresh = async () => {
     setLoading(true);
     try {
+      // Get current user's colegio_id for UTP isolation
+      const myProfile = await getMyProfile();
+      const myColegioId = myProfile?.colegioId ?? null;
+
       const [profilesRes, usageRes, assessmentsRes, aiLogRes] = await Promise.all([
         listProfiles(),
         supabase.from("user_usage").select("user_id, credits_available, plan_type, monthly_quota"),
@@ -60,7 +66,11 @@ export const UtpUsageManager = () => {
         supabase.from("ai_generation_log").select("user_id"),
       ]);
 
-      const profiles = profilesRes.profiles;
+      // UTP (non-admin): filter profiles to same colegio only
+      let profiles = profilesRes.profiles;
+      if (!isAdmin && myColegioId) {
+        profiles = profiles.filter((p) => p.colegioId === myColegioId);
+      }
       const usageData = (usageRes.data ?? []) as UsageRow[];
       const assessments = assessmentsRes.data ?? [];
       const aiLogs = aiLogRes.data ?? [];

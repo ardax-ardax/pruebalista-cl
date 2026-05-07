@@ -83,7 +83,8 @@ const CrearPrueba = () => {
   // para evitar que el autosave los sobrescriba con valores vacíos durante re-mount.
   const originalMetaRef = useRef<{ gradeValue: string; subjectValue: string } | null>(null);
 
-  const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
+  const { user, isStaff, isAdmin, isUtpHead, loading: authLoading } = useAuth();
+  const isAdminOnly = isAdmin && !isUtpHead;
   const isDocente = !!user && !isStaff;
   const { effectivePlan, creditsAvailable, refresh: refreshUsage, maxAssessments, maxAssignments, canExportDocx, showWatermark, canEditLayout, canUseOmr, canUseAnswerKey, allowedTemplates, planLabel } = useUserUsage();
   const navigate = useNavigate();
@@ -96,6 +97,14 @@ const CrearPrueba = () => {
     userHasEditedRef.current = true;
     setAssessment(updater);
   }, []);
+
+  // Guard: Admin puro no puede crear pruebas
+  useEffect(() => {
+    if (!authLoading && isAdminOnly) {
+      toast.error("El perfil Admin es solo de gestión. No puede crear pruebas.");
+      navigate("/admin/dashboard", { replace: true });
+    }
+  }, [authLoading, isAdminOnly, navigate]);
 
   // Navigation guard: warn when a new test only exists as a local draft.
   const shouldBlock = isDirty && !editingId && !loadedAssessmentIdRef.current;
@@ -174,7 +183,7 @@ const CrearPrueba = () => {
             setInstitutionName(colTyped.nombre ?? "");
             let resolvedLogo = colTyped.logo_url ?? null;
             // Si logo_url es un path relativo de storage, construir URL pública
-            if (resolvedLogo && !resolvedLogo.startsWith("http")) {
+            if (resolvedLogo && !resolvedLogo.startsWith("http") && !resolvedLogo.startsWith("data:")) {
               const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(resolvedLogo);
               resolvedLogo = urlData?.publicUrl ?? resolvedLogo;
             }
