@@ -170,8 +170,15 @@ const CrearPrueba = () => {
             .eq("id", p.colegioId)
             .maybeSingle();
           if (col) {
-            setInstitutionName((col as { nombre: string }).nombre ?? "");
-            setLogo((col as { logo_url: string | null }).logo_url ?? null);
+            const colTyped = col as { nombre: string; logo_url: string | null };
+            setInstitutionName(colTyped.nombre ?? "");
+            let resolvedLogo = colTyped.logo_url ?? null;
+            // Si logo_url es un path relativo de storage, construir URL pública
+            if (resolvedLogo && !resolvedLogo.startsWith("http")) {
+              const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(resolvedLogo);
+              resolvedLogo = urlData?.publicUrl ?? resolvedLogo;
+            }
+            setLogo(resolvedLogo);
           }
         } else {
           // Docente autónomo: branding personalizado del perfil
