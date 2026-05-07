@@ -37,7 +37,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Detect institutional user (has colegio_id) and load colegio name
   useEffect(() => {
-    if (!user) return;
+    if (!user) { setProfileLoaded(false); return; }
+    setProfileLoaded(false);
     getMyProfile().then(async (p) => {
       if (p?.colegioId) {
         setIsInstitutional(true);
@@ -51,7 +52,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         setIsInstitutional(false);
         setColegioNombre(null);
       }
-    });
+      setProfileLoaded(true);
+    }).catch(() => setProfileLoaded(true));
   }, [user?.id]);
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
