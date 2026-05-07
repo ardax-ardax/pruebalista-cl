@@ -27,6 +27,7 @@ interface Props {
   onCreditsUsed?: () => void;
   defaultMcOptions?: number;
   defaultTfStatements?: number;
+  isInstitutional?: boolean;
 }
 
 type SupportedType = Extract<QuestionType, "multiple-choice" | "true-false" | "short-answer">;
