@@ -156,10 +156,16 @@ export const AssessmentMetaForm = ({
       const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
       base = base.filter((g) => allowed.has(g.value));
     }
-    // Preserve current grade even if not in filtered list (e.g. editing a rejected assessment)
+    // Preserve current grade even if not in filtered list (e.g. editing a rejected assessment
+    // or grades haven't loaded from DB yet)
     if (meta.gradeValue && !base.some((g) => g.value === meta.gradeValue)) {
       const existing = grades.find((g) => g.value === meta.gradeValue);
-      if (existing) base = [...base, existing];
+      if (existing) {
+        base = [...base, existing];
+      } else {
+        // Grades not yet loaded from DB — add a temporary placeholder so Select shows the value
+        base = [...base, { value: meta.gradeValue, label: meta.gradeValue, level: "Básica" as const }];
+      }
     }
     return base;
   }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce, meta.gradeValue]);
