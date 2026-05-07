@@ -446,7 +446,7 @@ const CrearPrueba = () => {
   };
 
   const handleSave = async () => {
-    const err = validate();
+    const err = validateMeta();
     if (err) { toast.error(err); return; }
     // Límite de pruebas según plan (solo al crear nueva, no al editar)
     if (!editingId && maxAssessments !== null) {
