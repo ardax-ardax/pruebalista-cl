@@ -128,6 +128,7 @@ export interface AssessmentMeta {
   studentName?: string;
   linkedOA: string[]; // códigos de Objetivos de Aprendizaje (Mineduc) seleccionados
   sectionLetter?: string; // letra de sección del curso (A, B, C...)
+  semester?: string; // "1" | "2" | "anual"
   showOaInHeader?: boolean; // si true, imprime los OAs bajo las instrucciones de la prueba
   oaPosition?: OaPosition; // dónde mostrar OAs: antes del título o después de instrucciones (default)
   layout?: AssessmentLayout; // optimización de espacio (papel)

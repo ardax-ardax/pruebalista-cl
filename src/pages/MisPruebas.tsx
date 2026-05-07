@@ -264,9 +264,23 @@ const MisPruebas = () => {
                     <Button size="sm" variant="outline" onClick={() => handleDuplicate(a)}>
                       <Copy className="h-4 w-4" /> Duplicar
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={isBlocked} onClick={() => handleDelete(a.id, a.meta.title)}>
-                      <Trash2 className="h-4 w-4" /> Eliminar
-                    </Button>
+                    {(() => {
+                      const canDelete = (a.status ?? "borrador") === "borrador";
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button size="sm" variant="ghost" disabled={isBlocked || !canDelete} onClick={() => handleDelete(a.id, a.meta.title)}>
+                                <Trash2 className="h-4 w-4" /> Eliminar
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {!canDelete && (
+                            <TooltipContent>Solo puedes eliminar pruebas en estado Borrador.</TooltipContent>
+                          )}
+                        </Tooltip>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               );
