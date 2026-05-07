@@ -1,46 +1,49 @@
 
-## Plan: Corrección de bugs críticos de carga y header institucional
+## Bug 1: Empty Course/Subject selectors when editing assessments
 
-### Problema 1: Selectores de Curso/Asignatura vacíos al editar
+### Root cause
+The fallback logic in `AssessmentMetaForm.tsx` (lines 161-168 and 189-196) already adds placeholder options when the grade/subject value isn't in the loaded list. However, `getSubjectsForGrade()` returns `[]` when it can't determine the grade's level (line 227: `if (!level) return []`). This happens because:
 
-**Causa raíz**: La evaluación se carga desde la BD correctamente (con `gradeValue` y `subjectValue`), pero el componente `Select` muestra "Selecciona" porque la lista de `grades` (de `useAdminCourses`) aún no ha terminado de cargarse desde Supabase. El `Select` de Radix no muestra el valor si no encuentra un `SelectItem` correspondiente en sus opciones.
+1. `subjects` in `CrearPrueba.tsx` are loaded from `loadSubjects()` (localStorage/defaults) — these are available synchronously.
+2. `grades` come from `useAdminCourses()` which is async (Supabase query). While grades are loading, the `grades` array is empty.
+3. When `grades` is empty, `getSubjectsForGrade()` can't find the level for the grade value, returns `[]`, and the fallback in `availableSubjects` only checks `byLevel` and `subjects` — but since the level lookup fails, the whole chain produces nothing meaningful.
 
-**Corrección en `CrearPrueba.tsx`**:
-- Usar el flag `loading` de `useAdminCourses()` (ya existe pero no se usa).
-- Retrasar la carga de la evaluación hasta que `grades` estén listos: agregar `grades.length > 0` o `!gradesLoading` como condición antes de llamar `getAssessment(editingId)`.
-- Alternativamente, si la evaluación ya se cargó pero `grades` llega después, no hay problema porque React re-renderiza. El verdadero fix es en `AssessmentMetaForm`: asegurar que `availableGrades` incluya el `gradeValue` actual aunque `grades` aún esté vacío (ya hay lógica para preservar el grade actual en línea 160-163, pero falla si `grades` está vacío porque `grades.find()` no encuentra nada).
+The existing fallback at line 193-196 adds a placeholder `{ value, label }` without a `level`, which helps the Select show a value, but the real issue is that subjects don't filter correctly until grades load.
 
-**Corrección en `AssessmentMetaForm.tsx`** (líneas 150-165):
-- En el `useMemo` de `availableGrades`, si `meta.gradeValue` existe pero no está en `grades`, crear una opción temporal `{ value: meta.gradeValue, label: meta.gradeValue, level: "Básica" }` como fallback hasta que las grades reales carguen.
-- Misma lógica para `availableSubjects` (líneas 169-187): si `meta.subjectValue` no se encuentra, agregar un fallback temporal.
+### Fix (AssessmentMetaForm.tsx)
+- In the `availableSubjects` useMemo, when `grades` array is empty but `meta.gradeValue` exists, bypass the level-based filtering and show all subjects (or at minimum the saved subject as a fallback). This ensures that even before `useAdminCourses` resolves, the selector shows the correct value.
+- Specifically: if `getSubjectsForGrade` returns an empty array AND `meta.subjectValue` is set, ensure the fallback placeholder is always added.
 
-### Problema 2: Flickering de créditos en header institucional
+The current code already does this (line 189-196), but there's a subtle issue: `byLevel` is empty (because grades haven't loaded), so the `filtered.some()` check passes vacuously, and the fallback path may not trigger correctly in all scenarios. We'll make the fallback more robust.
 
-**Causa raíz**: `isInstitutional` inicia en `false` y cambia a `true` solo después de que `getMyProfile()` resuelve. Durante ese tiempo (~200-500ms), se renderiza el badge de créditos.
-
-**Corrección en `AppLayout.tsx`**:
-- Agregar un estado `profileLoaded` (o `institutionalChecked`) que inicie en `false`.
-- En el `useEffect` que llama a `getMyProfile()`, setear `profileLoaded = true` al final (en el `.then`).
-- Cambiar las condiciones de renderizado de los badges (líneas 111-120): no renderizar NINGÚN badge hasta que `profileLoaded` sea `true`. Esto elimina el flickering completamente.
-
-### Problema 3: Persistencia completa de metadatos
-
-**Causa raíz**: Mismo problema que #1 — los campos N° de evaluación, semestre, letra, instrucciones se guardan correctamente en `data.meta` de la BD, pero al cargar, si la evaluación se setea antes de que los catálogos estén listos, el componente no muestra los valores.
-
-**Corrección**: Ya cubierta por el fix del Problema 1. Los campos de texto (N°, título, instrucciones, sectionLetter) no dependen de catálogos, así que ya deberían funcionar. Verificaremos que `sectionLetter` tenga valor por defecto "A" en el schema.
-
-### Problema 4: Botón Re-enviar a Revisión
-
-**Estado actual**: Ya implementado correctamente (línea 634-637). `handleSubmitForReview` llama `updateAssessmentStatus(assessment.id, "pendiente_revision")` que no toca los datos del curso. Verificado que funciona.
-
-**Verificación**: Revisar que el `upsertAssessment` llamado por autosave antes del re-envío preserve el `gradeValue` y `subjectValue`. Con el fix del Problema 1, esto queda asegurado.
+### Fix (CrearPrueba.tsx)
+- Pass `gradesLoading` state down to prevent the form from appearing "ready" while data is still loading. Show a skeleton/spinner on the meta form tab while `gradesLoading` is true and an assessment is being edited.
 
 ---
 
-### Archivos a modificar
+## Bug 2: "Plan Gratuito" visible for institutional users in dropdown menu
 
-1. **`src/components/AppLayout.tsx`** — Agregar `profileLoaded` state, no renderizar badges hasta que se complete la verificación de perfil.
-2. **`src/pages/CrearPrueba.tsx`** — Usar `gradesLoading` del hook para mostrar loading state hasta que los catálogos estén disponibles.
-3. **`src/components/test-builder/AssessmentMetaForm.tsx`** — Agregar fallback en `availableGrades` y `availableSubjects` para valores ya guardados que aún no aparecen en los catálogos cargados.
+### Root cause
+The header badge (lines 114-123) correctly hides credits for institutional users. But inside the **dropdown menu** (lines 148-157), the `planLabel` badge is shown unconditionally — it only checks `!usageLoading`, not `isInstitutional` or `shouldHideCredits`. So institutional users see "Free" or "Plan Gratuito" inside the avatar dropdown.
 
-No se requieren migraciones de base de datos.
+### Fix (AppLayout.tsx)
+- Wrap the plan info block (lines 148-157) with the same `profileLoaded && !shouldHideCredits && !isInstitutional` condition.
+- For institutional users, show the colegio name or "Cuenta Institucional" instead of plan info inside the dropdown.
+
+---
+
+## Bug 3: useAuth doesn't expose colegio_id
+
+### Current state
+`useAuth` does not load or expose `colegio_id` — this is loaded separately in each component via `getMyProfile()`. This is fine architecturally but causes the flickering issue because each component independently fetches the profile.
+
+### No change needed
+The current pattern (each component calls `getMyProfile()` with a `profileLoaded` guard) is adequate. The real fix is Bug 2 above.
+
+---
+
+## Files to modify
+
+1. **`src/components/AppLayout.tsx`** — Hide plan label in dropdown for institutional users
+2. **`src/components/test-builder/AssessmentMetaForm.tsx`** — Make subject fallback more robust when grades haven't loaded
+3. **`src/pages/CrearPrueba.tsx`** — Show loading state while grades are loading during edit mode
