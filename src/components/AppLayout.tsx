@@ -145,7 +145,15 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                         {user.email}
                       </div>
                     )}
-                    {!usageLoading && (
+                    {!usageLoading && profileLoaded && (shouldHideCredits || isInstitutional) && (
+                      <div className="pt-1">
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {colegioNombre ?? "Cuenta Institucional"}
+                        </Badge>
+                      </div>
+                    )}
+                    {!usageLoading && profileLoaded && !shouldHideCredits && !isInstitutional && (
                       <div className="pt-1 space-y-0.5">
                         <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{planLabel}</Badge>
                         {planExpiresAt && (
@@ -153,6 +161,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                             Expira {new Date(planExpiresAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
                           </div>
                         )}
+                      </div>
+                    )}
+                    {!usageLoading && !profileLoaded && (
+                      <div className="pt-1">
+                        <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground animate-pulse">Cargando…</Badge>
                       </div>
                     )}
                   </DropdownMenuLabel>
