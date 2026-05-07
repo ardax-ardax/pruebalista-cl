@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Building2, BookOpen, ClipboardCheck, Copy, LayoutTemplate, Plus, Save, Shield, Trash2, Upload, Users, X, BarChart3 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { getMyProfile } from "@/lib/profiles";
 
 import { AppLayout } from "@/components/AppLayout";
 import { TemplateEditor } from "@/components/TemplateEditor";
