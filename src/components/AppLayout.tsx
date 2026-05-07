@@ -111,13 +111,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && !usageLoading && (shouldHideCredits || isInstitutional) && (
+            {user && !usageLoading && profileLoaded && (shouldHideCredits || isInstitutional) && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium gap-1">
                 <Building2 className="h-3 w-3" />
                 {colegioNombre ?? "Cuenta Institucional"}
               </Badge>
             )}
-            {user && !usageLoading && !shouldHideCredits && !isInstitutional && (
+            {user && !usageLoading && profileLoaded && !shouldHideCredits && !isInstitutional && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA · {planLabel}
               </Badge>
