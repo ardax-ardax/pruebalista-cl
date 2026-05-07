@@ -713,21 +713,29 @@ const CrearPrueba = () => {
                 )}
           </TabsList>
           <TabsContent value="meta" className="mt-4">
-            <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
-              <AssessmentMetaForm
-                meta={assessment.meta}
-                onChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
-                templates={templates}
-                subjects={subjects}
-                grades={grades}
-                teachers={teachers}
-                restrictedAssignments={restrictedAssignments}
-                canChooseTeacher={canChooseTeacher}
-                lockedTeacherLabel={lockedTeacherLabel}
-                allowSelfAssignment={appSettings.allow_self_assignment}
-                readOnlyExceptOA={!isStaff && !!editingId && !readOnly}
-              />
-            </div>
+            {gradesLoading && editingId ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Cargando catálogo de cursos…</span>
+              </div>
+            ) : (
+              <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
+                <AssessmentMetaForm
+                  key={gradesLoading ? "loading" : "ready"}
+                  meta={assessment.meta}
+                  onChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
+                  templates={templates}
+                  subjects={subjects}
+                  grades={grades}
+                  teachers={teachers}
+                  restrictedAssignments={restrictedAssignments}
+                  canChooseTeacher={canChooseTeacher}
+                  lockedTeacherLabel={lockedTeacherLabel}
+                  allowSelfAssignment={appSettings.allow_self_assignment}
+                  readOnlyExceptOA={!isStaff && !!editingId && !readOnly}
+                />
+              </div>
+            )}
           </TabsContent>
           <TabsContent value="content" className="mt-4">
             {isDesktop ? (
