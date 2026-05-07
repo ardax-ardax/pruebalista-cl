@@ -729,17 +729,22 @@ const CrearPrueba = () => {
 
         {(() => {
           const metaComplete = !!(assessment?.meta.gradeValue && assessment?.meta.subjectValue && assessment?.meta.title?.trim());
+          const contentUnlocked = metaComplete && !!editingId;
           return (
             <Tabs value={tab} onValueChange={(v) => {
-              if (!metaComplete && v !== "meta") {
-                toast.error("Completa los datos generales primero (curso, asignatura y título).");
+              if (v !== "meta" && !contentUnlocked) {
+                if (!metaComplete) {
+                  toast.error("Completa los datos generales primero (curso, asignatura y título).");
+                } else {
+                  toast.error("Guarda los datos generales primero antes de agregar contenido.");
+                }
                 return;
               }
               setTab(v as typeof tab);
             }}>
               <TabsList>
                 <TabsTrigger value="meta"><Pencil className="h-4 w-4 mr-1" /> Datos</TabsTrigger>
-                <TabsTrigger value="content" disabled={!metaComplete} title={!metaComplete ? "Completa curso, asignatura y título primero" : undefined}>
+                <TabsTrigger value="content" disabled={!contentUnlocked} title={!contentUnlocked ? (metaComplete ? "Guarda los datos generales primero" : "Completa curso, asignatura y título primero") : undefined}>
                   <FileText className="h-4 w-4 mr-1" /> {isDesktop ? "Contenido + Preview" : "Contenido"}
                 </TabsTrigger>
                 {!isDesktop && (
