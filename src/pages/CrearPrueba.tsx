@@ -98,6 +98,14 @@ const CrearPrueba = () => {
     setAssessment(updater);
   }, []);
 
+  // Guard: Admin puro no puede crear pruebas
+  useEffect(() => {
+    if (!authLoading && isAdminOnly) {
+      toast.error("El perfil Admin es solo de gestión. No puede crear pruebas.");
+      navigate("/admin/dashboard", { replace: true });
+    }
+  }, [authLoading, isAdminOnly, navigate]);
+
   // Navigation guard: warn when a new test only exists as a local draft.
   const shouldBlock = isDirty && !editingId && !loadedAssessmentIdRef.current;
 
