@@ -29,6 +29,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [hideCredits, setHideCredits] = useState(false);
   const [isInstitutional, setIsInstitutional] = useState(false);
   const [colegioNombre, setColegioNombre] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   useEffect(() => {
     loadAppSettings().then((s) => setHideCredits(s.hide_credits_from_teachers));
@@ -36,7 +37,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Detect institutional user (has colegio_id) and load colegio name
   useEffect(() => {
-    if (!user) return;
+    if (!user) { setProfileLoaded(false); return; }
+    setProfileLoaded(false);
     getMyProfile().then(async (p) => {
       if (p?.colegioId) {
         setIsInstitutional(true);
@@ -50,7 +52,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         setIsInstitutional(false);
         setColegioNombre(null);
       }
-    });
+      setProfileLoaded(true);
+    }).catch(() => setProfileLoaded(true));
   }, [user?.id]);
 
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -108,13 +111,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <span className="hidden sm:inline">Pantalla completa</span>
               </Button>
             )}
-            {user && !usageLoading && (shouldHideCredits || isInstitutional) && (
+            {user && !usageLoading && profileLoaded && (shouldHideCredits || isInstitutional) && (
               <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium gap-1">
                 <Building2 className="h-3 w-3" />
                 {colegioNombre ?? "Cuenta Institucional"}
               </Badge>
             )}
-            {user && !usageLoading && !shouldHideCredits && !isInstitutional && (
+            {user && !usageLoading && profileLoaded && !shouldHideCredits && !isInstitutional && (
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA · {planLabel}
               </Badge>

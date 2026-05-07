@@ -156,10 +156,16 @@ export const AssessmentMetaForm = ({
       const allowed = new Set(restrictedAssignments!.map((a) => a.grade_value));
       base = base.filter((g) => allowed.has(g.value));
     }
-    // Preserve current grade even if not in filtered list (e.g. editing a rejected assessment)
+    // Preserve current grade even if not in filtered list (e.g. editing a rejected assessment
+    // or grades haven't loaded from DB yet)
     if (meta.gradeValue && !base.some((g) => g.value === meta.gradeValue)) {
       const existing = grades.find((g) => g.value === meta.gradeValue);
-      if (existing) base = [...base, existing];
+      if (existing) {
+        base = [...base, existing];
+      } else {
+        // Grades not yet loaded from DB — add a temporary placeholder so Select shows the value
+        base = [...base, { value: meta.gradeValue, label: meta.gradeValue, level: "Básica" as const }];
+      }
     }
     return base;
   }, [grades, isRestricted, restrictedAssignments, isPaes, isSimce, meta.gradeValue]);
@@ -178,10 +184,16 @@ export const AssessmentMetaForm = ({
       );
       filtered = byLevel.filter((s) => allowedForGrade.has(s.value));
     }
-    // Preserve current subject even if not in filtered list (e.g. editing a rejected assessment)
+    // Preserve current subject even if not in filtered list (e.g. editing a rejected assessment
+    // or subjects/grades haven't loaded from DB yet)
     if (meta.subjectValue && !filtered.some((s) => s.value === meta.subjectValue)) {
       const existing = byLevel.find((s) => s.value === meta.subjectValue) ?? subjects.find((s) => s.value === meta.subjectValue);
-      if (existing) filtered = [...filtered, existing];
+      if (existing) {
+        filtered = [...filtered, existing];
+      } else {
+        // Subjects not yet resolved — add a temporary placeholder so Select shows the value
+        filtered = [...filtered, { value: meta.subjectValue, label: meta.subjectValue }];
+      }
     }
     return filtered;
   }, [meta.gradeValue, meta.subjectValue, subjects, grades, isRestricted, restrictedAssignments]);
