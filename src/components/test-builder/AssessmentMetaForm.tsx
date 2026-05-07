@@ -184,10 +184,16 @@ export const AssessmentMetaForm = ({
       );
       filtered = byLevel.filter((s) => allowedForGrade.has(s.value));
     }
-    // Preserve current subject even if not in filtered list (e.g. editing a rejected assessment)
+    // Preserve current subject even if not in filtered list (e.g. editing a rejected assessment
+    // or subjects/grades haven't loaded from DB yet)
     if (meta.subjectValue && !filtered.some((s) => s.value === meta.subjectValue)) {
       const existing = byLevel.find((s) => s.value === meta.subjectValue) ?? subjects.find((s) => s.value === meta.subjectValue);
-      if (existing) filtered = [...filtered, existing];
+      if (existing) {
+        filtered = [...filtered, existing];
+      } else {
+        // Subjects not yet resolved — add a temporary placeholder so Select shows the value
+        filtered = [...filtered, { value: meta.subjectValue, label: meta.subjectValue }];
+      }
     }
     return filtered;
   }, [meta.gradeValue, meta.subjectValue, subjects, grades, isRestricted, restrictedAssignments]);
