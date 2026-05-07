@@ -1,57 +1,54 @@
 
 ## Cambios a implementar
 
-### 1. Restricción de borrado en "Mis Pruebas"
-**Archivo**: `src/pages/MisPruebas.tsx`
+### 1. Aislamiento UTP en UtpUsageManager
 
-- En el botón "Eliminar" (línea ~267), añadir condición: deshabilitar si `a.status !== "borrador"`. Mostrar tooltip explicativo cuando está deshabilitado.
+**Archivo:** `src/components/admin/UtpUsageManager.tsx`
 
-### 2. Guardado en dos pasos (metadatos primero, contenido después)
-**Archivo**: `src/pages/CrearPrueba.tsx`
+- Al cargar datos, obtener primero el `colegio_id` del usuario actual via `getMyProfile()`.
+- Filtrar `listProfiles()` resultados por `colegioId === miColegioId`.
+- Filtrar `assessments` y `ai_generation_log` solo a los `user_id` de esos perfiles (filtro client-side, ya que RLS de assessments usa `is_same_colegio` que ya filtra correctamente).
+- Mostrar solo docentes del mismo colegio, no consumo global.
 
-- Modificar `validate()` para separar validación de metadatos vs contenido. Crear `validateMeta()` que solo valida curso, asignatura, docente y título (sin requerir preguntas).
-- El botón "Guardar" en la pestaña "meta" usará `validateMeta()` en vez de `validate()`.
-- La pestaña "Contenido + Preview" ya está bloqueada con `metaComplete` (línea 723), pero además requerir que la prueba ya esté guardada en la nube (`editingId` exista). Si el docente intenta ir a Contenido sin haber guardado, mostrar toast: "Guarda los datos generales primero".
-- Las validaciones de preguntas (`counted.length === 0`) se mantienen solo para exportar PDF/DOCX y enviar a revisión.
+### 2. Herencia de marca para UTP y Docentes institucionales
 
-### 3. Texto de créditos institucionales en AIGenerateDialog
-**Archivos**: `src/components/test-builder/AIGenerateDialog.tsx`, `src/components/test-builder/QuestionList.tsx`, `src/pages/CrearPrueba.tsx`
+**Archivo:** `src/components/AppLayout.tsx`
 
-- Añadir prop `isInstitutional?: boolean` a `AIGenerateDialog` y `QuestionList`.
-- En `AIGenerateDialog` (línea 121), cambiar el texto: si `isInstitutional` es true, mostrar "Créditos institucionales disponibles: **N**" en vez de "Créditos disponibles: **N**".
-- Pasar `isInstitutional={!!currentProfile?.colegioId}` desde `CrearPrueba.tsx` a `QuestionList`, que lo pasa a `AIGenerateDialog`.
+- Actualmente ya muestra badge "Cuenta Institucional" si `isInstitutional`. Verificar que para UTP (`isUtpHead` con `colegio_id`) también aplique: ya funciona porque se basa en `colegioId` del perfil, no en el rol. Sin cambios necesarios aqui si el UTP tiene `colegio_id`.
+- Eliminar badge de "créditos / plan" para cualquier usuario con `colegio_id` (ya lo hace via `shouldHideCredits || isInstitutional`). Confirmar que UTP cae en `isInstitutional`.
 
-### 4. Herencia de logo del colegio (fix)
-**Archivo**: `src/pages/CrearPrueba.tsx`
+**Archivo:** `src/pages/Configuracion.tsx`
 
-El código actual (líneas 164-175) ya hace fetch al colegio para obtener `nombre` y `logo_url`. El problema potencial es que `logo_url` del colegio puede ser un path relativo de storage, no una URL completa. Verificar y, si es necesario, construir la URL pública completa del bucket `user-logos` antes de setear `setLogo()`.
+- Para UTP: en la pestaña "Políticas", cargar el logo y nombre desde la tabla `colegios` (usando su `colegio_id`) en lugar de `app_settings`. El UTP no debe poder cambiar el branding (es readonly para UTP; solo Admin lo gestiona via `ColegiosManager`).
+- Mostrar logo y nombre del colegio en modo solo lectura en la sección de branding del UTP.
 
-También asegurar que cuando staff abre una prueba ajena de un docente institucional, se cargue el logo del colegio del dueño (no del staff).
+### 3. Admin: bloquear creación de pruebas
 
-### 5. Campo "Semestre" y persistencia de N° Evaluación
-**Archivo**: `src/lib/assessment-schema.ts`
+**Archivo:** `src/pages/CrearPrueba.tsx`
 
-- No existe campo `semester` en `AssessmentMeta`. Añadir `semester?: string` (valores: "1" | "2" | "anual").
-- El campo `number` ya existe y se guarda correctamente en el JSONB `data->meta->number`.
+- Ya existe lógica `isAdminOnly` en `AppLayout` que oculta "Crear prueba" del nav. Verificar que si un admin navega directamente a `/crear-prueba`, se muestre un mensaje de "Acceso no disponible" o se redirija.
+- Agregar guard al inicio del componente: si `isAdmin && !isUtpHead`, redirigir a `/admin/dashboard` con toast.
 
-**Archivo**: `src/components/test-builder/AssessmentMetaForm.tsx`
+### 4. Logo del colegio en PDF y vista previa
 
-- Añadir selector de "Semestre" (1° Semestre, 2° Semestre, Anual) al formulario de metadatos.
-- Verificar que el campo `number` (N° evaluación) se renderice y persista correctamente.
+**Archivo:** `src/pages/CrearPrueba.tsx` (lineas ~160-190)
 
-**Archivo**: `src/lib/assessment-render.tsx` (y PDF/DOCX)
+- La logica actual ya carga `logo_url` desde `colegios` para docentes con `colegio_id`. Verificar que:
+  - Si `logo_url` es un data:URI (base64), se use directamente.
+  - Si es un path de Storage, se resuelva via `getPublicUrl`.
+  - El logo resuelto se pase al `RenderContext` para PDF/preview.
 
-- Incluir el semestre en el encabezado del documento si está definido.
+**Archivo:** `src/lib/assessment-render.tsx`
 
----
+- Verificar que el logo del `RenderContext` se use en el encabezado del documento renderizado.
 
-### Resumen de archivos a modificar
-1. `src/pages/MisPruebas.tsx` — botón eliminar condicionado
-2. `src/pages/CrearPrueba.tsx` — validación en dos pasos, prop institucional, logo fix
-3. `src/components/test-builder/AIGenerateDialog.tsx` — texto créditos institucionales
-4. `src/components/test-builder/QuestionList.tsx` — pasar prop isInstitutional
-5. `src/lib/assessment-schema.ts` — añadir campo semester
-6. `src/components/test-builder/AssessmentMetaForm.tsx` — selector de semestre
-7. `src/lib/assessment-render.tsx` — semestre en encabezado
+### Archivos a modificar
 
-No se requieren migraciones de base de datos (el campo semestre se almacena en el JSONB `data`).
+| Archivo | Cambio |
+|---------|--------|
+| `src/components/admin/UtpUsageManager.tsx` | Filtrar datos por `colegio_id` del UTP |
+| `src/pages/CrearPrueba.tsx` | Guard para admin puro; verificar logo resolution |
+| `src/pages/Configuracion.tsx` | UTP: branding readonly desde tabla colegios |
+| `src/components/AppLayout.tsx` | Verificar que UTP con colegio_id muestre badge institucional (posiblemente sin cambios) |
+
+No se requieren migraciones de base de datos.
