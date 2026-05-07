@@ -85,7 +85,7 @@ const SortableQuestionItem = (props: {
   );
 };
 
-export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel, creditsAvailable, onCreditsUsed }: Props) => {
+export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLabel, creditsAvailable, onCreditsUsed, isInstitutional }: Props) => {
   const mcOpts = meta.defaultMcOptions ?? 4;
   const tfStmts = meta.defaultTfStatements ?? 3;
 
