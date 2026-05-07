@@ -275,6 +275,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
         onCreditsUsed={onCreditsUsed}
         defaultMcOptions={mcOpts}
         defaultTfStatements={tfStmts}
+        isInstitutional={isInstitutional}
       />
 
       <QuestionBankDialog
