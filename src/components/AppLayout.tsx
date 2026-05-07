@@ -29,6 +29,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [hideCredits, setHideCredits] = useState(false);
   const [isInstitutional, setIsInstitutional] = useState(false);
   const [colegioNombre, setColegioNombre] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   useEffect(() => {
     loadAppSettings().then((s) => setHideCredits(s.hide_credits_from_teachers));
