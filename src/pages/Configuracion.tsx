@@ -444,6 +444,37 @@ const Configuracion = () => {
           </TabsContent>
 
           <TabsContent value="politicas" className="space-y-6">
+            {/* Branding del colegio (solo lectura para UTP) */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Datos del colegio
+                </CardTitle>
+                <CardDescription>El branding del colegio es gestionado por el Administrador.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label>Logo del colegio</Label>
+                    <div className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 overflow-hidden">
+                      {utpColegioLogo ? (
+                        <img src={utpColegioLogo} alt="Logo del colegio" className="max-h-full max-w-full object-contain" />
+                      ) : (
+                        <Building2 className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Solo el Administrador puede cambiar el logo.</p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>Nombre del colegio</Label>
+                    <p className="text-sm font-medium">{utpColegioNombre ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground">Solo el Administrador puede cambiar el nombre.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="shadow-card border-primary/40">
               <CardHeader>
                 <CardTitle className="text-lg">Política de asignación de docentes</CardTitle>
