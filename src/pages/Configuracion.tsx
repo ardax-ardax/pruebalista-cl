@@ -79,6 +79,31 @@ const Configuracion = () => {
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [savingSetting, setSavingSetting] = useState(false);
+  const [utpColegioNombre, setUtpColegioNombre] = useState<string | null>(null);
+  const [utpColegioLogo, setUtpColegioLogo] = useState<string | null>(null);
+
+  // UTP: load colegio branding (readonly)
+  useEffect(() => {
+    if (!isUtpHead || isAdmin) return;
+    getMyProfile().then(async (p) => {
+      if (!p?.colegioId) return;
+      const { data: col } = await supabase
+        .from("colegios")
+        .select("nombre, logo_url")
+        .eq("id", p.colegioId)
+        .maybeSingle();
+      if (col) {
+        const c = col as { nombre: string; logo_url: string | null };
+        setUtpColegioNombre(c.nombre ?? null);
+        let resolvedLogo = c.logo_url ?? null;
+        if (resolvedLogo && !resolvedLogo.startsWith("http") && !resolvedLogo.startsWith("data:")) {
+          const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(resolvedLogo);
+          resolvedLogo = urlData?.publicUrl ?? resolvedLogo;
+        }
+        setUtpColegioLogo(resolvedLogo);
+      }
+    });
+  }, [isUtpHead, isAdmin]);
 
   useEffect(() => {
     setTemplates(loadTemplates());
