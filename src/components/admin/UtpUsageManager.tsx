@@ -17,6 +17,7 @@ import {
 import { BarChart3, Download, RefreshCw, Sparkles, SlidersHorizontal, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 
 interface UsageRow {
