@@ -1,63 +1,46 @@
 
-## Plan: Corrección de persistencia y verificación de features institucionales
+## Plan: Corrección de bugs críticos de carga y header institucional
 
-### Diagnóstico
+### Problema 1: Selectores de Curso/Asignatura vacíos al editar
 
-Tras revisar el código, los puntos 3 (branding), 4 (badge institucional) y 5 (botón re-envío) ya están implementados. El bug crítico es el punto 1: pérdida de `gradeValue`/`subjectValue` al editar pruebas.
+**Causa raíz**: La evaluación se carga desde la BD correctamente (con `gradeValue` y `subjectValue`), pero el componente `Select` muestra "Selecciona" porque la lista de `grades` (de `useAdminCourses`) aún no ha terminado de cargarse desde Supabase. El `Select` de Radix no muestra el valor si no encuentra un `SelectItem` correspondiente en sus opciones.
 
-**Causa raíz del bug de persistencia**: El autosave (`useEffect` línea 275) usa `initialLoadRef` para saltar el primer render, pero efectos secundarios como el auto-assign de docente (línea 323) o la recarga de templates cuando `allowedTemplates` cambia (línea 227) provocan renders adicionales que disparan el autosave antes de que el estado esté completo. Además, el efecto de carga principal (línea 185) tiene `[editingId, allowedTemplates, isStaff]` como dependencias — cuando `allowedTemplates` cambia asincrónicamente, el efecto recarga la prueba y puede crear condiciones de carrera.
+**Corrección en `CrearPrueba.tsx`**:
+- Usar el flag `loading` de `useAdminCourses()` (ya existe pero no se usa).
+- Retrasar la carga de la evaluación hasta que `grades` estén listos: agregar `grades.length > 0` o `!gradesLoading` como condición antes de llamar `getAssessment(editingId)`.
+- Alternativamente, si la evaluación ya se cargó pero `grades` llega después, no hay problema porque React re-renderiza. El verdadero fix es en `AssessmentMetaForm`: asegurar que `availableGrades` incluya el `gradeValue` actual aunque `grades` aún esté vacío (ya hay lógica para preservar el grade actual en línea 160-163, pero falla si `grades` está vacío porque `grades.find()` no encuentra nada).
 
-### Cambios
+**Corrección en `AssessmentMetaForm.tsx`** (líneas 150-165):
+- En el `useMemo` de `availableGrades`, si `meta.gradeValue` existe pero no está en `grades`, crear una opción temporal `{ value: meta.gradeValue, label: meta.gradeValue, level: "Básica" }` como fallback hasta que las grades reales carguen.
+- Misma lógica para `availableSubjects` (líneas 169-187): si `meta.subjectValue` no se encuentra, agregar un fallback temporal.
 
-#### 1. Fix persistencia de gradeValue/subjectValue (`CrearPrueba.tsx`)
+### Problema 2: Flickering de créditos en header institucional
 
-- Reemplazar `initialLoadRef` por un mecanismo más robusto: un **contador de cambios del usuario** (`userEditCountRef`). El autosave solo se activa cuando el usuario ha hecho al menos un cambio explícito.
-- Marcar el assessment como "cargado desde DB" con un ref (`loadedAssessmentIdRef`) para evitar que la auto-asignación de docente o los re-renders por carga de grades/templates disparen el autosave.
-- En el `useEffect` de auto-assign de docente (línea 323): no incrementar el contador de edición del usuario — es un cambio automático, no del usuario.
-- Agregar un debounce de 1.5s al autosave para evitar múltiples llamadas rápidas.
+**Causa raíz**: `isInstitutional` inicia en `false` y cambia a `true` solo después de que `getMyProfile()` resuelve. Durante ese tiempo (~200-500ms), se renderiza el badge de créditos.
 
-#### 2. Sincronización UTP (`CrearPrueba.tsx`)
+**Corrección en `AppLayout.tsx`**:
+- Agregar un estado `profileLoaded` (o `institutionalChecked`) que inicie en `false`.
+- En el `useEffect` que llama a `getMyProfile()`, setear `profileLoaded = true` al final (en el `.then`).
+- Cambiar las condiciones de renderizado de los badges (líneas 111-120): no renderizar NINGÚN badge hasta que `profileLoaded` sea `true`. Esto elimina el flickering completamente.
 
-- Verificado: `upsertAssessment` ya guarda en el registro principal. El `ownerId` se preserva correctamente. No requiere cambios adicionales.
-- Agregar un `console.log` al cargar la prueba para confirmar que `gradeValue` y `subjectValue` vienen correctos desde la DB.
+### Problema 3: Persistencia completa de metadatos
 
-#### 3. Branding institucional — ya implementado, sin cambios
+**Causa raíz**: Mismo problema que #1 — los campos N° de evaluación, semestre, letra, instrucciones se guardan correctamente en `data.meta` de la BD, pero al cargar, si la evaluación se setea antes de que los catálogos estén listos, el componente no muestra los valores.
 
-- Líneas 152-161: docentes con `colegioId` heredan nombre/logo del colegio.
-- `Perfil.tsx`: tab de branding oculto para institucionales.
+**Corrección**: Ya cubierta por el fix del Problema 1. Los campos de texto (N°, título, instrucciones, sectionLetter) no dependen de catálogos, así que ya deberían funcionar. Verificaremos que `sectionLetter` tenga valor por defecto "A" en el schema.
 
-#### 4. Badge institucional — ya implementado, sin cambios
+### Problema 4: Botón Re-enviar a Revisión
 
-- `AppLayout.tsx` línea 109-113: badge "Cuenta Institucional" visible para usuarios con `colegioId`.
+**Estado actual**: Ya implementado correctamente (línea 634-637). `handleSubmitForReview` llama `updateAssessmentStatus(assessment.id, "pendiente_revision")` que no toca los datos del curso. Verificado que funciona.
 
-#### 5. Botón re-envío — ya implementado, sin cambios
+**Verificación**: Revisar que el `upsertAssessment` llamado por autosave antes del re-envío preserve el `gradeValue` y `subjectValue`. Con el fix del Problema 1, esto queda asegurado.
 
-- Línea 614-618: botón muestra "Re-enviar a Revisión" cuando `assessmentStatus === "rechazado"`.
+---
 
 ### Archivos a modificar
 
-| Archivo | Cambio |
-|---|---|
-| `src/pages/CrearPrueba.tsx` | Reemplazar `initialLoadRef` por mecanismo de userEditCount + debounce en autosave |
+1. **`src/components/AppLayout.tsx`** — Agregar `profileLoaded` state, no renderizar badges hasta que se complete la verificación de perfil.
+2. **`src/pages/CrearPrueba.tsx`** — Usar `gradesLoading` del hook para mostrar loading state hasta que los catálogos estén disponibles.
+3. **`src/components/test-builder/AssessmentMetaForm.tsx`** — Agregar fallback en `availableGrades` y `availableSubjects` para valores ya guardados que aún no aparecen en los catálogos cargados.
 
-### Detalle técnico
-
-El nuevo mecanismo de autosave:
-
-```
-const userHasEditedRef = useRef(false);
-const loadedAssessmentIdRef = useRef<string | null>(null);
-
-// Cuando cargamos assessment de DB:
-loadedAssessmentIdRef.current = found.id;
-userHasEditedRef.current = false;
-
-// onChange del usuario (en setAssessment manual):
-// Wrapper que marca userHasEditedRef = true
-
-// Autosave effect:
-if (!userHasEditedRef.current) return; // skip automatic changes
-// ... debounced upsert
-```
-
-Esto elimina la posibilidad de que cambios automáticos (auto-assign docente, recarga de templates) disparen un save prematuro con datos incompletos.
+No se requieren migraciones de base de datos.
