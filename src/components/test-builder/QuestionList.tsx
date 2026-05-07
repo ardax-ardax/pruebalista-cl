@@ -28,6 +28,7 @@ interface Props {
   subjectLabel: string;
   creditsAvailable?: number;
   onCreditsUsed?: () => void;
+  isInstitutional?: boolean;
 }
 
 const ADDABLE: { type: QuestionType; label: string; icon: typeof Plus }[] = [
