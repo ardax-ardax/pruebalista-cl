@@ -227,6 +227,11 @@ const CrearPrueba = () => {
           console.log("[CrearPrueba] Loaded from DB — gradeValue:", found.meta.gradeValue, "subjectValue:", found.meta.subjectValue, "status:", found.status);
           loadedAssessmentIdRef.current = found.id;
           userHasEditedRef.current = false;
+          // Guardar valores originales para proteger contra sobrescritura vacía
+          originalMetaRef.current = {
+            gradeValue: found.meta.gradeValue || "",
+            subjectValue: found.meta.subjectValue || "",
+          };
           setAssessment(found);
         } else if (t.length > 0) {
           toast.error("No se encontró la prueba");
