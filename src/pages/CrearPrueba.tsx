@@ -303,9 +303,29 @@ const CrearPrueba = () => {
 
     if (editingId) {
       debounceTimerRef.current = setTimeout(() => {
+        // Protección: si los campos críticos están vacíos pero los originales no,
+        // restaurar valores originales antes de guardar para evitar sobrescritura.
+        let toSave = assessment;
+        if (originalMetaRef.current) {
+          const orig = originalMetaRef.current;
+          const meta = toSave.meta;
+          const needsGrade = !meta.gradeValue && !!orig.gradeValue;
+          const needsSubject = !meta.subjectValue && !!orig.subjectValue;
+          if (needsGrade || needsSubject) {
+            console.warn("[Autosave] Restoring original meta values — gradeValue:", orig.gradeValue, "subjectValue:", orig.subjectValue);
+            toSave = {
+              ...toSave,
+              meta: {
+                ...meta,
+                gradeValue: meta.gradeValue || orig.gradeValue,
+                subjectValue: meta.subjectValue || orig.subjectValue,
+              },
+            };
+          }
+        }
         setSaveStatus("saving");
         clearTimeout(saveTimerRef.current);
-        upsertAssessment(assessment)
+        upsertAssessment(toSave)
           .then(() => {
             setSaveStatus("saved");
             setIsDirty(false);
