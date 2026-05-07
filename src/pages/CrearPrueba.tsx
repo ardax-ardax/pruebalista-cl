@@ -789,6 +789,7 @@ const CrearPrueba = () => {
                     subjectLabel={renderCtx.subjectLabel}
                     creditsAvailable={creditsAvailable}
                     onCreditsUsed={refreshUsage}
+                    isInstitutional={!!currentProfile?.colegioId}
                   />
                 </div>
                 <div className="sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
@@ -814,6 +815,7 @@ const CrearPrueba = () => {
                   subjectLabel={renderCtx.subjectLabel}
                   creditsAvailable={creditsAvailable}
                   onCreditsUsed={refreshUsage}
+                  isInstitutional={!!currentProfile?.colegioId}
                 />
               </div>
             )}
