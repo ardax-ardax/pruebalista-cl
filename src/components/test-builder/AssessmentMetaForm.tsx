@@ -291,6 +291,17 @@ export const AssessmentMetaForm = ({
             <Label className="text-xs">N°</Label>
             <Input value={meta.number} onChange={(e) => set("number", e.target.value)} placeholder="1" />
           </div>
+          <div>
+            <Label className="text-xs">Semestre</Label>
+            <Select value={meta.semester ?? ""} onValueChange={(v) => set("semester", v || undefined)}>
+              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1° Semestre</SelectItem>
+                <SelectItem value="2">2° Semestre</SelectItem>
+                <SelectItem value="anual">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {noAssignments && (
