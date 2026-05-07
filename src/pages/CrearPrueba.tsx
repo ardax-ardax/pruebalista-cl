@@ -512,7 +512,8 @@ const CrearPrueba = () => {
     }
   };
 
-  const validate = (): string | null => {
+  /** Validates only metadata fields (curso, asignatura, docente, título). */
+  const validateMeta = (): string | null => {
     if (!assessment.meta.subjectValue) return "Selecciona la asignatura";
     if (!assessment.meta.gradeValue) return "Selecciona el curso";
     if (!assessment.meta.teacherValue) return "Selecciona el docente";
@@ -536,6 +537,13 @@ const CrearPrueba = () => {
         return "Debes seleccionar un Eje Temático para guardar el ensayo PAES";
       }
     }
+    return null;
+  };
+
+  /** Full validation: metadata + at least one question. */
+  const validate = (): string | null => {
+    const metaErr = validateMeta();
+    if (metaErr) return metaErr;
     const counted = assessment.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block");
     if (counted.length === 0) return "Agrega al menos una pregunta";
     return null;
