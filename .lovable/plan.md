@@ -1,49 +1,71 @@
 
-## Bug 1: Empty Course/Subject selectors when editing assessments
+## Changes in `src/pages/CrearPrueba.tsx`
 
-### Root cause
-The fallback logic in `AssessmentMetaForm.tsx` (lines 161-168 and 189-196) already adds placeholder options when the grade/subject value isn't in the loaded list. However, `getSubjectsForGrade()` returns `[]` when it can't determine the grade's level (line 227: `if (!level) return []`). This happens because:
+### 1. Add `originalMetaRef` (after line 81)
+Add a new ref to preserve original `gradeValue`/`subjectValue` loaded from DB:
+```ts
+const originalMetaRef = useRef<{ gradeValue: string; subjectValue: string } | null>(null);
+```
 
-1. `subjects` in `CrearPrueba.tsx` are loaded from `loadSubjects()` (localStorage/defaults) — these are available synchronously.
-2. `grades` come from `useAdminCourses()` which is async (Supabase query). While grades are loading, the `grades` array is empty.
-3. When `grades` is empty, `getSubjectsForGrade()` can't find the level for the grade value, returns `[]`, and the fallback in `availableSubjects` only checks `byLevel` and `subjects` — but since the level lookup fails, the whole chain produces nothing meaningful.
+### 2. Save original values when loading from DB (line ~224)
+After loading assessment from DB, store original meta values:
+```ts
+if (found) {
+  console.log("[CrearPrueba] Loaded from DB — gradeValue:", found.meta.gradeValue, ...);
+  loadedAssessmentIdRef.current = found.id;
+  userHasEditedRef.current = false;
+  originalMetaRef.current = { gradeValue: found.meta.gradeValue, subjectValue: found.meta.subjectValue };
+  setAssessment(found);
+}
+```
 
-The existing fallback at line 193-196 adds a placeholder `{ value, label }` without a `level`, which helps the Select show a value, but the real issue is that subjects don't filter correctly until grades load.
+### 3. Protect autosave against empty critical fields (line ~296-311)
+Add a guard inside the `editingId` autosave branch. If the assessment was loaded from DB with non-empty values but the current state has empty `gradeValue`/`subjectValue`, restore original values before saving (or skip the save):
+```ts
+if (editingId) {
+  debounceTimerRef.current = setTimeout(() => {
+    // Protect against overwriting valid data with empty values
+    let toSave = assessment;
+    if (originalMetaRef.current) {
+      const orig = originalMetaRef.current;
+      const meta = toSave.meta;
+      if (!meta.gradeValue && orig.gradeValue) {
+        toSave = { ...toSave, meta: { ...meta, gradeValue: orig.gradeValue, subjectValue: meta.subjectValue || orig.subjectValue } };
+      } else if (!meta.subjectValue && orig.subjectValue) {
+        toSave = { ...toSave, meta: { ...meta, subjectValue: orig.subjectValue } };
+      }
+    }
+    setSaveStatus("saving");
+    clearTimeout(saveTimerRef.current);
+    upsertAssessment(toSave)
+      .then(() => { ... })
+      .catch((e) => { ... });
+  }, 1500);
+}
+```
 
-### Fix (AssessmentMetaForm.tsx)
-- In the `availableSubjects` useMemo, when `grades` array is empty but `meta.gradeValue` exists, bypass the level-based filtering and show all subjects (or at minimum the saved subject as a fallback). This ensures that even before `useAdminCourses` resolves, the selector shows the correct value.
-- Specifically: if `getSubjectsForGrade` returns an empty array AND `meta.subjectValue` is set, ensure the fallback placeholder is always added.
+### 4. Remove destructive `key` prop from AssessmentMetaForm (line ~724)
+Change:
+```tsx
+<AssessmentMetaForm
+  key={gradesLoading ? "loading" : "ready"}
+```
+To:
+```tsx
+<AssessmentMetaForm
+```
+This prevents the full component re-mount that resets internal state and triggers onChange with empty values.
 
-The current code already does this (line 189-196), but there's a subtle issue: `byLevel` is empty (because grades haven't loaded), so the `filtered.some()` check passes vacuously, and the fallback path may not trigger correctly in all scenarios. We'll make the fallback more robust.
+### 5. Fix `readOnlyExceptOA` for rejected assessments with empty fields (line ~735)
+Currently: `readOnlyExceptOA={!isStaff && !!editingId && !readOnly}` — this makes course/subject selectors read-only for docentes editing their own assessments, even when rejected with empty values.
 
-### Fix (CrearPrueba.tsx)
-- Pass `gradesLoading` state down to prevent the form from appearing "ready" while data is still loading. Show a skeleton/spinner on the meta form tab while `gradesLoading` is true and an assessment is being edited.
+Change to allow editing when critical fields are empty:
+```tsx
+readOnlyExceptOA={!isStaff && !!editingId && !readOnly && !!(assessment?.meta.gradeValue && assessment?.meta.subjectValue)}
+```
+This way, if `gradeValue` or `subjectValue` is empty, the full form is editable so the docente can fix the data.
 
----
+### 6. Validate before re-submit (already handled)
+The existing `handleSubmitForReview` calls `validate()` which checks `!assessment.meta.gradeValue` and `!assessment.meta.subjectValue` — this already blocks re-submission with empty fields. No change needed here.
 
-## Bug 2: "Plan Gratuito" visible for institutional users in dropdown menu
-
-### Root cause
-The header badge (lines 114-123) correctly hides credits for institutional users. But inside the **dropdown menu** (lines 148-157), the `planLabel` badge is shown unconditionally — it only checks `!usageLoading`, not `isInstitutional` or `shouldHideCredits`. So institutional users see "Free" or "Plan Gratuito" inside the avatar dropdown.
-
-### Fix (AppLayout.tsx)
-- Wrap the plan info block (lines 148-157) with the same `profileLoaded && !shouldHideCredits && !isInstitutional` condition.
-- For institutional users, show the colegio name or "Cuenta Institucional" instead of plan info inside the dropdown.
-
----
-
-## Bug 3: useAuth doesn't expose colegio_id
-
-### Current state
-`useAuth` does not load or expose `colegio_id` — this is loaded separately in each component via `getMyProfile()`. This is fine architecturally but causes the flickering issue because each component independently fetches the profile.
-
-### No change needed
-The current pattern (each component calls `getMyProfile()` with a `profileLoaded` guard) is adequate. The real fix is Bug 2 above.
-
----
-
-## Files to modify
-
-1. **`src/components/AppLayout.tsx`** — Hide plan label in dropdown for institutional users
-2. **`src/components/test-builder/AssessmentMetaForm.tsx`** — Make subject fallback more robust when grades haven't loaded
-3. **`src/pages/CrearPrueba.tsx`** — Show loading state while grades are loading during edit mode
+## No other files need changes. No database migrations needed.

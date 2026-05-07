@@ -79,6 +79,9 @@ const CrearPrueba = () => {
   const userHasEditedRef = useRef(false);
   // Tracks which assessment ID was last loaded from DB to avoid re-saving on load.
   const loadedAssessmentIdRef = useRef<string | null>(null);
+  // Preserva valores originales de curso/asignatura cargados desde DB
+  // para evitar que el autosave los sobrescriba con valores vacíos durante re-mount.
+  const originalMetaRef = useRef<{ gradeValue: string; subjectValue: string } | null>(null);
 
   const { user, isStaff, isUtpHead, loading: authLoading } = useAuth();
   const isDocente = !!user && !isStaff;
@@ -224,6 +227,11 @@ const CrearPrueba = () => {
           console.log("[CrearPrueba] Loaded from DB — gradeValue:", found.meta.gradeValue, "subjectValue:", found.meta.subjectValue, "status:", found.status);
           loadedAssessmentIdRef.current = found.id;
           userHasEditedRef.current = false;
+          // Guardar valores originales para proteger contra sobrescritura vacía
+          originalMetaRef.current = {
+            gradeValue: found.meta.gradeValue || "",
+            subjectValue: found.meta.subjectValue || "",
+          };
           setAssessment(found);
         } else if (t.length > 0) {
           toast.error("No se encontró la prueba");
@@ -295,9 +303,29 @@ const CrearPrueba = () => {
 
     if (editingId) {
       debounceTimerRef.current = setTimeout(() => {
+        // Protección: si los campos críticos están vacíos pero los originales no,
+        // restaurar valores originales antes de guardar para evitar sobrescritura.
+        let toSave = assessment;
+        if (originalMetaRef.current) {
+          const orig = originalMetaRef.current;
+          const meta = toSave.meta;
+          const needsGrade = !meta.gradeValue && !!orig.gradeValue;
+          const needsSubject = !meta.subjectValue && !!orig.subjectValue;
+          if (needsGrade || needsSubject) {
+            console.warn("[Autosave] Restoring original meta values — gradeValue:", orig.gradeValue, "subjectValue:", orig.subjectValue);
+            toSave = {
+              ...toSave,
+              meta: {
+                ...meta,
+                gradeValue: meta.gradeValue || orig.gradeValue,
+                subjectValue: meta.subjectValue || orig.subjectValue,
+              },
+            };
+          }
+        }
         setSaveStatus("saving");
         clearTimeout(saveTimerRef.current);
-        upsertAssessment(assessment)
+        upsertAssessment(toSave)
           .then(() => {
             setSaveStatus("saved");
             setIsDirty(false);
@@ -721,7 +749,6 @@ const CrearPrueba = () => {
             ) : (
               <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
                 <AssessmentMetaForm
-                  key={gradesLoading ? "loading" : "ready"}
                   meta={assessment.meta}
                   onChange={(m) => setAssessmentByUser({ ...assessment, meta: m })}
                   templates={templates}
@@ -732,7 +759,7 @@ const CrearPrueba = () => {
                   canChooseTeacher={canChooseTeacher}
                   lockedTeacherLabel={lockedTeacherLabel}
                   allowSelfAssignment={appSettings.allow_self_assignment}
-                  readOnlyExceptOA={!isStaff && !!editingId && !readOnly}
+                  readOnlyExceptOA={!isStaff && !!editingId && !readOnly && !!(assessment?.meta.gradeValue && assessment?.meta.subjectValue)}
                 />
               </div>
             )}
