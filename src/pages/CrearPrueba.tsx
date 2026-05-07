@@ -748,7 +748,7 @@ const CrearPrueba = () => {
                   <FileText className="h-4 w-4 mr-1" /> {isDesktop ? "Contenido + Preview" : "Contenido"}
                 </TabsTrigger>
                 {!isDesktop && (
-                  <TabsTrigger value="preview" disabled={!metaComplete} title={!metaComplete ? "Completa curso, asignatura y título primero" : undefined}>
+                  <TabsTrigger value="preview" disabled={!contentUnlocked} title={!contentUnlocked ? "Guarda los datos generales primero" : undefined}>
                     <Eye className="h-4 w-4 mr-1" /> Vista previa
                   </TabsTrigger>
                 )}
