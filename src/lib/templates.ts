@@ -2,6 +2,8 @@
 
 export type Alignment = "left" | "center" | "right" | "justify";
 
+export type TemplateLevel = "Básica" | "Media" | "ElectivoMedia";
+
 export interface FormatTemplate {
   id: string;
   name: string;
@@ -14,6 +16,11 @@ export interface FormatTemplate {
    *  - "paes":  2 col con línea divisoria, serif (Times New Roman), 5 alternativas.
    */
   essayMode?: "simce" | "paes";
+  /**
+   * Niveles educativos donde esta plantilla está habilitada. Si está ausente,
+   * la plantilla aplica a todos los niveles.
+   */
+  allowed_levels?: TemplateLevel[];
 
   typography: {
     bodyFont: string;
@@ -209,6 +216,7 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
       "Formato oficial SIMCE, 2 columnas, fuente Sans-Serif, optimizado para ahorro de papel.",
     isBuiltIn: true,
     essayMode: "simce",
+    allowed_levels: ["Básica", "Media"],
     typography: {
       bodyFont: "Arial",
       headingFont: "Arial",
@@ -262,6 +270,7 @@ export const BUILT_IN_TEMPLATES: FormatTemplate[] = [
       "Formato oficial PAES, 2 columnas con línea divisoria, fuente Serif (Times New Roman), soporte para 5 alternativas.",
     isBuiltIn: true,
     essayMode: "paes",
+    allowed_levels: ["ElectivoMedia"],
     typography: {
       bodyFont: "Times New Roman",
       headingFont: "Times New Roman",
