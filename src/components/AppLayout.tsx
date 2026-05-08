@@ -27,6 +27,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark, planExpiresAt, planType } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
+  const { startTour } = useHelpTour();
   const [hideCredits, setHideCredits] = useState(false);
   const [isInstitutional, setIsInstitutional] = useState(false);
   const [colegioNombre, setColegioNombre] = useState<string | null>(null);
