@@ -13,6 +13,7 @@ import { ColegiosManager } from "@/components/admin/ColegiosManager";
 import { UtpTeamManager } from "@/components/admin/UtpTeamManager";
 import { UtpReviewCenter } from "@/components/admin/UtpReviewCenter";
 import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
+import UtpCoursesManager from "@/components/utp/UtpCoursesManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
