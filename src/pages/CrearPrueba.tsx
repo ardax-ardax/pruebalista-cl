@@ -187,7 +187,12 @@ const CrearPrueba = () => {
               const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(resolvedLogo);
               resolvedLogo = urlData?.publicUrl ?? resolvedLogo;
             }
+            if (!resolvedLogo) {
+              console.warn("[CrearPrueba] El colegio no tiene logo_url configurado; el PDF saldrá sin logo institucional.");
+            }
             setLogo(resolvedLogo);
+          } else {
+            console.warn("[CrearPrueba] colegio_id apunta a un registro inexistente en `colegios`:", p.colegioId);
           }
         } else {
           // Docente autónomo: branding personalizado del perfil
