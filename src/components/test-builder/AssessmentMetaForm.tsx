@@ -204,11 +204,29 @@ export const AssessmentMetaForm = ({
           restrictedAssignments!.some((a) => a.grade_value === v && a.subject_value === s.value))
       : getSubjectsForGrade(v, subjects, grades);
     const stillValid = subjectsForNew.some((s) => s.value === meta.subjectValue);
+
+    // Si el formato actual es incompatible con el nuevo nivel del curso,
+    // hacer fallback automático a "Estándar".
+    const newLevel = grades.find((g) => g.value === v)?.level;
+    let templateId = meta.templateId;
+    if (newLevel) {
+      const tpl = templates.find((t) => t.id === templateId);
+      const allowed = tpl?.allowed_levels;
+      const compatible = !allowed || allowed.length === 0 ||
+        allowed.includes(newLevel) ||
+        (newLevel === "ElectivoMedia" && allowed.includes("Media"));
+      if (!compatible) {
+        const stdTpl = templates.find((t) => !t.essayMode);
+        if (stdTpl) templateId = stdTpl.id;
+      }
+    }
+
     onChange({
       ...meta,
       gradeValue: v,
       subjectValue: stillValid ? meta.subjectValue : "",
       linkedOA: [],
+      templateId,
     });
   };
   const setSubject = (v: string) => onChange({ ...meta, subjectValue: v, linkedOA: [] });
