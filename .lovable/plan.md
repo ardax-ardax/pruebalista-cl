@@ -1,54 +1,79 @@
+# Cierre del módulo institucional
 
-## Cambios a implementar
+## 1. Filtrado SIMCE/PAES por nivel del curso
 
-### 1. Aislamiento UTP en UtpUsageManager
+**Regla:**
+- **Básica** (1°–8°) y **I–II Medio**: botones `Estándar` + `SIMCE` activos. PAES deshabilitado.
+- **III–IV Medio**: botones `Estándar` + `PAES` activos. SIMCE deshabilitado.
+- `Estándar` siempre disponible.
+- Si aún no hay curso elegido, los tres botones quedan activos (sin restricción).
 
-**Archivo:** `src/components/admin/UtpUsageManager.tsx`
+**Cambios:**
 
-- Al cargar datos, obtener primero el `colegio_id` del usuario actual via `getMyProfile()`.
-- Filtrar `listProfiles()` resultados por `colegioId === miColegioId`.
-- Filtrar `assessments` y `ai_generation_log` solo a los `user_id` de esos perfiles (filtro client-side, ya que RLS de assessments usa `is_same_colegio` que ya filtra correctamente).
-- Mostrar solo docentes del mismo colegio, no consumo global.
+`src/lib/templates.ts`
+- Agregar campo opcional `allowed_levels?: ("Básica" | "Media" | "ElectivoMedia")[]` al tipo `FormatTemplate`.
+- Poblar built-ins:
+  - `ensayo-simce` → `["Básica", "Media"]` (SIMCE aplica a Básica y II Medio que es Media).
+  - `ensayo-paes` → `["ElectivoMedia"]`.
+  - Resto (Ev. Formativa, Sumativa, Guía Portafolio) → `undefined` (= todos los niveles).
 
-### 2. Herencia de marca para UTP y Docentes institucionales
+`src/components/test-builder/AssessmentMetaForm.tsx`
+- Reemplazar el bloque de botones de formato (líneas 250–273) por una versión que:
+  - Calcule `currentLevel` desde `meta.gradeValue` usando `getLevelForGrade(meta.gradeValue, grades)` + lógica electiva (`III/IVMedio` ⇒ permite también `ElectivoMedia`).
+  - Para cada opción, determine `disabled` consultando `allowed_levels` de la plantilla asociada (`SIMCE_TEMPLATE_ID`, `PAES_TEMPLATE_ID`). `Estándar` nunca se deshabilita.
+  - Botón deshabilitado: `opacity-40`, `cursor-not-allowed`, `title` explicando el motivo (ej. *"PAES solo está disponible para III y IV Medio"*).
+  - Si el formato actualmente seleccionado deja de ser válido al cambiar de curso, `handleGradeChange` ya hace `updates.gradeValue = ""` cuando el formato fuerza un nivel incompatible. Adicionalmente, hay que invertir el flujo: si el usuario cambia el curso a uno incompatible con el formato actual, hacer fallback a `Estándar`.
 
-**Archivo:** `src/components/AppLayout.tsx`
+## 2. Logo del colegio en el PDF
 
-- Actualmente ya muestra badge "Cuenta Institucional" si `isInstitutional`. Verificar que para UTP (`isUtpHead` con `colegio_id`) también aplique: ya funciona porque se basa en `colegioId` del perfil, no en el rol. Sin cambios necesarios aqui si el UTP tiene `colegio_id`.
-- Eliminar badge de "créditos / plan" para cualquier usuario con `colegio_id` (ya lo hace via `shouldHideCredits || isInstitutional`). Confirmar que UTP cae en `isInstitutional`.
+**Estado actual** (verificado en `src/pages/CrearPrueba.tsx`):
+- Líneas 167–199: si el perfil tiene `colegioId`, se hace fetch a `colegios.logo_url`, se resuelve a URL pública si es path de Storage, y se setea `setLogo(resolvedLogo)` + `setInstitutionName(col.nombre)`.
+- Línea 407: `RenderContext.logoDataUrl = logo`.
+- `assessment-render.tsx` líneas 231/240: usa `logoDataUrl` en `<td class="pa-logo-cell">` del banner.
+- `assessment-pdf.ts`: pasa el mismo `RenderContext` a la generación PDF.
 
-**Archivo:** `src/pages/Configuracion.tsx`
+**Diagnóstico:** el flujo ya es correcto. Solo se requiere QA defensivo para que no regrese el bug:
+- Quitar el `console.log("[CrearPrueba] colegio_id…")` (línea 170) y reemplazarlo por una traza más útil cuando `colegioId` existe pero el fetch a `colegios` retorna `null` o `logo_url` vacío (toast silencioso o `console.warn`).
+- Añadir test rápido manual: confirmar con UTP/docente institucional que al exportar PDF aparece el logo correcto.
+- No se modifica schema ni RenderContext.
 
-- Para UTP: en la pestaña "Políticas", cargar el logo y nombre desde la tabla `colegios` (usando su `colegio_id`) en lugar de `app_settings`. El UTP no debe poder cambiar el branding (es readonly para UTP; solo Admin lo gestiona via `ColegiosManager`).
-- Mostrar logo y nombre del colegio en modo solo lectura en la sección de branding del UTP.
+## 3. Limpieza final de UI: eliminar "Plan Gratuito" residual
 
-### 3. Admin: bloquear creación de pruebas
+**Estado actual:**
+- `AppLayout.tsx`: el badge `planLabel` ya está gateado por `!shouldHideCredits && !isInstitutional` (líneas 120/156). Para institucional NO debería mostrarse.
+- `Perfil.tsx`: la card "Plan actual" ya está dentro del else `!isInstitutional` (líneas 318–340).
+- `DashboardDocente.tsx` y `DocenteDashboardInstitucional.tsx`: importan `planLabel` pero **no lo renderizan** (imports muertos).
 
-**Archivo:** `src/pages/CrearPrueba.tsx`
+**Cambios para garantizar que no haya regresión visual:**
 
-- Ya existe lógica `isAdminOnly` en `AppLayout` que oculta "Crear prueba" del nav. Verificar que si un admin navega directamente a `/crear-prueba`, se muestre un mensaje de "Acceso no disponible" o se redirija.
-- Agregar guard al inicio del componente: si `isAdmin && !isUtpHead`, redirigir a `/admin/dashboard` con toast.
+`src/components/AppLayout.tsx`
+- Asegurar que el placeholder "Cargando…" (líneas 166–170) no muestre nada cuando el usuario es claramente institucional aún en carga: agregar una guarda extra con `isStaff && !isAdmin` (UTP) para mostrar directamente el badge institucional sin esperar.
+- Confirmar visualmente con devtools que para `ardax.ardax@cnlc.cl` (UTP) y un docente con `colegio_id` el dropdown solo muestra: avatar + nombre + email + badge verde "Cuenta Institucional / [Nombre Colegio]" + Mi Perfil + Cerrar sesión. Sin badge `planLabel`.
 
-### 4. Logo del colegio en PDF y vista previa
+`src/pages/DashboardDocente.tsx` y `src/pages/DocenteDashboardInstitucional.tsx`
+- Eliminar `planLabel` de la destructuración de `useUserUsage()` (imports muertos) para evitar que alguien lo renderice por accidente.
 
-**Archivo:** `src/pages/CrearPrueba.tsx` (lineas ~160-190)
+`src/pages/Perfil.tsx`
+- Sin cambios funcionales; solo verificar que el render condicional sigue separando institucional vs autónomo correctamente.
 
-- La logica actual ya carga `logo_url` desde `colegios` para docentes con `colegio_id`. Verificar que:
-  - Si `logo_url` es un data:URI (base64), se use directamente.
-  - Si es un path de Storage, se resuelva via `getPublicUrl`.
-  - El logo resuelto se pase al `RenderContext` para PDF/preview.
+## Validación post-cambio
 
-**Archivo:** `src/lib/assessment-render.tsx`
+- `npx tsc --noEmit` debe pasar.
+- Probar con tres cuentas:
+  - **Admin** (admin@cnlc.cl): no aplica filtrado de plantillas (no crea pruebas).
+  - **UTP institucional**: ve badge "Cuenta Institucional · [Colegio]", sin "Plan Gratuito".
+  - **Docente institucional con curso 7° Básico**: solo ve botones Estándar + SIMCE; PAES deshabilitado con tooltip.
+  - **Docente con curso III Medio**: solo ve Estándar + PAES.
 
-- Verificar que el logo del `RenderContext` se use en el encabezado del documento renderizado.
-
-### Archivos a modificar
+## Archivos a modificar
 
 | Archivo | Cambio |
-|---------|--------|
-| `src/components/admin/UtpUsageManager.tsx` | Filtrar datos por `colegio_id` del UTP |
-| `src/pages/CrearPrueba.tsx` | Guard para admin puro; verificar logo resolution |
-| `src/pages/Configuracion.tsx` | UTP: branding readonly desde tabla colegios |
-| `src/components/AppLayout.tsx` | Verificar que UTP con colegio_id muestre badge institucional (posiblemente sin cambios) |
+|---|---|
+| `src/lib/templates.ts` | Añadir `allowed_levels` al tipo + poblar built-ins SIMCE/PAES |
+| `src/components/test-builder/AssessmentMetaForm.tsx` | Disabled state en botones de formato según nivel del curso + fallback a Estándar al cambiar curso |
+| `src/components/AppLayout.tsx` | Hardening del gating institucional en dropdown durante carga |
+| `src/pages/DashboardDocente.tsx` | Limpiar import muerto de `planLabel` |
+| `src/pages/DocenteDashboardInstitucional.tsx` | Limpiar import muerto de `planLabel` |
+| `src/pages/CrearPrueba.tsx` | Reemplazar `console.log` por `console.warn` defensivo de logo |
 
-No se requieren migraciones de base de datos.
+Sin cambios en base de datos ni en `assessment-render.tsx` / `assessment-pdf.ts` (el flujo de logo ya es correcto).
