@@ -383,19 +383,29 @@ export const AssessmentMetaForm = ({
 
         {/* Fila 1: Curso (+ Letra) | Asignatura */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Indicador de Nivel (readonly, derivado del curso) */}
+        {(() => {
+          const selected = availableGrades.find((g) => g.value === meta.gradeValue);
+          const niv = selected
+            ? (selected.level === "Básica" ? "Enseñanza Básica" : "Enseñanza Media")
+            : "—";
+          return (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs font-medium">
+                Nivel: {niv}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">
+                (se actualiza automáticamente según el curso)
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* Fila 1: Curso (+ Letra) | Asignatura */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div data-tour="nivel-selector">
             <Label className="text-xs flex items-center gap-2 flex-wrap">
               <span>Curso</span>
-              {(() => {
-                const selected = availableGrades.find((g) => g.value === meta.gradeValue);
-                if (!selected) return null;
-                const niv = selected.level === "Básica" ? "Básica" : "Media";
-                return (
-                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-medium">
-                    Nivel: {niv}
-                  </Badge>
-                );
-              })()}
               {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}
               {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
             </Label>
