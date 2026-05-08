@@ -298,6 +298,17 @@ const MisPruebas = () => {
             })}
           </div>
         )}
+
+        {hasMore && (
+          <div className="flex flex-col items-center gap-1 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
+              Cargar más ({visible.length - paged.length} restantes)
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Mostrando {paged.length} de {visible.length}
+            </span>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
