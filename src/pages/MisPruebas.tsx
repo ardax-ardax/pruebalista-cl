@@ -22,6 +22,8 @@ interface Item { assessment: Assessment; userId: string; }
 
 const ALL = "__all__";
 
+const PAGE_SIZE = 20;
+
 const MisPruebas = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -31,6 +33,7 @@ const MisPruebas = () => {
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
   const { maxAssessments } = useUserUsage();
@@ -139,6 +142,14 @@ const MisPruebas = () => {
     return list;
   })();
 
+  // Reset paginación cuando cambian filtros para no quedar viendo "más" de un set viejo.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [showAll, teacherFilter, subjectFilter, statusFilter]);
+
+  const paged = visible.slice(0, visibleCount);
+  const hasMore = visible.length > paged.length;
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -212,7 +223,7 @@ const MisPruebas = () => {
           </Card>
         ) : (
           <div className="grid gap-3">
-            {visible.map(({ assessment: a, userId }) => {
+            {paged.map(({ assessment: a, userId }) => {
               const counted = a.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
               const isOwn = userId === user?.id;
               const isBlocked = blockedAssessmentIds.has(a.id);
@@ -285,6 +296,17 @@ const MisPruebas = () => {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="flex flex-col items-center gap-1 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
+              Cargar más ({visible.length - paged.length} restantes)
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Mostrando {paged.length} de {visible.length}
+            </span>
           </div>
         )}
       </div>

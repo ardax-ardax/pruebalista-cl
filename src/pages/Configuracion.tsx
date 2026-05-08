@@ -112,11 +112,19 @@ const Configuracion = () => {
   const handleUtpLogoUpload = async (file: File) => {
     if (!utpColegioId) { toast.error("No se encontró el colegio."); return; }
     if (!file.type.startsWith("image/")) { toast.error("Sube una imagen (PNG/JPG)."); return; }
-    if (file.size > 500 * 1024) { toast.error("Máximo 500 KB."); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5 MB (se comprimirá automáticamente)."); return; }
     setUtpLogoSaving(true);
-    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    // Comprime/redimensiona en el cliente para que la web cargue rápido.
+    let toUpload = file;
+    try {
+      const { compressImageFile } = await import("@/lib/image-compress");
+      toUpload = await compressImageFile(file, { maxDim: 512, quality: 0.85 });
+    } catch (e) {
+      console.warn("[logo-compress] fallo, subiendo original", e);
+    }
+    const ext = toUpload.type === "image/png" ? "png" : "jpg";
     const path = `colegios/${utpColegioId}/logo.${ext}`;
-    const { error: upErr } = await supabase.storage.from("user-logos").upload(path, file, { upsert: true, contentType: file.type });
+    const { error: upErr } = await supabase.storage.from("user-logos").upload(path, toUpload, { upsert: true, contentType: toUpload.type });
     if (upErr) { setUtpLogoSaving(false); toast.error("No se pudo subir: " + upErr.message); return; }
     const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(path);
     const publicUrl = urlData?.publicUrl ?? path;

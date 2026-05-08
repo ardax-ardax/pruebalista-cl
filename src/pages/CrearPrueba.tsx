@@ -314,7 +314,7 @@ const CrearPrueba = () => {
 
   // Autosave: only fires when the user has explicitly edited something.
   // Automatic changes (teacher auto-assign, template reload) do NOT trigger saves.
-  // Uses a 1.5s debounce to batch rapid edits into a single save.
+  // Uses a 2.5s debounce to batch rapid edits into a single save (reduce DB write bursts).
   useEffect(() => {
     if (!assessment || readOnly) return;
     if (!userHasEditedRef.current) return; // skip automatic/programmatic changes
@@ -357,7 +357,7 @@ const CrearPrueba = () => {
             setSaveStatus("error");
             saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
           });
-      }, 1500);
+      }, 2500);
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");

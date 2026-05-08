@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,20 +10,31 @@ import { PlansProvider } from "@/hooks/usePlans";
 import { HelpTourProvider } from "@/components/help/HelpTour";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
-import CrearPrueba from "./pages/CrearPrueba.tsx";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Carga inmediata para landing/auth/dashboard inicial (rutas críticas).
 import DashboardDocente from "./pages/DashboardDocente.tsx";
-import MisPruebas from "./pages/MisPruebas.tsx";
-import Configuracion from "./pages/Configuracion.tsx";
-import Cursos from "./pages/Cursos.tsx";
-import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AuthPage from "./pages/Auth.tsx";
 import Landing from "./pages/Landing.tsx";
-import Perfil from "./pages/Perfil.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import BancoPreguntas from "./pages/BancoPreguntas.tsx";
-import DocenteDashboardInstitucional from "./pages/DocenteDashboardInstitucional.tsx";
+
+// Lazy-load para módulos pesados (editor, PDF, dashboards, banco).
+const CrearPrueba = lazy(() => import("./pages/CrearPrueba.tsx"));
+const MisPruebas = lazy(() => import("./pages/MisPruebas.tsx"));
+const Configuracion = lazy(() => import("./pages/Configuracion.tsx"));
+const Cursos = lazy(() => import("./pages/Cursos.tsx"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
+const Perfil = lazy(() => import("./pages/Perfil.tsx"));
+const BancoPreguntas = lazy(() => import("./pages/BancoPreguntas.tsx"));
+const DocenteDashboardInstitucional = lazy(() => import("./pages/DocenteDashboardInstitucional.tsx"));
 
 const queryClient = new QueryClient();
+
+const RouteFallback = () => (
+  <div className="min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground">
+    Cargando…
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -34,6 +46,8 @@ const App = () => (
           <PlansProvider>
           <UserUsageProvider>
             <HelpTourProvider>
+            <ErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
@@ -48,6 +62,8 @@ const App = () => (
               <Route path="/docente/dashboard" element={<AuthGuard><DocenteDashboardInstitucional /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
+            </ErrorBoundary>
             </HelpTourProvider>
           </UserUsageProvider>
           </PlansProvider>
