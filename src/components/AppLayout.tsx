@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile } from "@/lib/profiles";
