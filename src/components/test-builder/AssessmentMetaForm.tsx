@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import type { AssessmentMeta, PaesVariant, OaPosition } from "@/lib/assessment-schema";
 import { PAES_VARIANTS } from "@/lib/assessment-schema";
 import {
@@ -324,6 +325,7 @@ export const AssessmentMetaForm = ({
 
         {/* === Campos generales (readonly al editar para docentes) === */}
         <div className={readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}>
+        {/* Fila A: Plantilla institucional + Docente */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Plantilla institucional</Label>
@@ -333,75 +335,6 @@ export const AssessmentMetaForm = ({
                 {visibleTemplates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">N°</Label>
-            <Input value={meta.number} onChange={(e) => set("number", e.target.value)} placeholder="1" />
-          </div>
-          <div>
-            <Label className="text-xs">Semestre</Label>
-            <Select value={meta.semester ?? ""} onValueChange={(v) => set("semester", v || undefined)}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1° Semestre</SelectItem>
-                <SelectItem value="2">2° Semestre</SelectItem>
-                <SelectItem value="anual">Anual</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {noAssignments && (
-          <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
-            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>
-              Pide a tu UTP que te asigne cursos y asignaturas. Mientras tanto no podrás
-              crear pruebas porque no tienes cursos ni asignaturas asociadas.
-            </span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div data-tour="nivel-selector">
-            <Label className="text-xs flex items-center gap-1">
-              Curso
-              {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}
-              {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
-            </Label>
-            <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableGrades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Letra</Label>
-            <Select value={meta.sectionLetter ?? "A"} onValueChange={(v) => set("sectionLetter", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["A", "B", "C", "D", "E", "F"].map((l) => (
-                  <SelectItem key={l} value={l}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Asignatura</Label>
-            <Select
-              value={meta.subjectValue}
-              onValueChange={setSubject}
-              disabled={!meta.gradeValue || availableSubjects.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={meta.gradeValue ? "Selecciona" : "Primero selecciona el curso"} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSubjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
@@ -428,6 +361,94 @@ export const AssessmentMetaForm = ({
           </div>
         </div>
 
+        {noAssignments && (
+          <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
+            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              Pide a tu UTP que te asigne cursos y asignaturas. Mientras tanto no podrás
+              crear pruebas porque no tienes cursos ni asignaturas asociadas.
+            </span>
+          </div>
+        )}
+
+        {/* Fila 1: Curso (+ Letra) | Asignatura */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div data-tour="nivel-selector">
+            <Label className="text-xs flex items-center gap-2 flex-wrap">
+              <span>Curso</span>
+              {(() => {
+                const selected = availableGrades.find((g) => g.value === meta.gradeValue);
+                if (!selected) return null;
+                const niv = selected.level === "Básica" ? "Básica" : "Media";
+                return (
+                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-medium">
+                    Nivel: {niv}
+                  </Badge>
+                );
+              })()}
+              {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}
+              {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
+            </Label>
+            <div className="flex gap-2">
+              <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableGrades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <Select value={meta.sectionLetter ?? "A"} onValueChange={(v) => set("sectionLetter", v)}>
+                <SelectTrigger className="w-[72px]" title="Letra del curso"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["A", "B", "C", "D", "E", "F"].map((l) => (
+                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Asignatura</Label>
+            <Select
+              value={meta.subjectValue}
+              onValueChange={setSubject}
+              disabled={!meta.gradeValue || availableSubjects.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={meta.gradeValue ? "Selecciona" : "Primero selecciona el curso"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSubjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Fila 2: Semestre | Nº de Evaluación */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Semestre</Label>
+            <Select value={meta.semester ?? ""} onValueChange={(v) => set("semester", v || undefined)}>
+              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1° Semestre</SelectItem>
+                <SelectItem value="2">2° Semestre</SelectItem>
+                <SelectItem value="anual">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Nº de Evaluación</Label>
+            <Input
+              value={meta.number}
+              onChange={(e) => set("number", e.target.value)}
+              placeholder="1"
+              inputMode="numeric"
+            />
+          </div>
+        </div>
+
         {/* SIMCE grade incompatibility warning */}
         {simceGradeInvalid && (
           <Alert variant="destructive" className="py-2">
@@ -438,6 +459,7 @@ export const AssessmentMetaForm = ({
           </Alert>
         )}
 
+        {/* Fila 3: Título */}
         <div>
           <Label className="text-xs">Título de la evaluación <span className="text-destructive">*</span></Label>
           <Input value={meta.title} onChange={(e) => set("title", e.target.value)} placeholder="Evaluación Sumativa N°1 — Reino Animal" />
