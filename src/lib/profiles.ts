@@ -10,6 +10,7 @@ export interface Profile {
   colegioId: string | null;
   secondaryEmail: string | null;
   documentId: string | null;
+  hasSeenTour: boolean;
 }
 
 export interface ListProfilesResult {
