@@ -291,6 +291,7 @@ export default function DocenteDashboardInstitucional() {
           </div>
         )}
       </section>
+      </div>
     </AppLayout>
   );
 }
