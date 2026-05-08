@@ -22,6 +22,8 @@ interface Item { assessment: Assessment; userId: string; }
 
 const ALL = "__all__";
 
+const PAGE_SIZE = 20;
+
 const MisPruebas = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -31,6 +33,7 @@ const MisPruebas = () => {
   const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
   const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
   const { maxAssessments } = useUserUsage();
