@@ -488,6 +488,7 @@ export type Database = {
           display_name: string | null
           document_id: string | null
           email: string | null
+          has_seen_tour: boolean
           id: string
           secondary_email: string | null
           updated_at: string
@@ -501,6 +502,7 @@ export type Database = {
           display_name?: string | null
           document_id?: string | null
           email?: string | null
+          has_seen_tour?: boolean
           id: string
           secondary_email?: string | null
           updated_at?: string
@@ -514,6 +516,7 @@ export type Database = {
           display_name?: string | null
           document_id?: string | null
           email?: string | null
+          has_seen_tour?: boolean
           id?: string
           secondary_email?: string | null
           updated_at?: string
