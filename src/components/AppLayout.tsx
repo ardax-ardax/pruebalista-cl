@@ -199,10 +199,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const NavItem = ({ to, label, icon: Icon }: { to: string; label: string; icon: typeof FileText }) => (
+const NavItem = ({ to, label, icon: Icon, dataTour }: { to: string; label: string; icon: typeof FileText; dataTour?: string }) => (
   <NavLink
     to={to}
     end={to === "/"}
+    data-tour={dataTour}
     className={({ isActive }) =>
       cn(
         "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-smooth",
