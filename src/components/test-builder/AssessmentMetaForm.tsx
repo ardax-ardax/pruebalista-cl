@@ -277,14 +277,21 @@ export const AssessmentMetaForm = ({
             const isBasica = !noGrade && g.includes("Básico");
             const isMediaInicial = !noGrade && /^(I|II)Medio$/.test(g);
             const isMediaSuperior = !noGrade && /^(III|IV)Medio$/.test(g);
-            // Sin curso seleccionado → habilitar TODOS los formatos.
-            const simceEnabled = noGrade || isBasica || isMediaInicial;
-            const paesEnabled = noGrade || isMediaSuperior;
+            // Sin curso seleccionado → habilitar TODOS los formatos por nivel.
+            const simceByGrade = noGrade || isBasica || isMediaInicial;
+            const paesByGrade = noGrade || isMediaSuperior;
+            // Gating adicional por plan: si la plantilla no está disponible
+            // (allowed_templates del plan la excluye), también se deshabilita.
+            const simceTplAvailable = templates.some((t) => t.id === SIMCE_TEMPLATE_ID);
+            const paesTplAvailable = templates.some((t) => t.id === PAES_TEMPLATE_ID);
+            const simceEnabled = simceByGrade && simceTplAvailable;
+            const paesEnabled = paesByGrade && paesTplAvailable;
             // Debug: ayuda a diagnosticar por qué algunos perfiles ven menos botones.
             if (typeof window !== "undefined") {
               // eslint-disable-next-line no-console
               console.debug("[AssessmentMetaForm] formato gating", {
                 gradeValue: meta.gradeValue, noGrade, isBasica, isMediaInicial, isMediaSuperior,
+                simceByGrade, paesByGrade, simceTplAvailable, paesTplAvailable,
                 simceEnabled, paesEnabled,
               });
             }
@@ -296,14 +303,18 @@ export const AssessmentMetaForm = ({
                 label: "SIMCE",
                 desc: "Básica e I-II Medio",
                 disabled: !simceEnabled,
-                reason: "SIMCE solo está disponible en Básica e I-II Medio",
+                reason: !simceTplAvailable
+                  ? "Tu plan actual no incluye el formato SIMCE. Mejora tu plan para activarlo."
+                  : "SIMCE solo está disponible en Básica e I-II Medio",
               },
               {
                 value: "paes" as const,
                 label: "PAES",
                 desc: "III y IV Medio",
                 disabled: !paesEnabled,
-                reason: "PAES solo está disponible en III y IV Medio",
+                reason: !paesTplAvailable
+                  ? "Tu plan actual no incluye el formato PAES. Mejora tu plan para activarlo."
+                  : "PAES solo está disponible en III y IV Medio",
               },
             ];
             return (
