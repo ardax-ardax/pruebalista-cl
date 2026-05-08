@@ -163,7 +163,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                         )}
                       </div>
                     )}
-                    {!usageLoading && !profileLoaded && (
+                    {!usageLoading && !profileLoaded && !isInstitutional && !shouldHideCredits && (
                       <div className="pt-1">
                         <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground animate-pulse">Cargando…</Badge>
                       </div>

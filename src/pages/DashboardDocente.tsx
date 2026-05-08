@@ -26,7 +26,7 @@ const STATUS_COLOR: Record<AssessmentStatus, string> = {
 
 export default function DashboardDocente() {
   const { user } = useAuth();
-  const { effectivePlan, creditsAvailable, loading: usageLoading, maxAssessments, planLabel } = useUserUsage();
+  const { effectivePlan, creditsAvailable, loading: usageLoading, maxAssessments } = useUserUsage();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
