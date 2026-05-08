@@ -346,89 +346,94 @@ export const AssessmentMetaForm = ({
 
         {/* === Campos generales (readonly al editar para docentes) === */}
         <div className={readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}>
-        {/* Fila A: Plantilla institucional + Docente */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Plantilla institucional</Label>
-            <Select value={meta.templateId} onValueChange={(v) => set("templateId", v)}>
-              <SelectTrigger><SelectValue placeholder="Plantilla" /></SelectTrigger>
-              <SelectContent>
-                {visibleTemplates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs flex items-center gap-1">
-              Docente
-              {!canChooseTeacher && <Lock className="h-3 w-3 text-muted-foreground" />}
-            </Label>
-            {canChooseTeacher ? (
-              <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
-                <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+          {/* === NIVEL (encabezado visual) === */}
+          {(() => {
+            const selected = availableGrades.find((g) => g.value === meta.gradeValue);
+            const niv = selected
+              ? (selected.level === "Básica" ? "Enseñanza Básica" : "Enseñanza Media")
+              : null;
+            if (!niv) return null;
+            const isBasica = selected?.level === "Básica";
+            return (
+              <div className="mb-4">
+                <Badge
+                  variant="outline"
+                  className={`text-sm font-semibold px-3 py-1.5 ${isBasica ? 'bg-success/10 text-success border-success/20' : 'bg-primary/10 text-primary border-primary/20'}`}
+                >
+                  Evaluación para {niv}
+                </Badge>
+              </div>
+            );
+          })()}
+
+          {/* Fila A: Plantilla institucional + Docente */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Plantilla institucional</Label>
+              <Select value={meta.templateId} onValueChange={(v) => set("templateId", v)}>
+                <SelectTrigger className="h-11"><SelectValue placeholder="Plantilla" /></SelectTrigger>
                 <SelectContent>
-                  {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+                  {visibleTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            ) : (
-              <Input
-                value={lockedTeacherLabel ?? teachers.find((t) => t.value === meta.teacherValue)?.label ?? ""}
-                readOnly
-                disabled
-                title="Solo administradores y Jefe UTP pueden cambiar el docente."
-              />
-            )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
+                Docente
+                {!canChooseTeacher && <Lock className="h-3 w-3 text-muted-foreground" />}
+              </Label>
+              {canChooseTeacher ? (
+                <Select value={meta.teacherValue} onValueChange={(v) => set("teacherValue", v)}>
+                  <SelectTrigger className="h-11"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                  <SelectContent>
+                    {teachers.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  className="h-11"
+                  value={lockedTeacherLabel ?? teachers.find((t) => t.value === meta.teacherValue)?.label ?? ""}
+                  readOnly
+                  disabled
+                  title="Solo administradores y Jefe UTP pueden cambiar el docente."
+                />
+              )}
+            </div>
           </div>
-        </div>
 
-        {noAssignments && (
-          <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
-            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>
-              Pide a tu UTP que te asigne cursos y asignaturas. Mientras tanto no podrás
-              crear pruebas porque no tienes cursos ni asignaturas asociadas.
-            </span>
-          </div>
-        )}
-
-        {/* Indicador de Nivel (readonly, derivado del curso) */}
-        {(() => {
-          const selected = availableGrades.find((g) => g.value === meta.gradeValue);
-          const niv = selected
-            ? (selected.level === "Básica" ? "Enseñanza Básica" : "Enseñanza Media")
-            : "—";
-          return (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs font-medium">
-                Nivel: {niv}
-              </Badge>
-              <span className="text-[10px] text-muted-foreground">
-                (se actualiza automáticamente según el curso)
+          {noAssignments && (
+            <div className="flex items-start gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
+              <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                Pide a tu UTP que te asigne cursos y asignaturas. Mientras tanto no podrás
+                crear pruebas porque no tienes cursos ni asignaturas asociadas.
               </span>
             </div>
-          );
-        })()}
+          )}
 
-        {/* Fila 1: Curso (+ Letra) | Asignatura */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div data-tour="nivel-selector">
-            <Label className="text-xs flex items-center gap-2 flex-wrap">
-              <span>Curso</span>
-              {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}
-              {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
-            </Label>
-            <div className="flex gap-2">
+          {/* Fila 1: Curso (30%) + Letra (15%) + Asignatura (55%) */}
+          <div className="grid grid-cols-1 md:grid-cols-[3fr_1.5fr_5.5fr] gap-4">
+            <div data-tour="nivel-selector">
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                <span>Curso</span>
+                {isPaes && <span className="text-[10px] text-muted-foreground ml-1">(III-IV Medio)</span>}
+                {isSimce && <span className="text-[10px] text-muted-foreground ml-1">(SIMCE)</span>}
+              </Label>
               <Select value={meta.gradeValue} onValueChange={setGrade} disabled={noAssignments}>
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="h-11 w-full">
                   <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableGrades.map((g) => (<SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Letra</Label>
               <Select value={meta.sectionLetter ?? "A"} onValueChange={(v) => set("sectionLetter", v)}>
-                <SelectTrigger className="w-[72px]" title="Letra del curso"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {["A", "B", "C", "D", "E", "F"].map((l) => (
                     <SelectItem key={l} value={l}>{l}</SelectItem>
@@ -436,72 +441,79 @@ export const AssessmentMetaForm = ({
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Asignatura</Label>
+              <Select
+                value={meta.subjectValue}
+                onValueChange={setSubject}
+                disabled={!meta.gradeValue || availableSubjects.length === 0}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder={meta.gradeValue ? "Selecciona" : "Primero selecciona el curso"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <Label className="text-xs">Asignatura</Label>
-            <Select
-              value={meta.subjectValue}
-              onValueChange={setSubject}
-              disabled={!meta.gradeValue || availableSubjects.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={meta.gradeValue ? "Selecciona" : "Primero selecciona el curso"} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSubjects.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        {/* Fila 2: Semestre | Nº de Evaluación */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Semestre</Label>
-            <Select value={meta.semester ?? ""} onValueChange={(v) => set("semester", v || undefined)}>
-              <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1° Semestre</SelectItem>
-                <SelectItem value="2">2° Semestre</SelectItem>
-                <SelectItem value="anual">Anual</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Fila 2: Semestre (50%) + Nº de Evaluación (50%) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Semestre</Label>
+              <Select value={meta.semester ?? ""} onValueChange={(v) => set("semester", v || undefined)}>
+                <SelectTrigger className="h-11"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1° Semestre</SelectItem>
+                  <SelectItem value="2">2° Semestre</SelectItem>
+                  <SelectItem value="anual">Anual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Nº de Evaluación</Label>
+              <Input
+                className="h-11"
+                value={meta.number}
+                onChange={(e) => set("number", e.target.value)}
+                placeholder="1"
+                inputMode="numeric"
+              />
+            </div>
           </div>
+
+          {/* SIMCE grade incompatibility warning */}
+          {simceGradeInvalid && (
+            <Alert variant="destructive" className="py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Formato SIMCE no disponible para este nivel. Solo aplica a 4° Básico, 6° Básico, 8° Básico y II Medio.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Fila 3: Título (full width) */}
           <div>
-            <Label className="text-xs">Nº de Evaluación</Label>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">
+              Título de la evaluación <span className="text-destructive">*</span>
+            </Label>
             <Input
-              value={meta.number}
-              onChange={(e) => set("number", e.target.value)}
-              placeholder="1"
-              inputMode="numeric"
+              className="h-11"
+              value={meta.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="Evaluación Sumativa N°1 — Reino Animal"
             />
           </div>
-        </div>
-
-        {/* SIMCE grade incompatibility warning */}
-        {simceGradeInvalid && (
-          <Alert variant="destructive" className="py-2">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              Formato SIMCE no disponible para este nivel. Solo aplica a 4° Básico, 6° Básico, 8° Básico y II Medio.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Fila 3: Título */}
-        <div>
-          <Label className="text-xs">Título de la evaluación <span className="text-destructive">*</span></Label>
-          <Input value={meta.title} onChange={(e) => set("title", e.target.value)} placeholder="Evaluación Sumativa N°1 — Reino Animal" />
-        </div>
-        <div>
-          <Label className="text-xs">Instrucciones</Label>
-          <Textarea
-            value={meta.instructions}
-            onChange={(e) => set("instructions", e.target.value)}
-            placeholder="Lee atentamente cada pregunta. Marca solo una alternativa…"
-            rows={3}
-          />
-        </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Instrucciones</Label>
+            <Textarea
+              value={meta.instructions}
+              onChange={(e) => set("instructions", e.target.value)}
+              placeholder="Lee atentamente cada pregunta. Marca solo una alternativa…"
+              rows={3}
+            />
+          </div>
         </div>{/* fin readOnlyExceptOA wrapper */}
 
         {/* === Cantidad de alternativas por tipo de pregunta (solo IA) === */}
