@@ -33,7 +33,7 @@ interface Notification {
 
 export default function DocenteDashboardInstitucional() {
   const { user } = useAuth();
-  const { creditsAvailable, loading: usageLoading, planLabel, maxAssessments } = useUserUsage();
+  const { creditsAvailable, loading: usageLoading, maxAssessments } = useUserUsage();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);

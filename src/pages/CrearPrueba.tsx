@@ -167,7 +167,7 @@ const CrearPrueba = () => {
   useEffect(() => {
     if (!user) { setCurrentProfile(null); return; }
     getMyProfile().then(async (p) => {
-      console.log("[CrearPrueba] colegio_id del usuario actual:", p?.colegioId ?? null);
+      if (p?.colegioId) console.debug("[CrearPrueba] usuario institucional, colegio_id:", p.colegioId);
       setCurrentProfile(p);
       // Si el usuario NO es staff:
       if (!isStaff && p) {
