@@ -185,7 +185,7 @@ export const QuestionList = ({ questions, onChange, meta, gradeLabel, subjectLab
               </Button>
             );
           })}
-          <Button type="button" size="sm" variant="default" onClick={() => setAiOpen(true)}>
+          <Button type="button" size="sm" variant="default" onClick={() => setAiOpen(true)} data-tour="ia-generar">
             <Sparkles className="h-4 w-4" /> Generar con IA
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setBankOpen(true)}>
