@@ -232,7 +232,7 @@ export function renderAssessmentHtml(ctx: RenderContext): string {
           <td class="pa-info-cell">
             <div class="pa-inst-name">${escape(institutionName)}</div>
             <div class="pa-row"><span><strong>${isPaes ? "Ensayo PAES" : "Ensayo SIMCE"}</strong></span></div>
-            <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span></div>
+            <div class="pa-row"><span><strong>Asignatura:</strong> ${escape(subjectLabel || "")}</span><span><strong>Curso:</strong> ${escape(gradeLabel || "")}</span>${meta.semester ? `<span><strong>Semestre:</strong> ${escape(meta.semester === "anual" ? "Anual" : meta.semester + "°")}</span>` : ""}${meta.number ? `<span><strong>N° Evaluación:</strong> ${escape(meta.number)}</span>` : ""}</div>
             ${paesLine}
           </td>
         </tr></table>`
