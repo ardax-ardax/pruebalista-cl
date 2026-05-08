@@ -13,6 +13,7 @@ import { ColegiosManager } from "@/components/admin/ColegiosManager";
 import { UtpTeamManager } from "@/components/admin/UtpTeamManager";
 import { UtpReviewCenter } from "@/components/admin/UtpReviewCenter";
 import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
+import UtpCoursesManager from "@/components/utp/UtpCoursesManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,12 +82,15 @@ const Configuracion = () => {
   const [savingSetting, setSavingSetting] = useState(false);
   const [utpColegioNombre, setUtpColegioNombre] = useState<string | null>(null);
   const [utpColegioLogo, setUtpColegioLogo] = useState<string | null>(null);
+  const [utpColegioId, setUtpColegioId] = useState<string | null>(null);
+  const [utpLogoSaving, setUtpLogoSaving] = useState(false);
 
   // UTP: load colegio branding (readonly)
   useEffect(() => {
     if (!isUtpHead || isAdmin) return;
     getMyProfile().then(async (p) => {
       if (!p?.colegioId) return;
+      setUtpColegioId(p.colegioId);
       const { data: col } = await supabase
         .from("colegios")
         .select("nombre, logo_url")
@@ -104,6 +108,34 @@ const Configuracion = () => {
       }
     });
   }, [isUtpHead, isAdmin]);
+
+  const handleUtpLogoUpload = async (file: File) => {
+    if (!utpColegioId) { toast.error("No se encontró el colegio."); return; }
+    if (!file.type.startsWith("image/")) { toast.error("Sube una imagen (PNG/JPG)."); return; }
+    if (file.size > 500 * 1024) { toast.error("Máximo 500 KB."); return; }
+    setUtpLogoSaving(true);
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `colegios/${utpColegioId}/logo.${ext}`;
+    const { error: upErr } = await supabase.storage.from("user-logos").upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setUtpLogoSaving(false); toast.error("No se pudo subir: " + upErr.message); return; }
+    const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(path);
+    const publicUrl = urlData?.publicUrl ?? path;
+    const { error: updErr } = await supabase.from("colegios").update({ logo_url: path }).eq("id", utpColegioId);
+    setUtpLogoSaving(false);
+    if (updErr) { toast.error("Logo subido pero no se pudo guardar: " + updErr.message); return; }
+    setUtpColegioLogo(publicUrl);
+    toast.success("Logo del colegio actualizado.");
+  };
+
+  const handleUtpLogoRemove = async () => {
+    if (!utpColegioId) return;
+    setUtpLogoSaving(true);
+    const { error } = await supabase.from("colegios").update({ logo_url: null }).eq("id", utpColegioId);
+    setUtpLogoSaving(false);
+    if (error) { toast.error("No se pudo eliminar: " + error.message); return; }
+    setUtpColegioLogo(null);
+    toast.success("Logo eliminado.");
+  };
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -398,23 +430,23 @@ const Configuracion = () => {
         </Tabs>
       )}
 
-      {/* ════════════════ UTP: 3 pestañas ════════════════ */}
+      {/* ════════════════ UTP: 5 pestañas ════════════════ */}
       {isUtpHead && (
         <Tabs defaultValue="equipo" className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="equipo" className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <Users className="h-4 w-4" /> <span className="hidden sm:inline">Mi Equipo</span>
+              <Users className="h-4 w-4" /> <span className="hidden sm:inline">Equipo</span>
             </TabsTrigger>
             <TabsTrigger value="evaluaciones" className="flex items-center gap-1.5 text-xs sm:text-sm">
               <ClipboardCheck className="h-4 w-4" /> <span className="hidden sm:inline">Evaluaciones</span>
             </TabsTrigger>
-            <TabsTrigger value="catalogos" className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Catálogos</span>
+            <TabsTrigger value="cursos" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Cursos</span>
             </TabsTrigger>
             <TabsTrigger value="politicas" className="flex items-center gap-1.5 text-xs sm:text-sm">
               <Shield className="h-4 w-4" /> <span className="hidden sm:inline">Políticas</span>
             </TabsTrigger>
-            <TabsTrigger value="docentes" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="consumo" className="flex items-center gap-1.5 text-xs sm:text-sm">
               <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Consumo</span>
             </TabsTrigger>
           </TabsList>
@@ -427,49 +459,67 @@ const Configuracion = () => {
             <UtpReviewCenter />
           </TabsContent>
 
-          <TabsContent value="catalogos">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="text-lg">Asignaturas, cursos y docentes</CardTitle>
-                <CardDescription>
-                  Estas listas alimentan los selectores del nombre de archivo.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <CatalogManager title="Asignaturas" description="Ej: Historia → Historia" items={subjects} onChange={updateSubjects} onReset={handleResetSubjects} labelPlaceholder="Educación Física" valuePlaceholder="EducaciónFísica" />
-                <CatalogManager title="Cursos" description="Ej: 7° Básico → 7Básico" items={grades} onChange={updateGrades} onReset={handleResetGrades} labelPlaceholder="7° Básico" valuePlaceholder="7Básico" />
-                <CatalogManager title="Docentes" description="Quien crea el documento." items={teachers} onChange={updateTeachers} onReset={handleResetTeachers} labelPlaceholder="Jorge Villablanca" valuePlaceholder="JorgeVillablanca" />
-              </CardContent>
-            </Card>
+          <TabsContent value="cursos">
+            <UtpCoursesManager />
           </TabsContent>
 
           <TabsContent value="politicas" className="space-y-6">
-            {/* Branding del colegio (solo lectura para UTP) */}
+            {/* Branding del colegio: logo editable, nombre readonly */}
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
                   Datos del colegio
                 </CardTitle>
-                <CardDescription>El branding del colegio es gestionado por el Administrador.</CardDescription>
+                <CardDescription>Puedes actualizar el logo. El nombre solo lo modifica el Administrador.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <Label>Logo del colegio</Label>
-                    <div className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 overflow-hidden">
-                      {utpColegioLogo ? (
-                        <img src={utpColegioLogo} alt="Logo del colegio" className="max-h-full max-w-full object-contain" />
-                      ) : (
-                        <Building2 className="h-6 w-6 text-muted-foreground" />
-                      )}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 overflow-hidden">
+                        {utpColegioLogo ? (
+                          <img src={utpColegioLogo} alt="Logo del colegio" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <Building2 className="h-6 w-6 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          id="utp-logo-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUtpLogoUpload(f);
+                            e.currentTarget.value = "";
+                          }}
+                        />
+                        <Button size="sm" variant="outline" onClick={() => document.getElementById("utp-logo-input")?.click()} disabled={utpLogoSaving}>
+                          <Upload className="h-3.5 w-3.5 mr-1" /> Subir logo
+                        </Button>
+                        {utpColegioLogo && (
+                          <Button size="sm" variant="ghost" onClick={handleUtpLogoRemove} disabled={utpLogoSaving} className="text-destructive">
+                            <X className="h-3.5 w-3.5 mr-1" /> Quitar
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">Solo el Administrador puede cambiar el logo.</p>
+                    <p className="text-xs text-muted-foreground">PNG/JPG hasta 500 KB. Aparecerá en las pruebas del colegio.</p>
                   </div>
                   <div className="space-y-3">
-                    <Label>Nombre del colegio</Label>
-                    <p className="text-sm font-medium">{utpColegioNombre ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground">Solo el Administrador puede cambiar el nombre.</p>
+                    <Label htmlFor="utp-colegio-nombre">Nombre del colegio</Label>
+                    <Input
+                      id="utp-colegio-nombre"
+                      value={utpColegioNombre ?? ""}
+                      readOnly
+                      disabled
+                      className="bg-muted"
+                      title="Solo el Administrador puede modificar el nombre del colegio"
+                    />
+                    <p className="text-xs text-muted-foreground">Solo el Administrador puede modificar el nombre.</p>
                   </div>
                 </div>
               </CardContent>
@@ -512,7 +562,7 @@ const Configuracion = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="docentes">
+          <TabsContent value="consumo">
             <UtpUsageManager />
           </TabsContent>
         </Tabs>

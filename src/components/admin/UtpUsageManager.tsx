@@ -173,7 +173,7 @@ export const UtpUsageManager = () => {
   const handleDownloadCSV = () => {
     const header = "Docente,Email,Plan,Créditos,Cuota Mensual,Evaluaciones Creadas,Preguntas IA Generadas";
     const csvRows = rows.map((r) =>
-      `"${r.displayName}","${r.email}","${r.planType}",${r.credits},${r.monthlyQuota ?? "Sin límite"},${r.assessmentCount},${r.aiGenerations}`
+      `"${r.displayName}","${r.email}","Docente Institucional",${r.credits},${r.monthlyQuota ?? "Sin límite"},${r.assessmentCount},${r.aiGenerations}`
     );
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -241,7 +241,7 @@ export const UtpUsageManager = () => {
                         <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{r.email}</div>
                       </td>
                       <td className="px-3 py-1.5 hidden md:table-cell">
-                        <Badge variant="secondary" className="text-[10px]">{r.planType}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">Docente Institucional</Badge>
                       </td>
                       <td className="px-3 py-1.5 text-center font-mono text-xs">{r.credits}</td>
                       <td className="px-3 py-1.5 text-center text-xs">

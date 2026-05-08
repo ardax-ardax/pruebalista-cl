@@ -52,7 +52,9 @@ export type Database = {
       }
       admin_courses: {
         Row: {
+          colegio_id: string | null
           created_at: string
+          created_by: string | null
           grade_value: string
           id: string
           label: string
@@ -60,7 +62,9 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          colegio_id?: string | null
           created_at?: string
+          created_by?: string | null
           grade_value: string
           id?: string
           label: string
@@ -68,14 +72,24 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          colegio_id?: string | null
           created_at?: string
+          created_by?: string | null
           grade_value?: string
           id?: string
           label?: string
           level?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_courses_colegio_id_fkey"
+            columns: ["colegio_id"]
+            isOneToOne: false
+            referencedRelation: "colegios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       admin_subjects: {
         Row: {
