@@ -49,6 +49,43 @@ interface AdminSubjectRow {
 
 const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
 
+// Helper: jerarquía Nivel → Grado → Letra para crear cursos rápidamente.
+const GRADES_BY_LEVEL: Record<string, { value: string; label: string }[]> = {
+  "Básica": [
+    { value: "1º", label: "1º Básico" },
+    { value: "2º", label: "2º Básico" },
+    { value: "3º", label: "3º Básico" },
+    { value: "4º", label: "4º Básico" },
+    { value: "5º", label: "5º Básico" },
+    { value: "6º", label: "6º Básico" },
+    { value: "7º", label: "7º Básico" },
+    { value: "8º", label: "8º Básico" },
+  ],
+  "Media": [
+    { value: "I", label: "I Medio" },
+    { value: "II", label: "II Medio" },
+    { value: "III", label: "III Medio" },
+    { value: "IV", label: "IV Medio" },
+  ],
+  "ElectivoMedia": [
+    { value: "III", label: "III Medio (Electivo)" },
+    { value: "IV", label: "IV Medio (Electivo)" },
+  ],
+};
+const SECTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
+function buildCourseLabels(level: string, gradeKey: string, letter: string) {
+  const grade = GRADES_BY_LEVEL[level]?.find((g) => g.value === gradeKey);
+  if (!grade) return { label: "", slug: "" };
+  const label = `${grade.label}${letter ? ` ${letter}` : ""}`;
+  // slug coherente con DEFAULT_GRADES (ej: "IMedioA", "1ºBásico")
+  const baseSlug = level === "Básica"
+    ? `${grade.value}Básico`
+    : `${grade.value}Medio`;
+  const slug = `${baseSlug}${letter}`;
+  return { label, slug };
+}
+
 export default function AdminCoursesManager() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [subjects, setSubjects] = useState<CourseSubject[]>([]);
@@ -78,6 +115,9 @@ export default function AdminCoursesManager() {
 
   const openNew = () => {
     const maxSort = courses.reduce((m, c) => Math.max(m, c.sort_order), -1);
+    setWizardLevel("Básica");
+    setWizardGrade("");
+    setWizardLetter("A");
     setEditing({ grade_value: "", label: "", level: "Básica", sort_order: maxSort + 1 });
     setIsNew(true);
   };
@@ -86,6 +126,18 @@ export default function AdminCoursesManager() {
     setEditing({ ...c });
     setIsNew(false);
   };
+
+  const [wizardLevel, setWizardLevel] = useState<string>("Básica");
+  const [wizardGrade, setWizardGrade] = useState<string>("");
+  const [wizardLetter, setWizardLetter] = useState<string>("A");
+
+  // Auto-rellena label + slug en modo Nuevo cuando cambia el wizard
+  useEffect(() => {
+    if (!isNew || !editing) return;
+    if (!wizardGrade) return;
+    const { label, slug } = buildCourseLabels(wizardLevel, wizardGrade, wizardLetter);
+    setEditing((prev) => prev ? { ...prev, label, grade_value: slug, level: wizardLevel } : prev);
+  }, [wizardLevel, wizardGrade, wizardLetter, isNew]);
 
   const handleSave = async () => {
     if (!editing?.grade_value?.trim() || !editing?.label?.trim()) {
@@ -237,6 +289,45 @@ export default function AdminCoursesManager() {
           </DialogHeader>
           {editing && (
             <div className="space-y-3 py-2">
+              {isNew && (
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+                  <p className="text-xs font-medium">Asistente jerárquico</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Nivel</Label>
+                      <Select value={wizardLevel} onValueChange={(v) => { setWizardLevel(v); setWizardGrade(""); }}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Grado</Label>
+                      <Select value={wizardGrade} onValueChange={setWizardGrade}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>
+                          {(GRADES_BY_LEVEL[wizardLevel] ?? []).map((g) => (
+                            <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Letra</Label>
+                      <Select value={wizardLetter} onValueChange={setWizardLetter}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {SECTION_LETTERS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Auto-genera <strong>{editing.label || "—"}</strong> ({editing.grade_value || "slug"}). Editable abajo.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1">
                 <Label>Nombre visible</Label>
                 <Input
