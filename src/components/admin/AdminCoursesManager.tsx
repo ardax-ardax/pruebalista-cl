@@ -49,6 +49,43 @@ interface AdminSubjectRow {
 
 const LEVELS = ["Básica", "Media", "ElectivoMedia"] as const;
 
+// Helper: jerarquía Nivel → Grado → Letra para crear cursos rápidamente.
+const GRADES_BY_LEVEL: Record<string, { value: string; label: string }[]> = {
+  "Básica": [
+    { value: "1º", label: "1º Básico" },
+    { value: "2º", label: "2º Básico" },
+    { value: "3º", label: "3º Básico" },
+    { value: "4º", label: "4º Básico" },
+    { value: "5º", label: "5º Básico" },
+    { value: "6º", label: "6º Básico" },
+    { value: "7º", label: "7º Básico" },
+    { value: "8º", label: "8º Básico" },
+  ],
+  "Media": [
+    { value: "I", label: "I Medio" },
+    { value: "II", label: "II Medio" },
+    { value: "III", label: "III Medio" },
+    { value: "IV", label: "IV Medio" },
+  ],
+  "ElectivoMedia": [
+    { value: "III", label: "III Medio (Electivo)" },
+    { value: "IV", label: "IV Medio (Electivo)" },
+  ],
+};
+const SECTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
+function buildCourseLabels(level: string, gradeKey: string, letter: string) {
+  const grade = GRADES_BY_LEVEL[level]?.find((g) => g.value === gradeKey);
+  if (!grade) return { label: "", slug: "" };
+  const label = `${grade.label}${letter ? ` ${letter}` : ""}`;
+  // slug coherente con DEFAULT_GRADES (ej: "IMedioA", "1ºBásico")
+  const baseSlug = level === "Básica"
+    ? `${grade.value}Básico`
+    : `${grade.value}Medio`;
+  const slug = `${baseSlug}${letter}`;
+  return { label, slug };
+}
+
 export default function AdminCoursesManager() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [subjects, setSubjects] = useState<CourseSubject[]>([]);
