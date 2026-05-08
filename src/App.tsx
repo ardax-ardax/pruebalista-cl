@@ -33,6 +33,7 @@ const App = () => (
         <AuthProvider>
           <PlansProvider>
           <UserUsageProvider>
+            <HelpTourProvider>
             <Routes>
               <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
