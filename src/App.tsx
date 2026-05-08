@@ -48,6 +48,7 @@ const App = () => (
               <Route path="/docente/dashboard" element={<AuthGuard><DocenteDashboardInstitucional /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </HelpTourProvider>
           </UserUsageProvider>
           </PlansProvider>
         </AuthProvider>
