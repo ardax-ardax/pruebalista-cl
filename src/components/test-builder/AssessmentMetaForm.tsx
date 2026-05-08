@@ -205,16 +205,17 @@ export const AssessmentMetaForm = ({
       : getSubjectsForGrade(v, subjects, grades);
     const stillValid = subjectsForNew.some((s) => s.value === meta.subjectValue);
 
-    // Si el formato actual es incompatible con el nuevo nivel del curso,
+    // Si el formato actual es incompatible con el grado del curso,
     // hacer fallback automático a "Estándar".
-    const newLevel = grades.find((g) => g.value === v)?.level;
     let templateId = meta.templateId;
-    if (newLevel) {
+    if (v) {
       const tpl = templates.find((t) => t.id === templateId);
-      const allowed = tpl?.allowed_levels;
-      const compatible = !allowed || allowed.length === 0 ||
-        allowed.includes(newLevel) ||
-        (newLevel === "ElectivoMedia" && allowed.includes("Media"));
+      const isSimceTpl = tpl?.essayMode === "simce";
+      const isPaesTpl = tpl?.essayMode === "paes";
+      const compatible =
+        (!isSimceTpl && !isPaesTpl) ||
+        (isSimceTpl && SIMCE_ALLOWED_GRADES.has(v)) ||
+        (isPaesTpl && PAES_ALLOWED_GRADES.has(v));
       if (!compatible) {
         const stdTpl = templates.find((t) => !t.essayMode);
         if (stdTpl) templateId = stdTpl.id;
@@ -268,33 +269,29 @@ export const AssessmentMetaForm = ({
         <div>
           <Label className="text-xs font-semibold">Formato de evaluación</Label>
           {(() => {
-            // Derivar nivel del curso seleccionado
-            const currentGrade = grades.find((g) => g.value === meta.gradeValue);
-            const currentLevel = currentGrade?.level ?? null;
-            const simceTpl = templates.find((t) => t.id === SIMCE_TEMPLATE_ID);
-            const paesTpl = templates.find((t) => t.id === PAES_TEMPLATE_ID);
-            const isAllowed = (allowed?: string[]) => {
-              if (!allowed || allowed.length === 0) return true;
-              if (!currentLevel) return true; // sin curso aún, no restringir
-              if (allowed.includes(currentLevel)) return true;
-              // III/IV Medio (ElectivoMedia) también cuenta como Media para SIMCE
-              if (currentLevel === "ElectivoMedia" && allowed.includes("Media")) return true;
-              return false;
-            };
+            // Gating por grade_value (no por nivel) porque I-II Medio y III-IV Medio
+            // comparten level="Media" pero requieren formatos distintos.
+            const g = meta.gradeValue ?? "";
+            const isBasica = g.includes("Básico");
+            const isMediaInicial = /^(I|II)Medio/.test(g) && !/^(III|IV)Medio/.test(g);
+            const isMediaSuperior = /^(III|IV)Medio/.test(g);
+            const noGrade = !g;
+            const simceEnabled = noGrade || isBasica || isMediaInicial;
+            const paesEnabled = noGrade || isMediaSuperior;
             const opts = [
               { value: "estandar" as const, label: "Evaluación Estándar", desc: "Formato libre", disabled: false, reason: "" },
               {
                 value: "simce" as const,
                 label: "SIMCE",
-                desc: "4°, 6°, 8° Básico, II Medio",
-                disabled: !isAllowed(simceTpl?.allowed_levels),
-                reason: "SIMCE solo está disponible en Enseñanza Básica y II Medio",
+                desc: "Básica e I-II Medio",
+                disabled: !simceEnabled,
+                reason: "SIMCE solo está disponible en Básica e I-II Medio",
               },
               {
                 value: "paes" as const,
                 label: "PAES",
                 desc: "III y IV Medio",
-                disabled: !isAllowed(paesTpl?.allowed_levels),
+                disabled: !paesEnabled,
                 reason: "PAES solo está disponible en III y IV Medio",
               },
             ];

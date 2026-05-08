@@ -241,7 +241,7 @@ export const UtpUsageManager = () => {
                         <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{r.email}</div>
                       </td>
                       <td className="px-3 py-1.5 hidden md:table-cell">
-                        <Badge variant="secondary" className="text-[10px]">{r.planType}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">Docente Institucional</Badge>
                       </td>
                       <td className="px-3 py-1.5 text-center font-mono text-xs">{r.credits}</td>
                       <td className="px-3 py-1.5 text-center text-xs">
