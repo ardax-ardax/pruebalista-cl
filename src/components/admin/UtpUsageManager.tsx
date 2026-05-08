@@ -66,14 +66,26 @@ export const UtpUsageManager = () => {
         supabase.from("ai_generation_log").select("user_id"),
       ]);
 
-      // UTP (non-admin): filter profiles to same colegio only
+      // UTP (non-admin): filter profiles to same colegio only.
+      // CRITICAL: also enforce isolation for ai_generation_log + assessments
+      // because RLS for ai_generation_log allows staff to read all rows.
       let profiles = profilesRes.profiles;
-      if (!isAdmin && myColegioId) {
-        profiles = profiles.filter((p) => p.colegioId === myColegioId);
+      if (!isAdmin) {
+        if (!myColegioId) {
+          // UTP without colegio_id: show nothing (no global access)
+          profiles = [];
+        } else {
+          profiles = profiles.filter((p) => p.colegioId === myColegioId);
+        }
       }
+      const allowedUserIds = new Set(profiles.map((p) => p.id));
       const usageData = (usageRes.data ?? []) as UsageRow[];
-      const assessments = assessmentsRes.data ?? [];
-      const aiLogs = aiLogRes.data ?? [];
+      const assessments = (assessmentsRes.data ?? []).filter(
+        (a) => isAdmin || allowedUserIds.has(a.user_id),
+      );
+      const aiLogs = (aiLogRes.data ?? []).filter(
+        (l) => isAdmin || allowedUserIds.has(l.user_id),
+      );
 
       const assessmentCounts = new Map<string, number>();
       for (const a of assessments) {
