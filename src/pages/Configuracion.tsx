@@ -82,6 +82,8 @@ const Configuracion = () => {
   const [savingSetting, setSavingSetting] = useState(false);
   const [utpColegioNombre, setUtpColegioNombre] = useState<string | null>(null);
   const [utpColegioLogo, setUtpColegioLogo] = useState<string | null>(null);
+  const [utpColegioId, setUtpColegioId] = useState<string | null>(null);
+  const [utpLogoSaving, setUtpLogoSaving] = useState(false);
 
   // UTP: load colegio branding (readonly)
   useEffect(() => {
