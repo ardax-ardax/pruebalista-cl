@@ -21,7 +21,7 @@ export interface ListProfilesResult {
 export const listProfiles = async (): Promise<ListProfilesResult> => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id");
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id, has_seen_tour");
   if (error) {
     console.error("listProfiles", error);
     return { profiles: [], error: error.message };
@@ -36,6 +36,7 @@ export const listProfiles = async (): Promise<ListProfilesResult> => {
     colegioId: (r as Record<string, unknown>).colegio_id as string | null,
     secondaryEmail: (r as Record<string, unknown>).secondary_email as string | null,
     documentId: (r as Record<string, unknown>).document_id as string | null,
+    hasSeenTour: ((r as Record<string, unknown>).has_seen_tour as boolean | null) ?? false,
   }));
   return { profiles, error: null };
 };
@@ -45,7 +46,7 @@ export const getMyProfile = async (): Promise<Profile | null> => {
   if (!user) return null;
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id")
+    .select("id, email, display_name, avatar_url, custom_institution_name, custom_logo_url, colegio_id, secondary_email, document_id, has_seen_tour")
     .eq("id", user.id)
     .maybeSingle();
   if (error || !data) return null;
@@ -59,6 +60,7 @@ export const getMyProfile = async (): Promise<Profile | null> => {
     colegioId: (data as Record<string, unknown>).colegio_id as string | null,
     secondaryEmail: (data as Record<string, unknown>).secondary_email as string | null,
     documentId: (data as Record<string, unknown>).document_id as string | null,
+    hasSeenTour: ((data as Record<string, unknown>).has_seen_tour as boolean | null) ?? false,
   };
 };
 
@@ -68,6 +70,7 @@ export const updateMyProfile = async (updates: {
   display_name?: string;
   secondary_email?: string | null;
   document_id?: string | null;
+  has_seen_tour?: boolean;
 }): Promise<{ ok: boolean; error?: string }> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "No autenticado" };
