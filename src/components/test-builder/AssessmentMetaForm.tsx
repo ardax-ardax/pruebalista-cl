@@ -381,8 +381,6 @@ export const AssessmentMetaForm = ({
           </div>
         )}
 
-        {/* Fila 1: Curso (+ Letra) | Asignatura */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Indicador de Nivel (readonly, derivado del curso) */}
         {(() => {
           const selected = availableGrades.find((g) => g.value === meta.gradeValue);
