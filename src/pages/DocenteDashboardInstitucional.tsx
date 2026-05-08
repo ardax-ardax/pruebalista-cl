@@ -140,6 +140,7 @@ export default function DocenteDashboardInstitucional() {
 
   return (
     <AppLayout>
+      <div data-tour="dashboard">
       {/* Greeting */}
       <section className="mb-8 animate-fade-in">
         <div className="flex items-center gap-4">
