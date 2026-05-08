@@ -127,6 +127,25 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="ml-1 rounded-full" title="Ayuda">
+                    <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => startTour()} className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Iniciar Tour Guiado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled className="gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Centro de Ayuda (Próximamente)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="ml-1 rounded-full">
                     <Avatar className="h-8 w-8">
                       {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
