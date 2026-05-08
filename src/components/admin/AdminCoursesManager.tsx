@@ -115,6 +115,9 @@ export default function AdminCoursesManager() {
 
   const openNew = () => {
     const maxSort = courses.reduce((m, c) => Math.max(m, c.sort_order), -1);
+    setWizardLevel("Básica");
+    setWizardGrade("");
+    setWizardLetter("A");
     setEditing({ grade_value: "", label: "", level: "Básica", sort_order: maxSort + 1 });
     setIsNew(true);
   };
