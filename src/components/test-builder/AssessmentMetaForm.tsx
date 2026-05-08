@@ -272,14 +272,24 @@ export const AssessmentMetaForm = ({
           {(() => {
             // Gating por grade_value (no por nivel) porque I-II Medio y III-IV Medio
             // comparten level="Media" pero requieren formatos distintos.
-            const g = meta.gradeValue ?? "";
-            const isBasica = g.includes("Básico");
-            const isMediaInicial = /^(I|II)Medio/.test(g) && !/^(III|IV)Medio/.test(g);
-            const isMediaSuperior = /^(III|IV)Medio/.test(g);
+            const g = (meta.gradeValue ?? "").trim();
             const noGrade = !g;
+            const isBasica = !noGrade && g.includes("Básico");
+            const isMediaInicial = !noGrade && /^(I|II)Medio$/.test(g);
+            const isMediaSuperior = !noGrade && /^(III|IV)Medio$/.test(g);
+            // Sin curso seleccionado → habilitar TODOS los formatos.
             const simceEnabled = noGrade || isBasica || isMediaInicial;
             const paesEnabled = noGrade || isMediaSuperior;
+            // Debug: ayuda a diagnosticar por qué algunos perfiles ven menos botones.
+            if (typeof window !== "undefined") {
+              // eslint-disable-next-line no-console
+              console.debug("[AssessmentMetaForm] formato gating", {
+                gradeValue: meta.gradeValue, noGrade, isBasica, isMediaInicial, isMediaSuperior,
+                simceEnabled, paesEnabled,
+              });
+            }
             const opts = [
+              // Estándar: SIEMPRE habilitado y visible para todos los perfiles.
               { value: "estandar" as const, label: "Evaluación Estándar", desc: "Formato libre", disabled: false, reason: "" },
               {
                 value: "simce" as const,
@@ -311,7 +321,7 @@ export const AssessmentMetaForm = ({
                         evaluationFormat === opt.value
                           ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                           : "border-border hover:border-muted-foreground/30"
-                      } ${isDisabled ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+                      } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <div className="text-sm font-semibold">{opt.label}</div>
                       <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
@@ -371,21 +381,29 @@ export const AssessmentMetaForm = ({
           </div>
         )}
 
+        {/* Indicador de Nivel (readonly, derivado del curso) */}
+        {(() => {
+          const selected = availableGrades.find((g) => g.value === meta.gradeValue);
+          const niv = selected
+            ? (selected.level === "Básica" ? "Enseñanza Básica" : "Enseñanza Media")
+            : "—";
+          return (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs font-medium">
+                Nivel: {niv}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">
+                (se actualiza automáticamente según el curso)
+              </span>
+            </div>
+          );
+        })()}
+
         {/* Fila 1: Curso (+ Letra) | Asignatura */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div data-tour="nivel-selector">
             <Label className="text-xs flex items-center gap-2 flex-wrap">
               <span>Curso</span>
-              {(() => {
-                const selected = availableGrades.find((g) => g.value === meta.gradeValue);
-                if (!selected) return null;
-                const niv = selected.level === "Básica" ? "Básica" : "Media";
-                return (
-                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-medium">
-                    Nivel: {niv}
-                  </Badge>
-                );
-              })()}
               {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}
               {isSimce && <span className="text-[10px] text-muted-foreground">(SIMCE)</span>}
             </Label>
