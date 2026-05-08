@@ -124,6 +124,18 @@ export default function AdminCoursesManager() {
     setIsNew(false);
   };
 
+  const [wizardLevel, setWizardLevel] = useState<string>("Básica");
+  const [wizardGrade, setWizardGrade] = useState<string>("");
+  const [wizardLetter, setWizardLetter] = useState<string>("A");
+
+  // Auto-rellena label + slug en modo Nuevo cuando cambia el wizard
+  useEffect(() => {
+    if (!isNew || !editing) return;
+    if (!wizardGrade) return;
+    const { label, slug } = buildCourseLabels(wizardLevel, wizardGrade, wizardLetter);
+    setEditing((prev) => prev ? { ...prev, label, grade_value: slug, level: wizardLevel } : prev);
+  }, [wizardLevel, wizardGrade, wizardLetter, isNew]);
+
   const handleSave = async () => {
     if (!editing?.grade_value?.trim() || !editing?.label?.trim()) {
       toast.error("Valor y nombre son obligatorios");
