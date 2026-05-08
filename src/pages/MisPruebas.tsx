@@ -142,6 +142,14 @@ const MisPruebas = () => {
     return list;
   })();
 
+  // Reset paginación cuando cambian filtros para no quedar viendo "más" de un set viejo.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [showAll, teacherFilter, subjectFilter, statusFilter]);
+
+  const paged = visible.slice(0, visibleCount);
+  const hasMore = visible.length > paged.length;
+
   return (
     <AppLayout>
       <div className="space-y-6">
