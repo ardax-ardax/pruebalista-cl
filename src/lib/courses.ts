@@ -31,28 +31,10 @@ export async function listCourses(): Promise<Course[]> {
   return (data ?? []) as Course[];
 }
 
-export async function createCourse(input: { name: string; level: string }): Promise<Course> {
-  const { data, error } = await supabase
-    .from("courses")
-    .insert({ name: input.name.trim(), level: input.level.trim() })
-    .select()
-    .single();
-  if (error) throw error;
-  return data as Course;
-}
-
-export async function updateCourse(id: string, input: { name?: string; level?: string }): Promise<void> {
-  const patch: { name?: string; level?: string } = {};
-  if (input.name !== undefined) patch.name = input.name.trim();
-  if (input.level !== undefined) patch.level = input.level.trim();
-  const { error } = await supabase.from("courses").update(patch).eq("id", id);
-  if (error) throw error;
-}
-
-export async function deleteCourse(id: string): Promise<void> {
-  const { error } = await supabase.from("courses").delete().eq("id", id);
-  if (error) throw error;
-}
+// Nota: la creación/edición/eliminación manual de cursos quedó deprecada.
+// Toda gestión de cursos se hace ahora vía `admin_courses` y el asistente
+// de UtpCoursesManager. La tabla `courses` solo se conserva como destino
+// del roster de estudiantes (usado por la hoja OMR).
 
 export async function listStudentsByCourse(courseId: string): Promise<Student[]> {
   const { data, error } = await supabase
