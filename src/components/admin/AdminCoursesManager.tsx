@@ -289,6 +289,45 @@ export default function AdminCoursesManager() {
           </DialogHeader>
           {editing && (
             <div className="space-y-3 py-2">
+              {isNew && (
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+                  <p className="text-xs font-medium">Asistente jerárquico</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Nivel</Label>
+                      <Select value={wizardLevel} onValueChange={(v) => { setWizardLevel(v); setWizardGrade(""); }}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Grado</Label>
+                      <Select value={wizardGrade} onValueChange={setWizardGrade}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>
+                          {(GRADES_BY_LEVEL[wizardLevel] ?? []).map((g) => (
+                            <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Letra</Label>
+                      <Select value={wizardLetter} onValueChange={setWizardLetter}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {SECTION_LETTERS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Auto-genera <strong>{editing.label || "—"}</strong> ({editing.grade_value || "slug"}). Editable abajo.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1">
                 <Label>Nombre visible</Label>
                 <Input
