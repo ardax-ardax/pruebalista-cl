@@ -14,6 +14,7 @@ import { UtpTeamManager } from "@/components/admin/UtpTeamManager";
 import { UtpReviewCenter } from "@/components/admin/UtpReviewCenter";
 import { UtpUsageManager } from "@/components/admin/UtpUsageManager";
 import UtpCoursesManager from "@/components/utp/UtpCoursesManager";
+import StudentRosterPanel from "@/components/utp/StudentRosterPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -467,8 +468,9 @@ const Configuracion = () => {
             <UtpReviewCenter />
           </TabsContent>
 
-          <TabsContent value="cursos">
+          <TabsContent value="cursos" className="space-y-6">
             <UtpCoursesManager />
+            <StudentRosterPanel />
           </TabsContent>
 
           <TabsContent value="politicas" className="space-y-6">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile } from "@/lib/profiles";
@@ -98,7 +98,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} dataTour="crear-btn" />}
             {!isAdminOnly && <NavItem to="/banco-preguntas" label="Banco" icon={Library} />}
             {!isAdminOnly && <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />}
-            {isUtpHead && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
+            
             {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} dataTour="configuracion" />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
