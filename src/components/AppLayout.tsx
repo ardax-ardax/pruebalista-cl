@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useHelpTour } from "@/components/help/HelpTour";
+import { HelpModal } from "@/components/help/HelpModal";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
@@ -27,7 +27,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark, planExpiresAt, planType } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
-  const { startTour } = useHelpTour();
+  const [helpOpen, setHelpOpen] = useState(false);
   const [hideCredits, setHideCredits] = useState(false);
   const [isInstitutional, setIsInstitutional] = useState(false);
   const [colegioNombre, setColegioNombre] = useState<string | null>(null);
@@ -125,23 +125,15 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               </Badge>
             )}
             {user && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="ml-1 rounded-full" title="Ayuda">
-                    <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => startTour()} className="gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Iniciar Tour Guiado
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled className="gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Centro de Ayuda (Próximamente)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-1 rounded-full"
+                title="Centro de Ayuda"
+                onClick={() => setHelpOpen(true)}
+              >
+                <HelpCircle className="h-5 w-5 text-muted-foreground" />
+              </Button>
             )}
             {user && (
               <DropdownMenu>
@@ -214,6 +206,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </footer>
       )}
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 };
