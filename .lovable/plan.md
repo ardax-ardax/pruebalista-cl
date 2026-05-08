@@ -1,66 +1,41 @@
-# Plan: Sistema de Onboarding Tour Interactivo
+## Objetivo
+Eliminar la duplicación de gestión de cursos. Toda la administración para UTP vive solo en **Configuración → pestaña Cursos**, usando el asistente de 3 pasos (Nivel → Grado → Letra) que ya genera el nombre automáticamente.
 
-## 1. Dependencia
-- Instalar `driver.js` (liviano, ~5kb, sin dependencias).
+## Cambios
 
-## 2. Persistencia (`has_seen_tour`)
-- **Migración SQL**: agregar columna `has_seen_tour boolean default false` a `profiles`.
-- Actualizar `src/lib/profiles.ts`: incluir `hasSeenTour` en `Profile`, `getMyProfile`, `updateMyProfile`.
-- Trigger automático: si `hasSeenTour === false` al cargar dashboard → iniciar tour y luego marcar `true`.
+### 1. Eliminar el menú "Cursos" del header
+- `src/components/AppLayout.tsx`: quitar el `<NavItem to="/cursos" label="Cursos" .../>` que se muestra a `isUtpHead`. El acceso queda solo por Configuración.
 
-## 3. Componente `HelpTour`
-**Archivo nuevo**: `src/components/help/HelpTour.tsx`
-- Hook `useHelpTour()` que expone `startTour(role)`.
-- Define los pasos por rol (`docenteSteps`, `utpSteps`) con selectores CSS (`data-tour="..."`).
-- Wrapper de `driver.js` con configuración de marca:
-  - `nextBtnText: "Siguiente"`, `prevBtnText: "Anterior"`, `doneBtnText: "Finalizar"`
-  - Estilos custom vía `popoverClass: "pl-tour"` en `index.css` usando tokens (`hsl(var(--primary))`, `--card`, `--foreground`).
-- Provider opcional: `HelpTourProvider` montado en `App.tsx` para acceso global.
+### 2. Deshabilitar la ruta `/cursos`
+- `src/App.tsx`: eliminar la ruta `/cursos` y el `import` lazy de `Cursos`.
+- Borrar `src/pages/Cursos.tsx` (página legacy que usaba la tabla `courses` con creación manual de nombres arbitrarios).
 
-## 4. Botón de Ayuda en Header
-**Editar**: `src/components/AppLayout.tsx`
-- Agregar `DropdownMenu` con `<HelpCircle />` (lucide) entre el badge institucional y el avatar.
-- Opciones:
-  - **Iniciar Tour Guiado** → llama `startTour(role)` según `useAuth().role`.
-  - **Centro de Ayuda (Próximamente)** → `disabled`, tooltip "Disponible pronto".
+### 3. Preservar la gestión de estudiantes (roster)
+La página `Cursos.tsx` no solo creaba cursos: también administraba el roster de estudiantes (`StudentImporter`, listado, eliminación). Ese roster es usado por la hoja OMR (`OmrSheetDialog`). Para no perderlo, mover ese bloque a una **subsección dentro de la misma pestaña "Cursos" de Configuración**, debajo del `UtpCoursesManager`:
+  - Nuevo componente `src/components/utp/StudentRosterPanel.tsx` extraído de `CursosInner` (selector de curso desde `admin_courses` ahora, no `courses`; importador CSV; tabla con eliminar).
+  - Insertarlo en `src/pages/Configuracion.tsx` dentro del `TabsContent value="cursos"`, después de `<UtpCoursesManager />`.
 
-## 5. Marcadores `data-tour` en UI
-Agregar atributos discretos (no afectan estilos):
+> Nota técnica: el roster legacy referenciaba la tabla `courses` (id uuid). Hoy los cursos institucionales viven en `admin_courses`. El nuevo panel debe vincular estudiantes a `admin_courses.id`. Como `students.course_id` apunta a `courses`, mantenemos por ahora la tabla `courses` solo como destino de los rosters y dejamos el selector apuntando a ella; **no** se permite crear nuevos `courses` desde la UI (la creación queda 100% bajo `admin_courses` vía el asistente). Si más adelante se desea unificar tablas, será una migración aparte.
 
-**Tour Docente**:
-- `DashboardDocente.tsx` → wrapper principal: `data-tour="dashboard"`
-- `AppLayout.tsx` NavItem "Crear prueba": `data-tour="crear-btn"`
-- `AssessmentMetaForm.tsx` selector de Grado/Nivel: `data-tour="nivel-selector"`
-- `AssessmentMetaForm.tsx` botones formato (SIMCE/PAES): `data-tour="formatos"`
-- `CrearPrueba.tsx` botón generar IA: `data-tour="ia-generar"`
+### 4. Confirmar el flujo automatizado en `UtpCoursesManager`
+Ya cumple los requisitos solicitados; verificar y dejar explícito:
+- Botón "Nuevo curso" abre solo el asistente (Nivel/Grado/Letra) — ✅ ya está así.
+- No hay input de texto manual para el nombre — ✅ el campo "Nombre" es `readOnly disabled` y se computa con `buildCourseLabels`.
+- Vista previa del nombre antes de guardar — ✅ ya se muestra ("1º Básico A") junto al slug interno.
+- `refresh()` se llama tras guardar para actualizar la tabla sin recargar — ✅ ya implementado.
+Solo añadir un pequeño badge "Vista previa" sobre el input para reforzar la claridad UX.
 
-**Tour UTP**:
-- `AppLayout.tsx` NavItem "Configuración": `data-tour="configuracion"`
-- `Configuracion.tsx` TabsTrigger "cursos": `data-tour="tab-cursos"`
-- `UtpReviewCenter` (si visible) o tab evaluaciones: `data-tour="revisiones"`
+### 5. Limpieza de referencias y código legacy
+- `src/lib/courses.ts`: marcar `createCourse`, `updateCourse`, `deleteCourse` como deprecated o eliminarlas. Conservar solo `listCourses`, `listStudentsByCourse`, `bulkInsertStudents`, `deleteStudent` (las usa el roster y OMR).
+- Buscar referencias residuales a `/cursos` en navegación/dashboards y reemplazarlas por `/configuracion?tab=cursos` cuando aplique.
+- Verificar `DashboardDocente`, `MisPruebas` y filtros: las listas de cursos se cargan desde `admin_courses` vía `useAdminCourses` (ya unificado), no requieren cambios.
 
-## 6. Auto-disparo
-- En `DashboardDocente.tsx` y `Configuracion.tsx` (root del rol), efecto que:
-  - Lee `getMyProfile()`, si `!hasSeenTour` → `startTour(role)` y al `onDestroyed` → `updateMyProfile({ has_seen_tour: true })`.
+### 6. QA manual sugerido
+- Como UTP: el header ya no muestra "Cursos". Configuración → Cursos abre el asistente, crea "2º Básico B", aparece de inmediato en la tabla.
+- Visitar `/cursos` redirige a NotFound.
+- OMR sigue funcionando porque `OmrSheetDialog` consume `listCourses()` y `listStudentsByCourse()` del roster.
 
-## 7. Estilo de marca
-- En `src/index.css`: override `.pl-tour` y `.pl-tour .driver-popover-*` con `bg-card`, `text-foreground`, `border-primary`, botones con `bg-primary text-primary-foreground`.
-
-## Detalles técnicos
-
-**Archivos nuevos**:
-- `src/components/help/HelpTour.tsx`
-- `src/components/help/tour-steps.ts` (definiciones por rol)
-- `supabase/migrations/<timestamp>_add_has_seen_tour.sql`
-
-**Archivos modificados**:
-- `src/components/AppLayout.tsx` (botón ayuda + data-tour en nav)
-- `src/lib/profiles.ts` (campo hasSeenTour)
-- `src/pages/DashboardDocente.tsx`, `DocenteDashboardInstitucional.tsx`, `Configuracion.tsx`, `CrearPrueba.tsx` (auto-disparo + data-tour)
-- `src/components/test-builder/AssessmentMetaForm.tsx` (data-tour)
-- `src/index.css` (estilos `.pl-tour`)
-- `package.json` (dep `driver.js`)
-
-**Comportamiento**:
-- Si un selector no existe (ej. PAES en docente básica), `driver.js` salta el paso silenciosamente con `allowClose: true`.
-- El tour del docente solo navega visualmente; no fuerza cambios de ruta entre pasos (cada paso destaca lo visible o explica con texto si no aplica).
+## Archivos afectados
+- Editar: `src/App.tsx`, `src/components/AppLayout.tsx`, `src/pages/Configuracion.tsx`, `src/components/utp/UtpCoursesManager.tsx`, `src/lib/courses.ts`
+- Crear: `src/components/utp/StudentRosterPanel.tsx`
+- Eliminar: `src/pages/Cursos.tsx`
