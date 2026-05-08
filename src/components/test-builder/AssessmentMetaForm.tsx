@@ -272,14 +272,24 @@ export const AssessmentMetaForm = ({
           {(() => {
             // Gating por grade_value (no por nivel) porque I-II Medio y III-IV Medio
             // comparten level="Media" pero requieren formatos distintos.
-            const g = meta.gradeValue ?? "";
-            const isBasica = g.includes("Básico");
-            const isMediaInicial = /^(I|II)Medio/.test(g) && !/^(III|IV)Medio/.test(g);
-            const isMediaSuperior = /^(III|IV)Medio/.test(g);
+            const g = (meta.gradeValue ?? "").trim();
             const noGrade = !g;
+            const isBasica = !noGrade && g.includes("Básico");
+            const isMediaInicial = !noGrade && /^(I|II)Medio$/.test(g);
+            const isMediaSuperior = !noGrade && /^(III|IV)Medio$/.test(g);
+            // Sin curso seleccionado → habilitar TODOS los formatos.
             const simceEnabled = noGrade || isBasica || isMediaInicial;
             const paesEnabled = noGrade || isMediaSuperior;
+            // Debug: ayuda a diagnosticar por qué algunos perfiles ven menos botones.
+            if (typeof window !== "undefined") {
+              // eslint-disable-next-line no-console
+              console.debug("[AssessmentMetaForm] formato gating", {
+                gradeValue: meta.gradeValue, noGrade, isBasica, isMediaInicial, isMediaSuperior,
+                simceEnabled, paesEnabled,
+              });
+            }
             const opts = [
+              // Estándar: SIEMPRE habilitado y visible para todos los perfiles.
               { value: "estandar" as const, label: "Evaluación Estándar", desc: "Formato libre", disabled: false, reason: "" },
               {
                 value: "simce" as const,
