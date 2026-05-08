@@ -271,6 +271,7 @@ export default function DashboardDocente() {
           </div>
         )}
       </section>
+      </div>
     </AppLayout>
   );
 }
