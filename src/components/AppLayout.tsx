@@ -206,6 +206,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </footer>
       )}
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 };
