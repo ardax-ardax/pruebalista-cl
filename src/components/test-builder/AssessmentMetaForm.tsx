@@ -321,7 +321,7 @@ export const AssessmentMetaForm = ({
                         evaluationFormat === opt.value
                           ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                           : "border-border hover:border-muted-foreground/30"
-                      } ${isDisabled ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+                      } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <div className="text-sm font-semibold">{opt.label}</div>
                       <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
