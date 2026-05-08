@@ -266,7 +266,7 @@ export const AssessmentMetaForm = ({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* === Selector de Formato === */}
-        <div>
+        <div data-tour="formatos">
           <Label className="text-xs font-semibold">Formato de evaluación</Label>
           {(() => {
             // Gating por grade_value (no por nivel) porque I-II Medio y III-IV Medio
@@ -364,7 +364,7 @@ export const AssessmentMetaForm = ({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div>
+          <div data-tour="nivel-selector">
             <Label className="text-xs flex items-center gap-1">
               Curso
               {isPaes && <span className="text-[10px] text-muted-foreground">(III-IV Medio)</span>}

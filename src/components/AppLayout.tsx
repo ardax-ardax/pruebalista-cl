@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, GraduationCap, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile } from "@/lib/profiles";
@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useHelpTour } from "@/components/help/HelpTour";
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isUtpHead, isStaff, role, signOut } = useAuth();
@@ -26,6 +27,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { effectivePlan, creditsAvailable, loading: usageLoading, planLabel, showWatermark, planExpiresAt, planType } = useUserUsage();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
+  const { startTour } = useHelpTour();
   const [hideCredits, setHideCredits] = useState(false);
   const [isInstitutional, setIsInstitutional] = useState(false);
   const [colegioNombre, setColegioNombre] = useState<string | null>(null);
@@ -93,11 +95,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </NavLink>
           <nav className="flex items-center gap-1">
             <NavItem to="/" label="Inicio" icon={Home} />
-            {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} />}
+            {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} dataTour="crear-btn" />}
             {!isAdminOnly && <NavItem to="/banco-preguntas" label="Banco" icon={Library} />}
             {!isAdminOnly && <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />}
             {isUtpHead && <NavItem to="/cursos" label="Cursos" icon={GraduationCap} />}
-            {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} />}
+            {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} dataTour="configuracion" />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
             {isEmbedded && (
               <Button
@@ -121,6 +123,25 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <Badge variant="outline" className="gap-1 text-[10px] font-normal">
                 <Sparkles className="h-3 w-3" /> {creditsAvailable} créditos IA · {planLabel}
               </Badge>
+            )}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="ml-1 rounded-full" title="Ayuda">
+                    <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => startTour()} className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Iniciar Tour Guiado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled className="gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Centro de Ayuda (Próximamente)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {user && (
               <DropdownMenu>
@@ -197,10 +218,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const NavItem = ({ to, label, icon: Icon }: { to: string; label: string; icon: typeof FileText }) => (
+const NavItem = ({ to, label, icon: Icon, dataTour }: { to: string; label: string; icon: typeof FileText; dataTour?: string }) => (
   <NavLink
     to={to}
     end={to === "/"}
+    data-tour={dataTour}
     className={({ isActive }) =>
       cn(
         "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-smooth",

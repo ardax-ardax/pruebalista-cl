@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { UserUsageProvider } from "@/hooks/useUserUsage";
 import { PlansProvider } from "@/hooks/usePlans";
+import { HelpTourProvider } from "@/components/help/HelpTour";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
@@ -32,6 +33,7 @@ const App = () => (
         <AuthProvider>
           <PlansProvider>
           <UserUsageProvider>
+            <HelpTourProvider>
             <Routes>
               <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
@@ -46,6 +48,7 @@ const App = () => (
               <Route path="/docente/dashboard" element={<AuthGuard><DocenteDashboardInstitucional /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </HelpTourProvider>
           </UserUsageProvider>
           </PlansProvider>
         </AuthProvider>
