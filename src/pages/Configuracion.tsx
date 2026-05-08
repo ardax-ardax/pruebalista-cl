@@ -437,10 +437,10 @@ const Configuracion = () => {
             <TabsTrigger value="equipo" className="flex items-center gap-1.5 text-xs sm:text-sm">
               <Users className="h-4 w-4" /> <span className="hidden sm:inline">Equipo</span>
             </TabsTrigger>
-            <TabsTrigger value="evaluaciones" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="evaluaciones" data-tour="revisiones" className="flex items-center gap-1.5 text-xs sm:text-sm">
               <ClipboardCheck className="h-4 w-4" /> <span className="hidden sm:inline">Evaluaciones</span>
             </TabsTrigger>
-            <TabsTrigger value="cursos" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <TabsTrigger value="cursos" data-tour="tab-cursos" className="flex items-center gap-1.5 text-xs sm:text-sm">
               <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Cursos</span>
             </TabsTrigger>
             <TabsTrigger value="politicas" className="flex items-center gap-1.5 text-xs sm:text-sm">
