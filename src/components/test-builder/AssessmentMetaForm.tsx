@@ -249,28 +249,62 @@ export const AssessmentMetaForm = ({
         {/* === Selector de Formato === */}
         <div>
           <Label className="text-xs font-semibold">Formato de evaluación</Label>
-          <div className="grid grid-cols-3 gap-2 mt-1">
-            {([
-              { value: "estandar" as const, label: "Evaluación Estándar", desc: "Formato libre" },
-              { value: "simce" as const, label: "SIMCE", desc: "4°, 6°, 8° Básico, II Medio" },
-              { value: "paes" as const, label: "PAES", desc: "III y IV Medio" },
-            ] as const).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => handleFormatChange(opt.value)}
-                disabled={readOnlyExceptOA}
-                className={`rounded-lg border-2 p-3 text-left transition-all ${
-                  evaluationFormat === opt.value
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border hover:border-muted-foreground/30"
-                } ${readOnlyExceptOA ? "pointer-events-none opacity-60" : ""}`}
-              >
-                <div className="text-sm font-semibold">{opt.label}</div>
-                <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
+          {(() => {
+            // Derivar nivel del curso seleccionado
+            const currentGrade = grades.find((g) => g.value === meta.gradeValue);
+            const currentLevel = currentGrade?.level ?? null;
+            const simceTpl = templates.find((t) => t.id === SIMCE_TEMPLATE_ID);
+            const paesTpl = templates.find((t) => t.id === PAES_TEMPLATE_ID);
+            const isAllowed = (allowed?: string[]) => {
+              if (!allowed || allowed.length === 0) return true;
+              if (!currentLevel) return true; // sin curso aún, no restringir
+              if (allowed.includes(currentLevel)) return true;
+              // III/IV Medio (ElectivoMedia) también cuenta como Media para SIMCE
+              if (currentLevel === "ElectivoMedia" && allowed.includes("Media")) return true;
+              return false;
+            };
+            const opts = [
+              { value: "estandar" as const, label: "Evaluación Estándar", desc: "Formato libre", disabled: false, reason: "" },
+              {
+                value: "simce" as const,
+                label: "SIMCE",
+                desc: "4°, 6°, 8° Básico, II Medio",
+                disabled: !isAllowed(simceTpl?.allowed_levels),
+                reason: "SIMCE solo está disponible en Enseñanza Básica y II Medio",
+              },
+              {
+                value: "paes" as const,
+                label: "PAES",
+                desc: "III y IV Medio",
+                disabled: !isAllowed(paesTpl?.allowed_levels),
+                reason: "PAES solo está disponible en III y IV Medio",
+              },
+            ];
+            return (
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                {opts.map((opt) => {
+                  const isDisabled = readOnlyExceptOA || opt.disabled;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => !isDisabled && handleFormatChange(opt.value)}
+                      disabled={isDisabled}
+                      title={opt.disabled ? opt.reason : undefined}
+                      className={`rounded-lg border-2 p-3 text-left transition-all ${
+                        evaluationFormat === opt.value
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                          : "border-border hover:border-muted-foreground/30"
+                      } ${isDisabled ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+                    >
+                      <div className="text-sm font-semibold">{opt.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* === Campos generales (readonly al editar para docentes) === */}
