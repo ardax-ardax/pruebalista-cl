@@ -22,7 +22,7 @@ import NotFound from "./pages/NotFound.tsx";
 const CrearPrueba = lazy(() => import("./pages/CrearPrueba.tsx"));
 const MisPruebas = lazy(() => import("./pages/MisPruebas.tsx"));
 const Configuracion = lazy(() => import("./pages/Configuracion.tsx"));
-const Cursos = lazy(() => import("./pages/Cursos.tsx"));
+
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
 const Perfil = lazy(() => import("./pages/Perfil.tsx"));
 const BancoPreguntas = lazy(() => import("./pages/BancoPreguntas.tsx"));
