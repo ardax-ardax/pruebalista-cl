@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { UserUsageProvider } from "@/hooks/useUserUsage";
 import { PlansProvider } from "@/hooks/usePlans";
+import { HelpTourProvider } from "@/components/help/HelpTour";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
 import CrearPrueba from "./pages/CrearPrueba.tsx";
