@@ -90,6 +90,7 @@ const Configuracion = () => {
     if (!isUtpHead || isAdmin) return;
     getMyProfile().then(async (p) => {
       if (!p?.colegioId) return;
+      setUtpColegioId(p.colegioId);
       const { data: col } = await supabase
         .from("colegios")
         .select("nombre, logo_url")
@@ -107,6 +108,34 @@ const Configuracion = () => {
       }
     });
   }, [isUtpHead, isAdmin]);
+
+  const handleUtpLogoUpload = async (file: File) => {
+    if (!utpColegioId) { toast.error("No se encontró el colegio."); return; }
+    if (!file.type.startsWith("image/")) { toast.error("Sube una imagen (PNG/JPG)."); return; }
+    if (file.size > 500 * 1024) { toast.error("Máximo 500 KB."); return; }
+    setUtpLogoSaving(true);
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `colegios/${utpColegioId}/logo.${ext}`;
+    const { error: upErr } = await supabase.storage.from("user-logos").upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setUtpLogoSaving(false); toast.error("No se pudo subir: " + upErr.message); return; }
+    const { data: urlData } = supabase.storage.from("user-logos").getPublicUrl(path);
+    const publicUrl = urlData?.publicUrl ?? path;
+    const { error: updErr } = await supabase.from("colegios").update({ logo_url: path }).eq("id", utpColegioId);
+    setUtpLogoSaving(false);
+    if (updErr) { toast.error("Logo subido pero no se pudo guardar: " + updErr.message); return; }
+    setUtpColegioLogo(publicUrl);
+    toast.success("Logo del colegio actualizado.");
+  };
+
+  const handleUtpLogoRemove = async () => {
+    if (!utpColegioId) return;
+    setUtpLogoSaving(true);
+    const { error } = await supabase.from("colegios").update({ logo_url: null }).eq("id", utpColegioId);
+    setUtpLogoSaving(false);
+    if (error) { toast.error("No se pudo eliminar: " + error.message); return; }
+    setUtpColegioLogo(null);
+    toast.success("Logo eliminado.");
+  };
 
   useEffect(() => {
     setTemplates(loadTemplates());
