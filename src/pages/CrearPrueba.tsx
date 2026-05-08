@@ -357,7 +357,7 @@ const CrearPrueba = () => {
             setSaveStatus("error");
             saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000);
           });
-      }, 1500);
+      }, 2500);
     } else {
       saveDraft(assessment);
       setSaveStatus("saved");
