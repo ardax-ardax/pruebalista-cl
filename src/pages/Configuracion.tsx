@@ -467,8 +467,9 @@ const Configuracion = () => {
             <UtpReviewCenter />
           </TabsContent>
 
-          <TabsContent value="cursos">
+          <TabsContent value="cursos" className="space-y-6">
             <UtpCoursesManager />
+            <StudentRosterPanel />
           </TabsContent>
 
           <TabsContent value="politicas" className="space-y-6">
