@@ -261,11 +261,11 @@ export const AssessmentMetaForm = ({
   }, [templates, isPaes, isSimce]);
 
   return (
-    <Card className="shadow-card">
-      <CardHeader>
-        <CardTitle>Datos generales</CardTitle>
+    <Card className="shadow-card border bg-card">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xl">Datos generales</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6 p-6">
         {/* === Selector de Formato === */}
         <div data-tour="formatos">
           <Label className="text-xs font-semibold">Formato de evaluación</Label>
