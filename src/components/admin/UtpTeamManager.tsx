@@ -63,7 +63,6 @@ export function UtpTeamManager() {
       .select("id, email, display_name")
       .eq("colegio_id", profile.colegioId)
       .neq("id", user?.id ?? "");
-      .neq("id", user?.id ?? "");
 
     if (teamData) {
       setMembers(
@@ -108,6 +107,14 @@ export function UtpTeamManager() {
     }
     if (!colegioId) {
       toast.error("No se encontró el colegio asociado a tu cuenta.");
+      return;
+    }
+    if (!planActive) {
+      toast.error("El plan institucional no está activo. Contrata o renueva en /precios.");
+      return;
+    }
+    if (!canAddSeat) {
+      toast.error(`Sin cupos disponibles (${seatsUsed}/${seatsPurchased}). Contrata más cupos en /precios.`);
       return;
     }
 
