@@ -212,6 +212,9 @@ export type Database = {
           id: string
           logo_url: string | null
           nombre: string
+          plan_billing_cycle: string | null
+          plan_expires_at: string | null
+          seats_purchased: number
           updated_at: string
         }
         Insert: {
@@ -220,6 +223,9 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nombre: string
+          plan_billing_cycle?: string | null
+          plan_expires_at?: string | null
+          seats_purchased?: number
           updated_at?: string
         }
         Update: {
@@ -228,6 +234,9 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nombre?: string
+          plan_billing_cycle?: string | null
+          plan_expires_at?: string | null
+          seats_purchased?: number
           updated_at?: string
         }
         Relationships: []
@@ -295,6 +304,71 @@ export type Database = {
         }
         Relationships: []
       }
+      flow_payment_orders: {
+        Row: {
+          amount_clp: number
+          billing_cycle: string
+          colegio_id: string | null
+          commerce_order: string
+          created_at: string
+          flow_env: string
+          flow_order: string | null
+          flow_token: string | null
+          id: string
+          metadata: Json
+          paid_at: string | null
+          plan_id: string
+          seats: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_clp: number
+          billing_cycle: string
+          colegio_id?: string | null
+          commerce_order: string
+          created_at?: string
+          flow_env?: string
+          flow_order?: string | null
+          flow_token?: string | null
+          id?: string
+          metadata?: Json
+          paid_at?: string | null
+          plan_id: string
+          seats?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_clp?: number
+          billing_cycle?: string
+          colegio_id?: string | null
+          commerce_order?: string
+          created_at?: string
+          flow_env?: string
+          flow_order?: string | null
+          flow_token?: string | null
+          id?: string
+          metadata?: Json
+          paid_at?: string | null
+          plan_id?: string
+          seats?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_payment_orders_colegio_id_fkey"
+            columns: ["colegio_id"]
+            isOneToOne: false
+            referencedRelation: "colegios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_settings: {
         Row: {
           ai_disabled_reason: string | null
@@ -321,6 +395,33 @@ export type Database = {
           enable_payments?: boolean
           id?: boolean
           maintenance_mode?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      institutional_pricing_tiers: {
+        Row: {
+          created_at: string
+          id: string
+          max_teachers: number | null
+          min_teachers: number
+          price_per_teacher_clp_monthly: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_teachers?: number | null
+          min_teachers: number
+          price_per_teacher_clp_monthly: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_teachers?: number | null
+          min_teachers?: number
+          price_per_teacher_clp_monthly?: number
           updated_at?: string
         }
         Relationships: []
@@ -439,6 +540,8 @@ export type Database = {
           label: string
           max_assessments: number | null
           max_assignments: number | null
+          price_clp_monthly: number | null
+          price_clp_yearly: number | null
           show_watermark: boolean
           sort_order: number
         }
@@ -456,6 +559,8 @@ export type Database = {
           label: string
           max_assessments?: number | null
           max_assignments?: number | null
+          price_clp_monthly?: number | null
+          price_clp_yearly?: number | null
           show_watermark?: boolean
           sort_order?: number
         }
@@ -473,6 +578,8 @@ export type Database = {
           label?: string
           max_assessments?: number | null
           max_assignments?: number | null
+          price_clp_monthly?: number | null
+          price_clp_yearly?: number | null
           show_watermark?: boolean
           sort_order?: number
         }
