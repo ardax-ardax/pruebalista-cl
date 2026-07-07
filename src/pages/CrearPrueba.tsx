@@ -583,9 +583,14 @@ const CrearPrueba = () => {
   };
 
   const handleExportDocx = async () => {
+    if (!canExportDocx) {
+      toast.error("Esta función está disponible en un plan superior");
+      return;
+    }
     const err = validate();
     if (err) { toast.error(err); return; }
     setExporting(true);
+
     try {
       const fileName = buildAssessmentFileName(renderCtx.assessment.meta, template, "docx");
       await exportAssessmentToDocx(renderCtx, fileName);
