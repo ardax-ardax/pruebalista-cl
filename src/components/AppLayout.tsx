@@ -84,6 +84,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PlanExpirationBanner />
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container flex h-16 items-center justify-between gap-4">
           <NavLink to="/" className="flex items-center gap-2.5">
