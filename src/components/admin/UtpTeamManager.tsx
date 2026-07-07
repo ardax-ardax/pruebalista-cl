@@ -29,9 +29,17 @@ export function UtpTeamManager() {
   const [colegioId, setColegioId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [pending, setPending] = useState<PendingInv[]>([]);
+  const [seatsPurchased, setSeatsPurchased] = useState(0);
+  const [planExpiresAt, setPlanExpiresAt] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const now = Date.now();
+  const planActive = !!planExpiresAt && new Date(planExpiresAt).getTime() > now;
+  const seatsUsed = members.length + pending.length + 1; // +1 UTP itself counts
+  const seatsAvailable = Math.max(0, seatsPurchased - seatsUsed);
+  const canAddSeat = planActive && seatsAvailable > 0;
 
   const load = async () => {
     const profile = await getMyProfile();
@@ -42,10 +50,19 @@ export function UtpTeamManager() {
     setColegioId(profile.colegioId);
     console.log("[UtpTeamManager] colegio_id del usuario actual:", profile.colegioId);
 
+    const { data: col } = await supabase
+      .from("colegios")
+      .select("seats_purchased, plan_expires_at")
+      .eq("id", profile.colegioId)
+      .maybeSingle();
+    setSeatsPurchased((col as { seats_purchased: number | null } | null)?.seats_purchased ?? 0);
+    setPlanExpiresAt((col as { plan_expires_at: string | null } | null)?.plan_expires_at ?? null);
+
     const { data: teamData } = await supabase
       .from("profiles")
       .select("id, email, display_name")
       .eq("colegio_id", profile.colegioId)
+      .neq("id", user?.id ?? "");
       .neq("id", user?.id ?? "");
 
     if (teamData) {
