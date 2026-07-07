@@ -16,6 +16,8 @@ export interface Plan {
   default_credits: number;
   is_default: boolean;
   sort_order: number;
+  price_clp_monthly: number | null;
+  price_clp_yearly: number | null;
 }
 
 const DEFAULT_PLAN_LIMITS: Plan = {
@@ -33,6 +35,8 @@ const DEFAULT_PLAN_LIMITS: Plan = {
   default_credits: 20,
   is_default: true,
   sort_order: 0,
+  price_clp_monthly: 0,
+  price_clp_yearly: 0,
 };
 
 interface PlansContextType {

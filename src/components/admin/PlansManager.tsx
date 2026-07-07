@@ -51,6 +51,8 @@ const emptyPlan = (nextOrder: number): Omit<Plan, "created_at"> => ({
   default_credits: 20,
   is_default: false,
   sort_order: nextOrder,
+  price_clp_monthly: null,
+  price_clp_yearly: null,
 });
 
 function SortableRow({

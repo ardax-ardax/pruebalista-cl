@@ -29,9 +29,17 @@ export function UtpTeamManager() {
   const [colegioId, setColegioId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [pending, setPending] = useState<PendingInv[]>([]);
+  const [seatsPurchased, setSeatsPurchased] = useState(0);
+  const [planExpiresAt, setPlanExpiresAt] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const now = Date.now();
+  const planActive = !!planExpiresAt && new Date(planExpiresAt).getTime() > now;
+  const seatsUsed = members.length + pending.length + 1; // +1 UTP itself counts
+  const seatsAvailable = Math.max(0, seatsPurchased - seatsUsed);
+  const canAddSeat = planActive && seatsAvailable > 0;
 
   const load = async () => {
     const profile = await getMyProfile();
@@ -41,6 +49,14 @@ export function UtpTeamManager() {
     }
     setColegioId(profile.colegioId);
     console.log("[UtpTeamManager] colegio_id del usuario actual:", profile.colegioId);
+
+    const { data: col } = await supabase
+      .from("colegios")
+      .select("seats_purchased, plan_expires_at")
+      .eq("id", profile.colegioId)
+      .maybeSingle();
+    setSeatsPurchased((col as { seats_purchased: number | null } | null)?.seats_purchased ?? 0);
+    setPlanExpiresAt((col as { plan_expires_at: string | null } | null)?.plan_expires_at ?? null);
 
     const { data: teamData } = await supabase
       .from("profiles")
@@ -91,6 +107,14 @@ export function UtpTeamManager() {
     }
     if (!colegioId) {
       toast.error("No se encontró el colegio asociado a tu cuenta.");
+      return;
+    }
+    if (!planActive) {
+      toast.error("El plan institucional no está activo. Contrata o renueva en /precios.");
+      return;
+    }
+    if (!canAddSeat) {
+      toast.error(`Sin cupos disponibles (${seatsUsed}/${seatsPurchased}). Contrata más cupos en /precios.`);
       return;
     }
 
@@ -219,10 +243,16 @@ export function UtpTeamManager() {
               onKeyDown={(e) => e.key === "Enter" && handleAssign()}
               className="flex-1"
             />
-            <Button onClick={handleAssign} disabled={submitting} className="gap-2 shrink-0">
+            <Button onClick={handleAssign} disabled={submitting || !canAddSeat} className="gap-2 shrink-0">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Asignar al Colegio
             </Button>
+          </div>
+          <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+            <Badge variant={canAddSeat ? "secondary" : "destructive"} className="text-[10px]">
+              Cupos: {seatsUsed}/{seatsPurchased || 0}
+            </Badge>
+            {!planActive && <span>Plan inactivo — contrata en /precios</span>}
           </div>
         </CardContent>
       </Card>

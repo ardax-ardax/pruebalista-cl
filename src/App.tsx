@@ -27,6 +27,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
 const Perfil = lazy(() => import("./pages/Perfil.tsx"));
 const BancoPreguntas = lazy(() => import("./pages/BancoPreguntas.tsx"));
 const DocenteDashboardInstitucional = lazy(() => import("./pages/DocenteDashboardInstitucional.tsx"));
+const Precios = lazy(() => import("./pages/Precios.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/perfil" element={<AuthGuard><Perfil /></AuthGuard>} />
               <Route path="/banco-preguntas" element={<AuthGuard><BancoPreguntas /></AuthGuard>} />
               <Route path="/docente/dashboard" element={<AuthGuard><DocenteDashboardInstitucional /></AuthGuard>} />
+              <Route path="/precios" element={<AuthGuard><Precios /></AuthGuard>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
