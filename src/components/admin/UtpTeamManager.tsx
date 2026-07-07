@@ -243,10 +243,16 @@ export function UtpTeamManager() {
               onKeyDown={(e) => e.key === "Enter" && handleAssign()}
               className="flex-1"
             />
-            <Button onClick={handleAssign} disabled={submitting} className="gap-2 shrink-0">
+            <Button onClick={handleAssign} disabled={submitting || !canAddSeat} className="gap-2 shrink-0">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Asignar al Colegio
             </Button>
+          </div>
+          <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+            <Badge variant={canAddSeat ? "secondary" : "destructive"} className="text-[10px]">
+              Cupos: {seatsUsed}/{seatsPurchased || 0}
+            </Badge>
+            {!planActive && <span>Plan inactivo — contrata en /precios</span>}
           </div>
         </CardContent>
       </Card>
