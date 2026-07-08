@@ -20,11 +20,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, CalendarIcon, CreditCard, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { BookOpen, CalendarIcon, CreditCard, FileUp, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
 import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
+import CurriculumBulkImporter from "@/components/admin/CurriculumBulkImporter";
 
 /* ───────── Types ───────── */
 interface UserRow {
