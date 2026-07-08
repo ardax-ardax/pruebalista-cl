@@ -473,6 +473,10 @@ export default function AdminDashboard() {
           <TabsContent value="courses" className="space-y-4">
             <AdminCoursesManager />
           </TabsContent>
+
+          <TabsContent value="curriculum-import" className="space-y-4">
+            <CurriculumBulkImporter />
+          </TabsContent>
         </Tabs>
       </div>
 
