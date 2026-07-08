@@ -268,36 +268,51 @@ export type Database = {
       curriculum_base: {
         Row: {
           created_at: string
+          curriculum_decree: string | null
+          curriculum_period: string | null
           eje: string | null
+          extracted_at: string
           grade_value: string
           id: string
           indicators: Json
+          is_current: boolean
           oa_code: string
           oa_description: string
+          source_url: string | null
           subject_value: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           created_at?: string
+          curriculum_decree?: string | null
+          curriculum_period?: string | null
           eje?: string | null
+          extracted_at?: string
           grade_value: string
           id?: string
           indicators?: Json
+          is_current?: boolean
           oa_code: string
           oa_description: string
+          source_url?: string | null
           subject_value: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           created_at?: string
+          curriculum_decree?: string | null
+          curriculum_period?: string | null
           eje?: string | null
+          extracted_at?: string
           grade_value?: string
           id?: string
           indicators?: Json
+          is_current?: boolean
           oa_code?: string
           oa_description?: string
+          source_url?: string | null
           subject_value?: string
           updated_at?: string
           updated_by?: string | null
