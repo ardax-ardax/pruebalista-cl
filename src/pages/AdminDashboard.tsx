@@ -20,11 +20,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, CalendarIcon, CreditCard, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { BookOpen, CalendarIcon, CreditCard, FileUp, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
 import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
+import CurriculumBulkImporter from "@/components/admin/CurriculumBulkImporter";
 
 /* ───────── Types ───────── */
 interface UserRow {
@@ -227,6 +228,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="institutions" className="gap-2"><CreditCard className="h-4 w-4" /> Instituciones</TabsTrigger>
             <TabsTrigger value="subjects" className="gap-2"><BookOpen className="h-4 w-4" /> Asignaturas</TabsTrigger>
             <TabsTrigger value="courses" className="gap-2"><GraduationCap className="h-4 w-4" /> Cursos</TabsTrigger>
+            <TabsTrigger value="curriculum-import" className="gap-2"><FileUp className="h-4 w-4" /> Importar Currículum</TabsTrigger>
           </TabsList>
 
           {/* ──── Settings Tab ──── */}
@@ -470,6 +472,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="courses" className="space-y-4">
             <AdminCoursesManager />
+          </TabsContent>
+
+          <TabsContent value="curriculum-import" className="space-y-4">
+            <CurriculumBulkImporter />
           </TabsContent>
         </Tabs>
       </div>
