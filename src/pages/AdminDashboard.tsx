@@ -228,6 +228,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="institutions" className="gap-2"><CreditCard className="h-4 w-4" /> Instituciones</TabsTrigger>
             <TabsTrigger value="subjects" className="gap-2"><BookOpen className="h-4 w-4" /> Asignaturas</TabsTrigger>
             <TabsTrigger value="courses" className="gap-2"><GraduationCap className="h-4 w-4" /> Cursos</TabsTrigger>
+            <TabsTrigger value="curriculum-import" className="gap-2"><FileUp className="h-4 w-4" /> Importar Currículum</TabsTrigger>
           </TabsList>
 
           {/* ──── Settings Tab ──── */}
