@@ -243,6 +243,7 @@ export type Database = {
       }
       courses: {
         Row: {
+          colegio_id: string | null
           created_at: string
           id: string
           level: string
@@ -250,6 +251,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          colegio_id?: string | null
           created_at?: string
           id?: string
           level: string
@@ -257,13 +259,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          colegio_id?: string | null
           created_at?: string
           id?: string
           level?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "courses_colegio_id_fkey"
+            columns: ["colegio_id"]
+            isOneToOne: false
+            referencedRelation: "colegios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       curriculum_base: {
         Row: {
@@ -747,6 +758,7 @@ export type Database = {
       }
       teacher_assignments: {
         Row: {
+          admin_course_id: string | null
           created_at: string
           grade_value: string
           id: string
@@ -755,6 +767,7 @@ export type Database = {
           teacher_user_id: string
         }
         Insert: {
+          admin_course_id?: string | null
           created_at?: string
           grade_value: string
           id?: string
@@ -763,6 +776,7 @@ export type Database = {
           teacher_user_id: string
         }
         Update: {
+          admin_course_id?: string | null
           created_at?: string
           grade_value?: string
           id?: string
@@ -770,7 +784,15 @@ export type Database = {
           subject_value?: string
           teacher_user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teacher_assignments_admin_course_id_fkey"
+            columns: ["admin_course_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
