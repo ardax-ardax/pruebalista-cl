@@ -1,22 +1,25 @@
 ## Diagnóstico
 
-Confirmé por qué la pantalla queda en blanco tras "Ignorar":
+Lo que ves dentro del preview ("Por motivos de seguridad, abre en una pestaña nueva") es normal: el login de Google no puede correr dentro del iframe de Lovable, así que la landing te ofrece abrir la app real. Ese botón te envía a `https://pruebalista-app.lovable.app`, que es la URL publicada.
 
-- El sitio publicado en `pruebalista-cl.lovable.app` está **público** y sí carga, pero el JavaScript lanza un error fatal en el arranque: `supabaseUrl is required`.
-- Ese error hace que React nunca monte y el `<div id="root">` quede vacío → pantalla blanca total (solo se ve el badge "Edit with Lovable").
-- Localmente el `.env` tiene `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` correctos, y la preview funciona bien. Es decir: **el build publicado quedó desactualizado / sin las variables** — el deploy actual es viejo respecto al estado actual del proyecto.
+El problema real es que esa URL publicada carga en blanco. Revisé el bundle JS ya desplegado y **no contiene las credenciales de Lovable Cloud (Supabase)**; el cliente arranca y lanza `supabaseUrl is required`, y por eso React no monta nada y solo queda el badge de Lovable abajo.
 
-## Plan
+Causa raíz: el archivo `.env` (donde viven `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`) está listado en `.gitignore` (línea 26). En preview funciona porque Vite lee el `.env` local del sandbox, pero el build de producción de Lovable no tiene acceso a esas variables y las compila como `undefined`. Republicar sin corregir esto no cambia nada — ya lo intentamos dos veces.
 
-Un solo paso, sin cambios de código:
+## Solución
 
-1. **Volver a publicar** el proyecto para regenerar el build con las variables de entorno actuales. Eso reemplaza el bundle roto que hoy está sirviéndose en `pruebalista-cl.lovable.app`.
-2. Tras el redeploy (≈1 min), verificar que la URL cargue la app (no pantalla blanca) y que no queden errores en consola.
+1. Quitar la línea `.env` de `.gitignore` para que las variables `VITE_SUPABASE_*` viajen con el proyecto al build de producción. Estas variables son **públicas por diseño** (la `PUBLISHABLE_KEY` de Supabase/Lovable Cloud es equivalente a la antigua anon key: segura para exponer al navegador porque toda la protección real vive en las RLS policies que ya tenemos endurecidas).
+2. Republicar el proyecto. El nuevo bundle traerá la URL y la key inyectadas, y la landing en `pruebalista-app.lovable.app` cargará normalmente.
+3. Verificar cargando la URL publicada en una pestaña nueva: debe aparecer la landing con el login funcionando.
 
-## Notas
+## Lo que NO se toca
 
-- No hay que tocar `.env`, `src/integrations/supabase/client.ts` ni ningún archivo — están correctos.
-- Esto no cambia nada del dominio `pruebalista.cl`, ese sigue pendiente de que actives Pro y conectes el dominio.
-- Si tras el redeploy la pantalla sigue en blanco, revisaré logs del deploy y consola en producción para descartar otra causa.
+- Ninguna lógica de la app, ni RLS, ni edge functions.
+- El archivo `.env` en sí no cambia; solo se deja de ignorar.
+- La `SUPABASE_SERVICE_ROLE_KEY` y demás secretos privados **no** están en `.env`, viven como secrets de edge functions y siguen protegidos.
 
-¿Apruebas que ejecute el re-publish?
+## Detalles técnicos
+
+- Archivo a editar: `.gitignore` — eliminar la línea `.env` (línea 26).
+- Después de aprobar el plan, ejecuto la edición y llamo a `preview_ui--publish` para regenerar el bundle.
+- Verificación: `curl` al JS publicado buscando el string `ddhrrgsejpebblarzmsj.supabase.co` para confirmar que las variables quedaron inyectadas.
