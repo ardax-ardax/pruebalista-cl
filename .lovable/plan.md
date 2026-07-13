@@ -1,57 +1,92 @@
-# Diagnóstico
+# Guía paso a paso: mover `pruebalista.cl` de Vercel a Lovable
 
-No hay "variables de entorno" ni "orígenes autorizados" que yo pueda tocar para arreglar esto. El problema es de **arquitectura de hosting**, no de configuración.
+Voy a acompañarte en cada paso. No toco código — todo el trabajo es en 3 paneles externos: **Vercel**, tu **registrador de DNS** (donde compraste el dominio), y **Lovable**.
 
-**Estado actual verificado:**
-- URL publicada en Lovable: `https://pruebalista-cl.lovable.app` ✅ (funciona)
-- Custom domains conectados en Lovable: **ninguno** ❌
-- `pruebalista.cl` está sirviéndose desde **Vercel** (hosting externo)
+---
 
-**Por qué da 404 el login con Google:**
-Lovable Cloud Auth (managed Google OAuth) funciona a través de un proxy interno en las rutas `/~oauth/initiate` y `/~oauth/callback`. Ese proxy **solo existe en la infraestructura de hosting de Lovable** (worker que redirige a `oauth.lovable.app`). Vercel no tiene ese worker → cuando Google intenta devolver al usuario a `https://pruebalista.cl/~oauth/callback`, Vercel responde 404 porque esa ruta no existe en tu deploy.
+## Paso 1 — Averiguar dónde tienes el DNS
 
-Esto **no** se arregla:
-- Agregando `pruebalista.cl` a una lista de orígenes autorizados (no existe tal lista editable en Cloud managed OAuth).
-- Cambiando `redirect_uri` en el código.
-- Configurando nada en Google Cloud Console.
-- Agregando variables de entorno en Vercel.
+Antes de empezar, necesito saber dónde compraste `pruebalista.cl` (NIC Chile, GoDaddy, Namecheap, Cloudflare, etc.). Ahí es donde vas a editar los registros DNS.
 
-# Solución: mover el dominio a Lovable
+👉 Si no estás seguro, dime el nombre del proveedor y te doy instrucciones específicas de dónde está el panel de DNS.
 
-Hay que desconectar `pruebalista.cl` de Vercel y conectarlo como Custom Domain dentro de Lovable. Es la única forma de que el broker OAuth funcione en tu dominio.
+---
 
-## Pasos que harás tú (yo no puedo tocar DNS ni Vercel)
+## Paso 2 — Quitar el dominio de Vercel
 
-1. **En Vercel**: eliminar el dominio `pruebalista.cl` del proyecto (Project Settings → Domains → Remove). Esto libera el dominio.
-2. **En tu registrador de DNS**: eliminar los registros A/CNAME que apuntan a Vercel.
-3. **En Lovable**: Project Settings → Project → Domains → **Connect Domain** → `pruebalista.cl`. Añadir también `www.pruebalista.cl` como entrada separada.
-4. **En tu registrador de DNS**: crear los registros que te muestra Lovable:
-   - `A @ → 185.158.133.1`
-   - `A www → 185.158.133.1`
-   - `TXT _lovable → <valor de verificación que muestre Lovable>`
-   - Si usas Cloudflare proxy, marca la casilla "Domain uses Cloudflare or a similar proxy" en el diálogo (usa CNAME en vez de A).
-5. Esperar propagación DNS (minutos a 72h, normalmente <1h) y que Lovable emita SSL automáticamente. Estado en Domains debe pasar por: Verifying → Setting up → **Active**.
-6. Probar login con Google en `https://pruebalista.cl` — funcionará sin ningún cambio de código.
+1. Entra a [vercel.com](https://vercel.com) y abre tu proyecto.
+2. Menú superior → **Settings** → **Domains**.
+3. Busca `pruebalista.cl` y `www.pruebalista.cl` en la lista.
+4. Clic en el botón `⋯` a la derecha de cada uno → **Remove**.
+5. Confirma. Vercel dejará de responder para ese dominio (el sitio en `pruebalista.cl` empezará a fallar temporalmente — es esperado, dura hasta que termines el paso 4).
 
-## Qué NO necesitas hacer
+---
 
-- No hay que tocar `useAuth.tsx`, `Landing.tsx`, ni `lovable.auth.signInWithOAuth`. El código ya usa `redirect_uri: window.location.origin`, que es la forma correcta.
-- No hay que crear credenciales OAuth propias en Google Cloud Console.
-- No hay que pedir a Lovable que "autorice" el dominio: al conectarlo como Custom Domain, queda auto-incluido en el allowlist del broker OAuth.
+## Paso 3 — Borrar los registros DNS viejos que apuntan a Vercel
 
-## Alternativa (si quieres seguir en Vercel)
+En el panel de tu registrador de DNS (paso 1), busca la zona DNS de `pruebalista.cl` y **elimina** cualquier registro que apunte a Vercel:
 
-No es viable con Lovable Cloud managed OAuth. Tendrías que:
-- Migrar a Supabase auto-gestionado (desconectar Cloud, no soportado en este proyecto una vez habilitado), y
-- Configurar credenciales OAuth propias en Google Cloud Console con `https://pruebalista.cl` como Authorized redirect URI.
+- Cualquier `A` con valor `76.76.21.21` (IP de Vercel).
+- Cualquier `CNAME` con valor que termine en `.vercel-dns.com` o `cname.vercel-dns.com`.
+- Registros para `@` (raíz) y `www` que apunten a Vercel.
 
-**No lo recomiendo**: es un desmontaje mayor y perderías la gestión unificada.
+⚠️ **No borres** los registros `MX`, `TXT` de correo (SPF/DKIM/DMARC), ni nada relacionado a email si usas correo en ese dominio.
 
-## Mi rol en el siguiente turno
+---
 
-Una vez que digas "listo, ya moví el dominio a Lovable", yo puedo:
-- Verificar con `project_urls--get_urls` que el custom domain aparece como Active.
-- Reejecutar `supabase--debug_oauth_server` para confirmar que el Site URL y el consent path están correctos.
-- Ayudar a debuggear si sale un error distinto al 404.
+## Paso 4 — Conectar el dominio en Lovable
 
-No modifico código en este plan porque el fix no es de código.
+1. En Lovable, arriba a la izquierda, clic en el **nombre del proyecto** → **Settings**.
+2. En la sección **Project** → **Domains** → botón **Connect Domain**.
+3. Escribe `pruebalista.cl` → Continuar.
+4. Repite y añade también `www.pruebalista.cl` como entrada separada.
+5. Lovable te mostrará los registros DNS que debes crear. Serán algo así:
+
+   ```
+   Tipo   Nombre     Valor
+   A      @          185.158.133.1
+   A      www        185.158.133.1
+   TXT    _lovable   lovable_verify=XXXXXXXX   (el valor exacto lo muestra Lovable)
+   ```
+
+6. Si usas Cloudflare (o cualquier proxy DNS), en el diálogo de conectar dominio marca la casilla **"Domain uses Cloudflare or a similar proxy"** — cambia de A a CNAME.
+
+---
+
+## Paso 5 — Crear los registros DNS nuevos
+
+Vuelve al panel de tu registrador y crea los 3 registros del paso anterior con los valores exactos que te mostró Lovable.
+
+---
+
+## Paso 6 — Esperar propagación
+
+- Normalmente **5–30 minutos**, máximo 72 horas.
+- En Lovable, la pantalla de Domains mostrará el estado: **Verifying → Setting up → Active**.
+- Puedes verificar propagación en [dnschecker.org](https://dnschecker.org) buscando `pruebalista.cl` tipo A — debe mostrar `185.158.133.1` desde varias regiones.
+
+---
+
+## Paso 7 — Marcar `pruebalista.cl` como Primary
+
+Cuando ambos (raíz y www) estén **Active** en Lovable, marca `pruebalista.cl` como **Primary domain** para que `www` redirija al dominio principal.
+
+---
+
+## Paso 8 — Avisarme
+
+Cuando el estado sea **Active**, dime "listo" y yo verifico:
+- Que el custom domain aparezca correctamente conectado.
+- Que el broker OAuth de Google responda bien en `pruebalista.cl`.
+- Pruebo el flujo de login con Google.
+
+---
+
+## Si te trabas en algún paso
+
+Dime en cuál y qué ves en pantalla (o pega una captura). Los puntos más comunes donde la gente se atasca:
+- **No encuentran dónde editar DNS** → dime el registrador y te guío.
+- **Cloudflare naranja/gris (proxy)** → hay que decidir si mantener proxy o no.
+- **NIC Chile** → el panel es peculiar, te doy instrucciones específicas si es tu caso.
+
+¿Empezamos? Cuéntame en qué registrador tienes el dominio y arrancamos por el paso 1.
