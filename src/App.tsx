@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 // Carga inmediata para landing/auth/dashboard inicial (rutas críticas).
 import DashboardDocente from "./pages/DashboardDocente.tsx";
 import AuthPage from "./pages/Auth.tsx";
+import ResetPasswordPage from "./pages/ResetPassword.tsx";
 import Landing from "./pages/Landing.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
