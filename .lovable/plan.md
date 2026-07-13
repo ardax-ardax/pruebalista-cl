@@ -1,41 +1,57 @@
-## Objetivo
-Eliminar la duplicación de gestión de cursos. Toda la administración para UTP vive solo en **Configuración → pestaña Cursos**, usando el asistente de 3 pasos (Nivel → Grado → Letra) que ya genera el nombre automáticamente.
+# Diagnóstico
 
-## Cambios
+No hay "variables de entorno" ni "orígenes autorizados" que yo pueda tocar para arreglar esto. El problema es de **arquitectura de hosting**, no de configuración.
 
-### 1. Eliminar el menú "Cursos" del header
-- `src/components/AppLayout.tsx`: quitar el `<NavItem to="/cursos" label="Cursos" .../>` que se muestra a `isUtpHead`. El acceso queda solo por Configuración.
+**Estado actual verificado:**
+- URL publicada en Lovable: `https://pruebalista-cl.lovable.app` ✅ (funciona)
+- Custom domains conectados en Lovable: **ninguno** ❌
+- `pruebalista.cl` está sirviéndose desde **Vercel** (hosting externo)
 
-### 2. Deshabilitar la ruta `/cursos`
-- `src/App.tsx`: eliminar la ruta `/cursos` y el `import` lazy de `Cursos`.
-- Borrar `src/pages/Cursos.tsx` (página legacy que usaba la tabla `courses` con creación manual de nombres arbitrarios).
+**Por qué da 404 el login con Google:**
+Lovable Cloud Auth (managed Google OAuth) funciona a través de un proxy interno en las rutas `/~oauth/initiate` y `/~oauth/callback`. Ese proxy **solo existe en la infraestructura de hosting de Lovable** (worker que redirige a `oauth.lovable.app`). Vercel no tiene ese worker → cuando Google intenta devolver al usuario a `https://pruebalista.cl/~oauth/callback`, Vercel responde 404 porque esa ruta no existe en tu deploy.
 
-### 3. Preservar la gestión de estudiantes (roster)
-La página `Cursos.tsx` no solo creaba cursos: también administraba el roster de estudiantes (`StudentImporter`, listado, eliminación). Ese roster es usado por la hoja OMR (`OmrSheetDialog`). Para no perderlo, mover ese bloque a una **subsección dentro de la misma pestaña "Cursos" de Configuración**, debajo del `UtpCoursesManager`:
-  - Nuevo componente `src/components/utp/StudentRosterPanel.tsx` extraído de `CursosInner` (selector de curso desde `admin_courses` ahora, no `courses`; importador CSV; tabla con eliminar).
-  - Insertarlo en `src/pages/Configuracion.tsx` dentro del `TabsContent value="cursos"`, después de `<UtpCoursesManager />`.
+Esto **no** se arregla:
+- Agregando `pruebalista.cl` a una lista de orígenes autorizados (no existe tal lista editable en Cloud managed OAuth).
+- Cambiando `redirect_uri` en el código.
+- Configurando nada en Google Cloud Console.
+- Agregando variables de entorno en Vercel.
 
-> Nota técnica: el roster legacy referenciaba la tabla `courses` (id uuid). Hoy los cursos institucionales viven en `admin_courses`. El nuevo panel debe vincular estudiantes a `admin_courses.id`. Como `students.course_id` apunta a `courses`, mantenemos por ahora la tabla `courses` solo como destino de los rosters y dejamos el selector apuntando a ella; **no** se permite crear nuevos `courses` desde la UI (la creación queda 100% bajo `admin_courses` vía el asistente). Si más adelante se desea unificar tablas, será una migración aparte.
+# Solución: mover el dominio a Lovable
 
-### 4. Confirmar el flujo automatizado en `UtpCoursesManager`
-Ya cumple los requisitos solicitados; verificar y dejar explícito:
-- Botón "Nuevo curso" abre solo el asistente (Nivel/Grado/Letra) — ✅ ya está así.
-- No hay input de texto manual para el nombre — ✅ el campo "Nombre" es `readOnly disabled` y se computa con `buildCourseLabels`.
-- Vista previa del nombre antes de guardar — ✅ ya se muestra ("1º Básico A") junto al slug interno.
-- `refresh()` se llama tras guardar para actualizar la tabla sin recargar — ✅ ya implementado.
-Solo añadir un pequeño badge "Vista previa" sobre el input para reforzar la claridad UX.
+Hay que desconectar `pruebalista.cl` de Vercel y conectarlo como Custom Domain dentro de Lovable. Es la única forma de que el broker OAuth funcione en tu dominio.
 
-### 5. Limpieza de referencias y código legacy
-- `src/lib/courses.ts`: marcar `createCourse`, `updateCourse`, `deleteCourse` como deprecated o eliminarlas. Conservar solo `listCourses`, `listStudentsByCourse`, `bulkInsertStudents`, `deleteStudent` (las usa el roster y OMR).
-- Buscar referencias residuales a `/cursos` en navegación/dashboards y reemplazarlas por `/configuracion?tab=cursos` cuando aplique.
-- Verificar `DashboardDocente`, `MisPruebas` y filtros: las listas de cursos se cargan desde `admin_courses` vía `useAdminCourses` (ya unificado), no requieren cambios.
+## Pasos que harás tú (yo no puedo tocar DNS ni Vercel)
 
-### 6. QA manual sugerido
-- Como UTP: el header ya no muestra "Cursos". Configuración → Cursos abre el asistente, crea "2º Básico B", aparece de inmediato en la tabla.
-- Visitar `/cursos` redirige a NotFound.
-- OMR sigue funcionando porque `OmrSheetDialog` consume `listCourses()` y `listStudentsByCourse()` del roster.
+1. **En Vercel**: eliminar el dominio `pruebalista.cl` del proyecto (Project Settings → Domains → Remove). Esto libera el dominio.
+2. **En tu registrador de DNS**: eliminar los registros A/CNAME que apuntan a Vercel.
+3. **En Lovable**: Project Settings → Project → Domains → **Connect Domain** → `pruebalista.cl`. Añadir también `www.pruebalista.cl` como entrada separada.
+4. **En tu registrador de DNS**: crear los registros que te muestra Lovable:
+   - `A @ → 185.158.133.1`
+   - `A www → 185.158.133.1`
+   - `TXT _lovable → <valor de verificación que muestre Lovable>`
+   - Si usas Cloudflare proxy, marca la casilla "Domain uses Cloudflare or a similar proxy" en el diálogo (usa CNAME en vez de A).
+5. Esperar propagación DNS (minutos a 72h, normalmente <1h) y que Lovable emita SSL automáticamente. Estado en Domains debe pasar por: Verifying → Setting up → **Active**.
+6. Probar login con Google en `https://pruebalista.cl` — funcionará sin ningún cambio de código.
 
-## Archivos afectados
-- Editar: `src/App.tsx`, `src/components/AppLayout.tsx`, `src/pages/Configuracion.tsx`, `src/components/utp/UtpCoursesManager.tsx`, `src/lib/courses.ts`
-- Crear: `src/components/utp/StudentRosterPanel.tsx`
-- Eliminar: `src/pages/Cursos.tsx`
+## Qué NO necesitas hacer
+
+- No hay que tocar `useAuth.tsx`, `Landing.tsx`, ni `lovable.auth.signInWithOAuth`. El código ya usa `redirect_uri: window.location.origin`, que es la forma correcta.
+- No hay que crear credenciales OAuth propias en Google Cloud Console.
+- No hay que pedir a Lovable que "autorice" el dominio: al conectarlo como Custom Domain, queda auto-incluido en el allowlist del broker OAuth.
+
+## Alternativa (si quieres seguir en Vercel)
+
+No es viable con Lovable Cloud managed OAuth. Tendrías que:
+- Migrar a Supabase auto-gestionado (desconectar Cloud, no soportado en este proyecto una vez habilitado), y
+- Configurar credenciales OAuth propias en Google Cloud Console con `https://pruebalista.cl` como Authorized redirect URI.
+
+**No lo recomiendo**: es un desmontaje mayor y perderías la gestión unificada.
+
+## Mi rol en el siguiente turno
+
+Una vez que digas "listo, ya moví el dominio a Lovable", yo puedo:
+- Verificar con `project_urls--get_urls` que el custom domain aparece como Active.
+- Reejecutar `supabase--debug_oauth_server` para confirmar que el Site URL y el consent path están correctos.
+- Ayudar a debuggear si sale un error distinto al 404.
+
+No modifico código en este plan porque el fix no es de código.
