@@ -1,25 +1,55 @@
-## Diagnóstico
+## Objetivo
+Permitir que usuarios se registren e inicien sesión con **email + contraseña**, en paralelo con el botón "Continuar con Google" ya existente. Confirmación por email activa, recuperación de contraseña habilitada, y las invitaciones UTP funcionan por ambos métodos.
 
-Lo que ves dentro del preview ("Por motivos de seguridad, abre en una pestaña nueva") es normal: el login de Google no puede correr dentro del iframe de Lovable, así que la landing te ofrece abrir la app real. Ese botón te envía a `https://pruebalista-app.lovable.app`, que es la URL publicada.
+## Cambios
 
-El problema real es que esa URL publicada carga en blanco. Revisé el bundle JS ya desplegado y **no contiene las credenciales de Lovable Cloud (Supabase)**; el cliente arranca y lanza `supabaseUrl is required`, y por eso React no monta nada y solo queda el badge de Lovable abajo.
+### 1. Página de autenticación (`src/pages/Auth.tsx`)
+Reorganizarla con:
+- **Tabs**: "Iniciar sesión" / "Crear cuenta"
+- **Botón Google** arriba (ya existe) + separador "o"
+- **Formulario email/password**:
+  - Login: email, contraseña → `supabase.auth.signInWithPassword`
+  - Signup: nombre, email, contraseña, confirmar contraseña → `supabase.auth.signUp` con `emailRedirectTo: window.location.origin`
+- **Enlace "¿Olvidaste tu contraseña?"** → abre modal/pantalla que llama `resetPasswordForEmail` con `redirectTo: ${origin}/reset-password`
+- **Validaciones**: email válido, contraseña mínima 8 chars, coincidencia de contraseñas
+- **Estados**:
+  - Tras signup: mensaje "Te enviamos un correo de confirmación. Revisa tu bandeja para activar la cuenta."
+  - Errores en español (`Invalid credentials` → "Email o contraseña incorrectos", `User already registered` → "Este email ya está registrado", etc.)
 
-Causa raíz: el archivo `.env` (donde viven `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`) está listado en `.gitignore` (línea 26). En preview funciona porque Vite lee el `.env` local del sandbox, pero el build de producción de Lovable no tiene acceso a esas variables y las compila como `undefined`. Republicar sin corregir esto no cambia nada — ya lo intentamos dos veces.
+### 2. Nueva página `/reset-password` (`src/pages/ResetPassword.tsx`)
+- Ruta pública (fuera del guard de auth)
+- Detecta `type=recovery` en el hash de la URL
+- Formulario: nueva contraseña + confirmación
+- Llama `supabase.auth.updateUser({ password })`
+- Redirige a `/` con toast de éxito
+- Registrar en `src/App.tsx` como ruta pública
 
-## Solución
+### 3. Configuración de Auth (`supabase--configure_auth`)
+- `auto_confirm_email: false` → confirmación por email activa
+- `disable_signup: false` → registro público habilitado
+- `password_hibp_enabled: true` → bloquea contraseñas filtradas (seguridad extra)
 
-1. Quitar la línea `.env` de `.gitignore` para que las variables `VITE_SUPABASE_*` viajen con el proyecto al build de producción. Estas variables son **públicas por diseño** (la `PUBLISHABLE_KEY` de Supabase/Lovable Cloud es equivalente a la antigua anon key: segura para exponer al navegador porque toda la protección real vive en las RLS policies que ya tenemos endurecidas).
-2. Republicar el proyecto. El nuevo bundle traerá la URL y la key inyectadas, y la landing en `pruebalista-app.lovable.app` cargará normalmente.
-3. Verificar cargando la URL publicada en una pestaña nueva: debe aparecer la landing con el login funcionando.
+### 4. Plantillas de email de autenticación
+El proyecto ya tiene `auth-email-hook` scaffolded. Verificar que las 3 plantillas relevantes estén brandeadas:
+- `signup.tsx` (confirmación de cuenta)
+- `recovery.tsx` (recuperación de contraseña)
+- `invite.tsx` (invitaciones UTP)
 
-## Lo que NO se toca
+Si el texto está en inglés genérico, adaptarlo al español y al branding "PruebaLista".
 
-- Ninguna lógica de la app, ni RLS, ni edge functions.
-- El archivo `.env` en sí no cambia; solo se deja de ignorar.
-- La `SUPABASE_SERVICE_ROLE_KEY` y demás secretos privados **no** están en `.env`, viven como secrets de edge functions y siguen protegidos.
+### 5. Flujo de invitaciones UTP (sin cambios de código)
+El trigger `handle_new_user` ya lee `pending_invitations` por email — funciona igual con Google o con email/password. El usuario invitado:
+- **Con Google**: entra con la cuenta de Google que use el email invitado.
+- **Con email/password**: se registra en el mismo formulario, recibe email de confirmación, y al confirmar queda vinculado al colegio y con rol `docente` o `utp_head`.
 
-## Detalles técnicos
+No requiere migración. Solo asegurar que el texto del email de invitación (`invite.tsx`) mencione que puede usar cualquiera de los dos métodos.
 
-- Archivo a editar: `.gitignore` — eliminar la línea `.env` (línea 26).
-- Después de aprobar el plan, ejecuto la edición y llamo a `preview_ui--publish` para regenerar el bundle.
-- Verificación: `curl` al JS publicado buscando el string `ddhrrgsejpebblarzmsj.supabase.co` para confirmar que las variables quedaron inyectadas.
+## Notas técnicas
+- `signUp` con `emailRedirectTo: window.location.origin` es obligatorio para que el link del correo vuelva al dominio correcto (`pruebalista-app.lovable.app`, y más adelante `pruebalista.cl`).
+- No se toca `handle_new_user` ni RLS: el flujo institucional ya está cubierto.
+- El `AuthProvider` existente ya escucha `onAuthStateChange`, así que el login por password se propaga automáticamente al resto de la app.
+- `/reset-password` debe montarse **antes** que cualquier guard en `App.tsx`, si no el usuario recién llegado con recovery token queda bloqueado.
+
+## Fuera de alcance
+- No se implementa "magic link" (login sin contraseña) — solo password + Google.
+- No se cambia el branding de las plantillas más allá de asegurar español y consistencia (si quieres rediseñarlas te lo propongo aparte).
