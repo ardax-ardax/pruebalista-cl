@@ -53,6 +53,7 @@ const App = () => (
             <Routes>
               <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
               <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
               <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
