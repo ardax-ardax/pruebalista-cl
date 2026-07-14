@@ -1,9 +1,22 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveDestination } from "@/lib/resolve-destination";
 import { useIsEmbedded, openInNewTab } from "@/hooks/useIsEmbedded";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen,
   Building2,
@@ -19,6 +32,23 @@ import {
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
+
+function translateAuthError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes("invalid login") || m.includes("invalid credentials"))
+    return "Email o contraseña incorrectos.";
+  if (m.includes("email not confirmed"))
+    return "Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.";
+  if (m.includes("user already registered") || m.includes("already been registered"))
+    return "Este email ya está registrado. Inicia sesión o recupera tu contraseña.";
+  if (m.includes("password") && m.includes("6"))
+    return "La contraseña debe tener al menos 6 caracteres.";
+  if (m.includes("pwned") || m.includes("hibp") || m.includes("compromised"))
+    return "Esta contraseña aparece en filtraciones conocidas. Elige otra más segura.";
+  if (m.includes("rate limit") || m.includes("over_email_send_rate_limit"))
+    return "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.";
+  return msg;
+}
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 48 48" className="shrink-0">
@@ -47,8 +77,19 @@ export default function Landing() {
   const isEmbedded = useIsEmbedded();
   const [redirecting, setRedirecting] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
   const intentRef = useRef<LoginIntent>(null);
   const [demoEmail, setDemoEmail] = useState("");
+  const [authTab, setAuthTab] = useState<"login" | "signup">("login");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [suName, setSuName] = useState("");
+  const [suEmail, setSuEmail] = useState("");
+  const [suPassword, setSuPassword] = useState("");
+  const [suPassword2, setSuPassword2] = useState("");
+  const [signupSent, setSignupSent] = useState<string | null>(null);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
 
   useEffect(() => {
     const stored = sessionStorage.getItem("loginIntent") as LoginIntent;
@@ -81,6 +122,65 @@ export default function Landing() {
     }
   };
 
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail.trim() || !loginPassword) return;
+    setEmailBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
+    });
+    setEmailBusy(false);
+    if (error) {
+      toast.error(translateAuthError(error.message));
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (suPassword !== suPassword2) {
+      toast.error("Las contraseñas no coinciden.");
+      return;
+    }
+    if (suPassword.length < 8) {
+      toast.error("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    setEmailBusy(true);
+    const { error } = await supabase.auth.signUp({
+      email: suEmail.trim(),
+      password: suPassword,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: { full_name: suName.trim() },
+      },
+    });
+    setEmailBusy(false);
+    if (error) {
+      toast.error(translateAuthError(error.message));
+      return;
+    }
+    setSignupSent(suEmail.trim());
+    toast.success("Te enviamos un correo de confirmación.");
+  };
+
+  const handleRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryEmail.trim()) return;
+    setEmailBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setEmailBusy(false);
+    if (error) {
+      toast.error(translateAuthError(error.message));
+      return;
+    }
+    toast.success("Si el email existe, te enviamos un enlace para restablecer la contraseña.");
+    setRecoveryOpen(false);
+    setRecoveryEmail("");
+  };
+
   const handleDemoRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!demoEmail.trim()) return;
@@ -92,7 +192,7 @@ export default function Landing() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium">Conectando con Google…</p>
+        <p className="text-muted-foreground font-medium">Conectando…</p>
       </div>
     );
   }
@@ -133,7 +233,7 @@ export default function Landing() {
 
           <p className="max-w-xl mx-auto text-xs sm:text-base text-muted-foreground leading-relaxed">
             Estandariza evaluaciones, ahorra horas de trabajo y asegura la
-            cobertura curricular con tu cuenta de Google
+            cobertura curricular con Google o email y contraseña
           </p>
         </div>
       </section>
@@ -193,6 +293,148 @@ export default function Landing() {
               <GoogleIcon />
               Ingresar con Google
             </button>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Email/password access */}
+      <section className="max-w-4xl mx-auto px-4 pb-4 sm:pb-8 w-full">
+        <Card className="rounded-xl border border-border shadow-sm">
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <div className="space-y-1 text-center">
+              <h2 className="text-lg font-semibold text-foreground">Acceso con email</h2>
+              <p className="text-xs text-muted-foreground">
+                También puedes iniciar sesión o crear tu cuenta con correo personal.
+              </p>
+            </div>
+
+            {signupSent ? (
+              <div className="max-w-md mx-auto space-y-3 text-sm">
+                <p className="rounded-md border border-border bg-muted/40 p-3 text-muted-foreground">
+                  Te enviamos un correo a <strong className="text-foreground">{signupSent}</strong> con un enlace para activar tu cuenta.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setSignupSent(null);
+                    setAuthTab("login");
+                    setLoginEmail(signupSent);
+                  }}
+                >
+                  Volver a inicio de sesión
+                </Button>
+              </div>
+            ) : (
+              <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as "login" | "signup")} className="max-w-md mx-auto">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
+                  <TabsTrigger value="signup">Crear cuenta</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="login" className="space-y-3 pt-3">
+                  <form onSubmit={handleEmailLogin} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landing-login-email">Email</Label>
+                      <Input
+                        id="landing-login-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landing-login-password">Contraseña</Label>
+                      <Input
+                        id="landing-login-password"
+                        type="password"
+                        autoComplete="current-password"
+                        required
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryEmail(loginEmail);
+                          setRecoveryOpen(true);
+                        }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </button>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={emailBusy}>
+                      {emailBusy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Iniciar sesión
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="signup" className="space-y-3 pt-3">
+                  <form onSubmit={handleSignup} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landing-su-name">Nombre</Label>
+                      <Input
+                        id="landing-su-name"
+                        type="text"
+                        autoComplete="name"
+                        required
+                        value={suName}
+                        onChange={(e) => setSuName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landing-su-email">Email</Label>
+                      <Input
+                        id="landing-su-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={suEmail}
+                        onChange={(e) => setSuEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landing-su-password">Contraseña</Label>
+                      <Input
+                        id="landing-su-password"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={8}
+                        value={suPassword}
+                        onChange={(e) => setSuPassword(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Mínimo 8 caracteres.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landing-su-password2">Confirmar contraseña</Label>
+                      <Input
+                        id="landing-su-password2"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={8}
+                        value={suPassword2}
+                        onChange={(e) => setSuPassword2(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={emailBusy}>
+                      {emailBusy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Crear cuenta
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Te enviaremos un correo para confirmar tu cuenta.
+                    </p>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
       </section>
@@ -312,6 +554,38 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      <Dialog open={recoveryOpen} onOpenChange={setRecoveryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recuperar contraseña</DialogTitle>
+            <DialogDescription>
+              Ingresa tu email y te enviaremos un enlace para crear una nueva contraseña.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRecovery} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="landing-rec-email">Email</Label>
+              <Input
+                id="landing-rec-email"
+                type="email"
+                required
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setRecoveryOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={emailBusy}>
+                {emailBusy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Enviar enlace
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
