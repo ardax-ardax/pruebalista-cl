@@ -42,9 +42,12 @@ const AuthPage = () => {
   const { user, loading, role, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
+  const [searchParams] = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
 
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  const [tab, setTab] = useState<"login" | "signup">(
+    searchParams.get("tab") === "signup" ? "signup" : "login",
+  );
   const [busy, setBusy] = useState(false);
 
   // Login
