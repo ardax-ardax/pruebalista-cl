@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,9 +42,12 @@ const AuthPage = () => {
   const { user, loading, role, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const isEmbedded = useIsEmbedded();
+  const [searchParams] = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
 
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  const [tab, setTab] = useState<"login" | "signup">(
+    searchParams.get("tab") === "signup" ? "signup" : "login",
+  );
   const [busy, setBusy] = useState(false);
 
   // Login
@@ -143,10 +147,21 @@ const AuthPage = () => {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-card">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Prueba Lista</CardTitle>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm mb-3">
+        <Link
+          to="/landing"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver al inicio
+        </Link>
+      </div>
+      <Card className="w-full max-w-sm shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl text-center">
+            {tab === "signup" ? "Crear cuenta" : "Iniciar sesión"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {isEmbedded ? (
