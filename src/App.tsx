@@ -51,10 +51,11 @@ const App = () => (
             <ErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
+              <Route path="/dashboard" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
               <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
               <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
               
