@@ -1,25 +1,50 @@
-## Diagnóstico
 
-El código de `src/pages/Auth.tsx` ya tiene el formulario email + contraseña (pestañas "Iniciar sesión / Crear cuenta") **debajo** del botón "Continuar con Google", separados por una línea "o con email".
+# Landing de marketing + `/auth` separado
 
-En la preview del editor sí aparecen. En `https://pruebalista-app.lovable.app/landing` **no** aparecen porque el bundle publicado es anterior a ese cambio — cuando se hizo la modificación, los últimos intentos de publicación quedaron a medias (pantalla en blanco por `supabaseUrl is required`, hardcodeo del fallback en `vite.config.ts`, etc.) y el deploy vigente no incluye el nuevo `Auth.tsx`.
+## Decisiones confirmadas
+- Diseño directo: limpio, profesional, edtech chileno (sin ronda de direcciones visuales).
+- Planes leídos dinámicamente de la tabla `plans`.
 
-## Acción
+## Cambios
 
-Re-publicar el proyecto para regenerar el bundle en `pruebalista-app.lovable.app` con la versión actual de `Auth.tsx`. No hay cambios de código — solo deploy.
+### 1. `src/pages/Landing.tsx` (reescribir)
+Quitar todo el bloque de autenticación. Nueva estructura:
 
-## Verificación después del publish
+```text
+Header sticky:  [Logo Pruebalista]        Cómo funciona · Planes · [Ingresar]
+Hero:           Titular + subtítulo + [Comenzar gratis] + mockup
+Cómo funciona:  3 pasos (Elige OA → Genera → Descarga PDF)
+Características: grid con IA · OA MINEDUC · SIMCE/PAES · OMR · Panel UTP · Reportes
+Para quién:     Docente autónomo · Colegios (UTP)
+Planes:         3 tarjetas leídas de `plans` (nombre, precio, límites, is_default)
+FAQ:            4-5 preguntas
+CTA final + Footer
+```
 
-1. Abrir `https://pruebalista-app.lovable.app/landing` en pestaña nueva (hard refresh: Cmd/Ctrl + Shift + R).
-2. Ir al botón de acceso → confirmar que aparecen:
-   - Botón "Continuar con Google" arriba
-   - Separador "o con email"
-   - Pestañas "Iniciar sesión" / "Crear cuenta" con campos email + contraseña
-   - Enlace "¿Olvidaste tu contraseña?"
+Todos los CTA ("Ingresar", "Comenzar gratis", "Empezar ahora") → `navigate("/auth")`; el CTA de un plan pago → `navigate("/auth?tab=signup")`.
 
-Si tras el republish sigue sin aparecer, revisamos si el navegador está cacheando la versión anterior (Service Worker / cache) e investigamos con Playwright contra la URL publicada.
+Estilo: usar tokens del design system existente (nada de colores hardcoded), tipografía y paleta actuales del proyecto, tarjetas con `Card` de shadcn, íconos de `lucide-react`. Responsive mobile-first.
+
+### 2. `src/pages/Auth.tsx` (compactar)
+- Card centrado ~420px, no full-screen.
+- Botón Google arriba → separador "o" → tabs Iniciar sesión / Crear cuenta con email+password → link "¿Olvidaste tu contraseña?".
+- Link "← Volver al inicio" hacia `/`.
+- Leer `?tab=signup` del query string para abrir la pestaña correcta.
+- Si ya hay sesión activa, redirige a la ruta post-login que ya usa el proyecto.
+
+### 3. `src/App.tsx`
+Confirmar rutas públicas:
+- `/` y `/landing` → nuevo `Landing`
+- `/auth` → `Auth` compacto
+- `/reset-password` → sin cambios
+
+### 4. Hook para planes
+Reutilizar el `usePlans` existente (memoria: planes dinámicos). La sección Pricing itera sobre `plans` activos ordenados por precio, muestra `name`, `price`, `default_credits`, `max_assignments`, features y marca el `is_default` como "Recomendado".
 
 ## Fuera de alcance
+- Sin cambios de auth backend, roles, RLS ni tabla `plans`.
+- Sin nuevas rutas privadas.
+- Sin cambios de branding/logo del proyecto.
 
-- No se modifica el flujo de auth ni las plantillas de email.
-- No se conecta el dominio custom (`pruebalista.cl`) — sigue pendiente de tu upgrade a Pro.
+## Verificación
+Tras implementar: cargar `/landing` (marketing sin formulario), click en "Ingresar" → `/auth` compacto con Google + email/password funcionando, y las tarjetas de planes reflejando la tabla real.
