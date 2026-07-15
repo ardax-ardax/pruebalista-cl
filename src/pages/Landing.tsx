@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlans, type Plan } from "@/hooks/usePlans";
 import { resolveDestination } from "@/lib/resolve-destination";
@@ -12,7 +18,6 @@ import {
   CheckCircle2,
   GraduationCap,
   Building2,
-  FileText,
   Brain,
   ClipboardList,
   BarChart3,
@@ -35,22 +40,22 @@ const FEATURES = [
   {
     icon: ClipboardList,
     title: "SIMCE y PAES",
-    desc: "Plantillas específicas para ensayos SIMCE (Básica) y PAES (III–IV Medio).",
+    desc: "Plantillas para ensayos SIMCE (Básica) y PAES (III–IV Medio).",
   },
   {
     icon: ScanLine,
     title: "Corrección OMR",
-    desc: "Hojas de respuesta escaneables para corregir alternativas en minutos.",
+    desc: "Hojas escaneables para corregir alternativas en minutos.",
   },
   {
     icon: Building2,
     title: "Panel UTP",
-    desc: "Revisión, aprobación y control de calidad de las evaluaciones del colegio.",
+    desc: "Revisión y control de calidad de evaluaciones del colegio.",
   },
   {
     icon: BarChart3,
     title: "Reportes y consumo",
-    desc: "Trazabilidad de uso por docente, curso y asignatura para la jefatura.",
+    desc: "Trazabilidad de uso por docente, curso y asignatura.",
   },
 ];
 
@@ -58,17 +63,17 @@ const HOW_STEPS = [
   {
     n: "1",
     title: "Elige curso y OA",
-    desc: "Selecciona nivel, asignatura y objetivos de aprendizaje del currículum.",
+    desc: "Selecciona nivel, asignatura y objetivos del currículum.",
   },
   {
     n: "2",
     title: "Genera con IA o banco",
-    desc: "Combina preguntas creadas por IA con tu banco propio y edítalas a gusto.",
+    desc: "Combina preguntas de IA con tu banco propio y edítalas.",
   },
   {
     n: "3",
     title: "Descarga el PDF",
-    desc: "Encabezado con logo del colegio, hoja de respuestas y pauta de corrección.",
+    desc: "Con logo del colegio, hoja de respuestas y pauta.",
   },
 ];
 
@@ -145,20 +150,18 @@ export default function Landing() {
   const goAuth = (tab?: "signup") =>
     navigate(tab === "signup" ? "/auth?tab=signup" : "/auth");
 
-  const visiblePlans = plans.length
-    ? plans
-    : ([] as Plan[]);
+  const visiblePlans = plans.length ? plans : ([] as Plan[]);
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border bg-background/85 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-sm">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-12 sm:h-14">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-sm">
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
             </div>
-            <span className="text-base font-bold tracking-tight text-foreground">
+            <span className="text-sm sm:text-base font-bold tracking-tight text-foreground">
               PruebaLista<span className="text-primary">.cl</span>
             </span>
           </div>
@@ -169,7 +172,7 @@ export default function Landing() {
             <a href="#faq" className="hover:text-foreground transition">FAQ</a>
           </nav>
           <Button size="sm" onClick={() => goAuth()}>
-            Ingresar / Registrarse
+            Ingresar
           </Button>
         </div>
       </header>
@@ -177,31 +180,29 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.04]" />
-        <div className="relative max-w-5xl mx-auto px-4 pt-14 pb-16 sm:pt-20 sm:pb-24 text-center space-y-6">
+        <div className="relative max-w-5xl mx-auto px-4 pt-8 pb-10 sm:pt-16 sm:pb-20 text-center space-y-4 sm:space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Plataforma alineada al currículum MINEDUC
+            Alineado al currículum MINEDUC
           </div>
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground leading-[1.1]">
-            Evaluaciones profesionales,
-            <br />
+          <h1 className="text-2xl sm:text-5xl font-bold tracking-tight text-foreground leading-[1.15]">
+            Evaluaciones profesionales,{" "}
             <span className="text-primary">generadas con IA en minutos.</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground leading-relaxed">
+          <p className="max-w-2xl mx-auto text-sm sm:text-lg text-muted-foreground leading-relaxed">
             PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar
-            evaluaciones alineadas al currículum vigente — sin planillas, sin plantillas Word,
-            sin perder horas de planificación.
+            evaluaciones alineadas al currículum vigente.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Button size="lg" onClick={() => goAuth("signup")}>
+          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3 pt-1">
+            <Button size="default" className="sm:h-11 sm:px-6" onClick={() => goAuth("signup")}>
               Comenzar gratis
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => goAuth()}>
+            <Button size="default" variant="outline" className="sm:h-11 sm:px-6" onClick={() => goAuth()}>
               Ya tengo cuenta
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground pt-1">
+          <p className="text-xs text-muted-foreground">
             Sin tarjeta de crédito · Créditos IA incluidos
           </p>
         </div>
@@ -209,20 +210,22 @@ export default function Landing() {
 
       {/* Cómo funciona */}
       <section id="como-funciona" className="border-t border-border bg-muted/20">
-        <div className="max-w-5xl mx-auto px-4 py-14 sm:py-20">
-          <div className="text-center space-y-2 mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Cómo funciona</h2>
-            <p className="text-muted-foreground">Tres pasos, una prueba lista para imprimir.</p>
+        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-14">
+          <div className="text-center space-y-1 mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Cómo funciona</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">Tres pasos, una prueba lista para imprimir.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-5">
             {HOW_STEPS.map((s) => (
               <Card key={s.n} className="border-border shadow-sm">
-                <CardContent className="p-6 space-y-2">
-                  <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                <CardContent className="p-4 sm:p-6 flex md:block items-start gap-3 md:space-y-2">
+                  <div className="h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
                     {s.n}
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground">{s.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                  <div className="space-y-1 md:space-y-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground">{s.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -232,20 +235,20 @@ export default function Landing() {
 
       {/* Características */}
       <section id="caracteristicas" className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-4 py-14 sm:py-20">
-          <div className="text-center space-y-2 mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Todo lo que necesitas</h2>
-            <p className="text-muted-foreground">Del OA a la impresión, en una sola plataforma.</p>
+        <div className="max-w-6xl mx-auto px-4 py-8 sm:py-14">
+          <div className="text-center space-y-1 mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Todo lo que necesitas</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">Del OA a la impresión, en una plataforma.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {FEATURES.map((f) => (
               <Card key={f.title} className="border-border shadow-sm hover:shadow-elevated transition-shadow">
-                <CardContent className="p-5 space-y-2">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <f.icon className="h-5 w-5" />
+                <CardContent className="p-3 sm:p-5 space-y-2">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <f.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
-                  <h3 className="text-base font-semibold text-foreground">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground">{f.title}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -255,16 +258,15 @@ export default function Landing() {
 
       {/* Para quién */}
       <section className="border-t border-border bg-muted/20">
-        <div className="max-w-5xl mx-auto px-4 py-14 sm:py-20 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-14 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-5">
           <Card className="border-border shadow-sm">
-            <CardContent className="p-6 space-y-3">
-              <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <GraduationCap className="h-6 w-6" />
+            <CardContent className="p-5 space-y-2">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <GraduationCap className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-semibold">Docentes autónomos</h3>
+              <h3 className="text-base sm:text-lg font-semibold">Docentes autónomos</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Crea pruebas para tus cursos, guarda tu banco personal y exporta PDF listos para
-                imprimir. Ideal para profesores que trabajan de forma independiente.
+                Crea pruebas para tus cursos, guarda tu banco personal y exporta PDF listos para imprimir.
               </p>
               <Button variant="outline" size="sm" onClick={() => goAuth("signup")}>
                 Crear cuenta docente
@@ -272,14 +274,13 @@ export default function Landing() {
             </CardContent>
           </Card>
           <Card className="border-border shadow-sm">
-            <CardContent className="p-6 space-y-3">
-              <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Building2 className="h-6 w-6" />
+            <CardContent className="p-5 space-y-2">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Building2 className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-semibold">Colegios y equipos UTP</h3>
+              <h3 className="text-base sm:text-lg font-semibold">Colegios y equipos UTP</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Gestiona docentes, cursos, asignaturas y revisa las evaluaciones antes de aplicarlas.
-                Branding institucional en cada PDF y control de consumo por colegio.
+                Gestiona docentes, cursos y revisa evaluaciones antes de aplicarlas. Branding institucional en cada PDF.
               </p>
               <Button variant="outline" size="sm" onClick={() => goAuth()}>
                 Hablar con nosotros
@@ -291,10 +292,10 @@ export default function Landing() {
 
       {/* Planes */}
       <section id="planes" className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-4 py-14 sm:py-20">
-          <div className="text-center space-y-2 mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Planes</h2>
-            <p className="text-muted-foreground">Comienza gratis y escala cuando lo necesites.</p>
+        <div className="max-w-6xl mx-auto px-4 py-8 sm:py-14">
+          <div className="text-center space-y-1 mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Planes</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">Comienza gratis y escala cuando lo necesites.</p>
           </div>
 
           {plansLoading ? (
@@ -302,11 +303,11 @@ export default function Landing() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-5 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0">
               {visiblePlans.map((p) => (
                 <Card
                   key={p.id}
-                  className={`border-border shadow-sm relative flex flex-col ${
+                  className={`border-border shadow-sm relative flex flex-col shrink-0 w-[80%] sm:w-[60%] md:w-auto snap-center ${
                     p.is_default ? "border-primary/40 shadow-elevated" : ""
                   }`}
                 >
@@ -315,11 +316,11 @@ export default function Landing() {
                       Recomendado
                     </Badge>
                   )}
-                  <CardContent className="p-6 flex-1 flex flex-col space-y-4">
+                  <CardContent className="p-5 sm:p-6 flex-1 flex flex-col space-y-4">
                     <div className="space-y-1">
                       <h3 className="text-lg font-semibold text-foreground">{p.label}</h3>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold text-foreground">
+                        <span className="text-2xl sm:text-3xl font-bold text-foreground">
                           {formatCLP(p.price_clp_monthly)}
                         </span>
                         {p.price_clp_monthly != null && p.price_clp_monthly > 0 && (
@@ -328,7 +329,7 @@ export default function Landing() {
                       </div>
                     </div>
 
-                    <ul className="space-y-2 text-sm text-foreground flex-1">
+                    <ul className="space-y-1.5 text-sm text-foreground flex-1">
                       {planFeatures(p).map((f) => (
                         <li key={f} className="flex items-start gap-2">
                           <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
@@ -358,53 +359,49 @@ export default function Landing() {
 
       {/* FAQ */}
       <section id="faq" className="border-t border-border bg-muted/20">
-        <div className="max-w-3xl mx-auto px-4 py-14 sm:py-20">
-          <div className="text-center space-y-2 mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Preguntas frecuentes</h2>
+        <div className="max-w-3xl mx-auto px-4 py-8 sm:py-14">
+          <div className="text-center space-y-1 mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Preguntas frecuentes</h2>
           </div>
-          <div className="space-y-4">
-            {FAQ.map((f) => (
-              <Card key={f.q} className="border-border shadow-sm">
-                <CardContent className="p-5 space-y-1.5">
-                  <h3 className="text-base font-semibold text-foreground">{f.q}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{f.a}</p>
-                </CardContent>
-              </Card>
+          <Accordion type="single" collapsible className="w-full">
+            {FAQ.map((f, i) => (
+              <AccordionItem key={f.q} value={`item-${i}`}>
+                <AccordionTrigger className="text-left text-sm sm:text-base font-semibold text-foreground">
+                  {f.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
+                  {f.a}
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         </div>
       </section>
 
       {/* CTA final */}
       <section className="border-t border-border">
-        <div className="max-w-4xl mx-auto px-4 py-14 sm:py-20 text-center space-y-5">
-          <FileText className="h-10 w-10 text-primary mx-auto" />
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+        <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 text-center space-y-3">
+          <h2 className="text-lg sm:text-2xl font-bold text-foreground">
             Tu próxima prueba, lista hoy.
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto">
             Crea tu cuenta en menos de un minuto y genera tu primera evaluación con IA.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" onClick={() => goAuth("signup")}>
-              Comenzar gratis
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => goAuth()}>
-              Iniciar sesión
-            </Button>
+          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
+            <Button onClick={() => goAuth("signup")}>Comenzar gratis</Button>
+            <Button variant="outline" onClick={() => goAuth()}>Iniciar sesión</Button>
           </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-border bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-primary">
               <BookOpen className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
             <span className="font-medium text-foreground">PruebaLista.cl</span>
-            <span>· Inteligencia educativa al servicio del aula</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="#planes" className="hover:text-foreground transition">Planes</a>
