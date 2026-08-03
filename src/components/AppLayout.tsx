@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BookOpen, Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
+
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile } from "@/lib/profiles";
@@ -88,13 +90,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container flex h-16 items-center justify-between gap-4">
           <NavLink to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-sm">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-sm font-bold tracking-tight text-foreground">
-              PruebaLista<span className="text-primary">.cl</span>
-            </span>
+            <BrandLogo size="md" />
           </NavLink>
+
           <nav className="flex items-center gap-1">
             <NavItem to="/" label="Inicio" icon={Home} />
             {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} dataTour="crear-btn" />}

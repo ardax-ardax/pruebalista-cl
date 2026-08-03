@@ -13,12 +13,22 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+      },
       colors: {
+        brand: {
+          purple: "hsl(var(--brand-purple))",
+          "purple-soft": "hsl(var(--brand-purple-soft))",
+          teal: "hsl(var(--brand-teal))",
+          lavender: "hsl(var(--brand-lavender))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -65,8 +75,10 @@ export default {
       },
       backgroundImage: {
         "gradient-primary": "var(--gradient-primary)",
+        "gradient-brand": "var(--gradient-brand)",
         "gradient-subtle": "var(--gradient-subtle)",
       },
+
       boxShadow: {
         card: "var(--shadow-card)",
         elevated: "var(--shadow-elevated)",

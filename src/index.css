@@ -2,111 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sistema de diseño institucional para colegio
-   Paleta sobria: azul institucional + neutros cálidos
+/* Identidad de marca PruebaLista
+   Púrpura principal #3D2C6F · Turquesa #00C6AB · Púrpura interfaz #7E67A8
+   Lavanda #EDE7F6 · Blanco #FFFFFF · Texto #000000
    Todos los colores en HSL */
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 215 30% 18%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 30% 18%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 30% 18%;
+    --popover-foreground: 0 0% 0%;
 
-    --primary: 215 70% 32%;
-    --primary-foreground: 210 40% 98%;
-    --primary-glow: 215 75% 45%;
+    --primary: 172 100% 39%;
+    --primary-foreground: 255 43% 18%;
+    --primary-glow: 172 85% 48%;
 
-    --secondary: 210 35% 94%;
-    --secondary-foreground: 215 40% 22%;
+    --secondary: 264 45% 94%;
+    --secondary-foreground: 255 43% 30%;
 
-    --muted: 210 30% 95%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 264 45% 96%;
+    --muted-foreground: 255 18% 42%;
 
-    --accent: 38 85% 55%;
-    --accent-foreground: 215 40% 15%;
+    --accent: 261 27% 53%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 145 60% 38%;
+    --success: 172 100% 33%;
     --success-foreground: 0 0% 100%;
 
-    --border: 215 25% 88%;
-    --input: 215 25% 88%;
-    --ring: 215 70% 32%;
+    --border: 264 30% 88%;
+    --input: 264 30% 88%;
+    --ring: 172 100% 39%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(215 70% 32%), hsl(215 75% 45%));
-    --gradient-subtle: linear-gradient(180deg, hsl(210 40% 98%), hsl(210 35% 94%));
-    --shadow-card: 0 2px 8px -2px hsl(215 40% 20% / 0.08), 0 4px 16px -4px hsl(215 40% 20% / 0.06);
-    --shadow-elevated: 0 8px 24px -8px hsl(215 50% 25% / 0.18);
+    /* Tokens de marca */
+    --brand-purple: 255 43% 30%;
+    --brand-purple-soft: 261 27% 53%;
+    --brand-teal: 172 100% 39%;
+    --brand-lavender: 264 45% 94%;
+
+    --gradient-brand: linear-gradient(135deg, hsl(255 43% 30%), hsl(172 100% 39%));
+    --gradient-primary: linear-gradient(135deg, hsl(255 43% 30%), hsl(172 100% 39%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(264 45% 96%));
+    --shadow-card: 0 2px 8px -2px hsl(255 43% 30% / 0.08), 0 4px 16px -4px hsl(255 43% 30% / 0.06);
+    --shadow-elevated: 0 8px 24px -8px hsl(255 43% 30% / 0.20);
 
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 264 45% 97%;
+    --sidebar-foreground: 255 30% 25%;
+    --sidebar-primary: 255 43% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 264 45% 94%;
+    --sidebar-accent-foreground: 255 43% 30%;
+    --sidebar-border: 264 30% 88%;
+    --sidebar-ring: 172 100% 39%;
   }
 
   .dark {
-    --background: 215 35% 10%;
-    --foreground: 210 40% 96%;
+    --background: 255 35% 10%;
+    --foreground: 264 40% 96%;
 
-    --card: 215 30% 13%;
-    --card-foreground: 210 40% 96%;
+    --card: 255 32% 14%;
+    --card-foreground: 264 40% 96%;
 
-    --popover: 215 30% 13%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 255 32% 14%;
+    --popover-foreground: 264 40% 96%;
 
-    --primary: 215 75% 55%;
-    --primary-foreground: 215 35% 10%;
-    --primary-glow: 215 80% 65%;
+    --primary: 172 80% 45%;
+    --primary-foreground: 255 43% 12%;
+    --primary-glow: 172 75% 55%;
 
-    --secondary: 215 25% 18%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 255 25% 20%;
+    --secondary-foreground: 264 40% 96%;
 
-    --muted: 215 25% 18%;
-    --muted-foreground: 215 15% 65%;
+    --muted: 255 25% 20%;
+    --muted-foreground: 264 20% 72%;
 
-    --accent: 38 80% 60%;
-    --accent-foreground: 215 35% 10%;
+    --accent: 261 35% 62%;
+    --accent-foreground: 255 43% 12%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 145 55% 45%;
-    --success-foreground: 0 0% 100%;
+    --success: 172 70% 42%;
+    --success-foreground: 255 43% 12%;
 
-    --border: 215 25% 22%;
-    --input: 215 25% 22%;
-    --ring: 215 75% 55%;
+    --border: 255 22% 26%;
+    --input: 255 22% 26%;
+    --ring: 172 80% 45%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(215 75% 40%), hsl(215 80% 55%));
-    --gradient-subtle: linear-gradient(180deg, hsl(215 35% 10%), hsl(215 30% 13%));
+    --brand-purple: 261 45% 78%;
+    --brand-purple-soft: 261 35% 62%;
+    --brand-teal: 172 80% 45%;
+    --brand-lavender: 255 25% 20%;
+
+    --gradient-brand: linear-gradient(135deg, hsl(261 40% 45%), hsl(172 80% 45%));
+    --gradient-primary: linear-gradient(135deg, hsl(261 40% 45%), hsl(172 80% 45%));
+    --gradient-subtle: linear-gradient(180deg, hsl(255 35% 10%), hsl(255 32% 14%));
     --shadow-card: 0 2px 8px -2px hsl(0 0% 0% / 0.4), 0 4px 16px -4px hsl(0 0% 0% / 0.3);
     --shadow-elevated: 0 8px 24px -8px hsl(0 0% 0% / 0.5);
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 255 35% 12%;
+    --sidebar-foreground: 264 40% 94%;
+    --sidebar-primary: 172 80% 45%;
+    --sidebar-primary-foreground: 255 43% 12%;
+    --sidebar-accent: 255 25% 20%;
+    --sidebar-accent-foreground: 264 40% 94%;
+    --sidebar-border: 255 22% 26%;
+    --sidebar-ring: 172 80% 45%;
   }
 }
+
 
 @layer base {
   * {
@@ -114,10 +129,24 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-weight: 400;
+  }
+
+  h1 {
+    @apply text-brand-purple font-bold tracking-tight;
+  }
+
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-brand-purple font-semibold;
   }
 }
+
 
 /* === HelpTour (driver.js) — branded styles === */
 .driver-popover.pl-tour {

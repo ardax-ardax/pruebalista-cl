@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlans, type Plan } from "@/hooks/usePlans";
 import { resolveDestination } from "@/lib/resolve-destination";
 import { loadPublicLandingSettings } from "@/lib/global-settings";
+import { BrandIcon, BrandLogo } from "@/components/BrandLogo";
+
 
 import {
   BookOpen,
@@ -149,11 +151,12 @@ export default function Landing() {
   if (loading || (user && redirecting)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <BrandIcon size="lg" className="animate-pulse" />
         <p className="text-muted-foreground font-medium">Conectando…</p>
       </div>
     );
   }
+
 
   const goAuth = (tab?: "signup") =>
     navigate(tab === "signup" ? "/auth?tab=signup" : "/auth");
@@ -176,13 +179,9 @@ export default function Landing() {
       <header className="border-b border-border bg-background/85 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-12 sm:h-14">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-sm">
-              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
-            </div>
-            <span className="text-sm sm:text-base font-bold tracking-tight text-foreground">
-              PruebaLista<span className="text-primary">.cl</span>
-            </span>
+            <BrandLogo size="md" />
           </div>
+
           <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#como-funciona" className="hover:text-foreground transition">Cómo funciona</a>
             <a href="#caracteristicas" className="hover:text-foreground transition">Características</a>
@@ -197,12 +196,13 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.04]" />
+        <div className="absolute inset-0 bg-gradient-brand opacity-[0.06]" />
         <div className="relative max-w-5xl mx-auto px-4 pt-6 pb-8 sm:pt-12 sm:pb-14 text-center space-y-3 sm:space-y-4">
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-[1.15]">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-brand-purple leading-[1.15]">
             Evaluaciones profesionales,{" "}
             <span className="text-primary">generadas con IA en minutos.</span>
           </h1>
+
           <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
             {institutional
               ? "PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar evaluaciones alineadas al currículum vigente del MINEDUC."
@@ -222,10 +222,10 @@ export default function Landing() {
       </section>
 
       {/* Cómo funciona + Características */}
-      <section id="como-funciona" className="border-t border-border bg-muted/20">
+      <section id="como-funciona" className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
           <div className="text-center space-y-1 mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Cómo funciona</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-brand-purple">Cómo funciona</h2>
             <p className="text-sm text-muted-foreground">Tres pasos, una prueba lista para imprimir.</p>
           </div>
 
@@ -297,10 +297,10 @@ export default function Landing() {
       </section>
 
       {/* Planes */}
-      <section id="planes" className="border-t border-border bg-muted/20">
+      <section id="planes" className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
           <div className="text-center space-y-1 mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Planes</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-brand-purple">Planes</h2>
             <p className="text-sm text-muted-foreground">Comienza gratis y escala cuando lo necesites.</p>
           </div>
 
@@ -330,7 +330,7 @@ export default function Landing() {
                       <div className="space-y-0.5">
                         <h3 className="text-base font-semibold text-foreground">{p.label}</h3>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-xl sm:text-2xl font-bold text-foreground">
+                          <span className="text-xl sm:text-2xl font-bold text-brand-purple">
                             {formatCLP(p.price_clp_monthly)}
                           </span>
                           {p.price_clp_monthly != null && p.price_clp_monthly > 0 && (
@@ -375,7 +375,7 @@ export default function Landing() {
       {/* FAQ */}
       <section id="faq" className="border-t border-border">
         <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-brand-purple text-center mb-4 sm:mb-6">
             Preguntas frecuentes
           </h2>
           <Accordion type="single" collapsible className="w-full">
@@ -394,14 +394,13 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-muted/20">
+      <footer className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-primary">
-              <BookOpen className="h-3.5 w-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-medium text-foreground">PruebaLista.cl</span>
+            <BrandIcon size="sm" />
+            <span className="font-medium text-brand-purple">PruebaLista.cl</span>
           </div>
+
           <div className="flex items-center gap-3 sm:gap-4">
             <a href="#planes" className="hover:text-foreground transition">Planes</a>
             <a href="#faq" className="hover:text-foreground transition">FAQ</a>

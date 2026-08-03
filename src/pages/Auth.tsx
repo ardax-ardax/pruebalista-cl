@@ -20,6 +20,8 @@ import { resolveDestination } from "@/lib/resolve-destination";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/BrandLogo";
+
 
 function translateAuthError(msg: string): string {
   const m = msg.toLowerCase();
@@ -158,11 +160,15 @@ const AuthPage = () => {
         </Link>
       </div>
       <Card className="w-full max-w-sm shadow-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl text-center">
+        <CardHeader className="pb-3 space-y-3">
+          <div className="flex justify-center">
+            <BrandLogo size="md" />
+          </div>
+          <CardTitle className="text-xl text-center text-brand-purple">
             {tab === "signup" ? "Crear cuenta" : "Iniciar sesión"}
           </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
           {isEmbedded ? (
             <>
