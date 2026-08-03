@@ -1,42 +1,22 @@
-## Problema
+# Switch para mostrar/ocultar el contenido institucional (UTP) en la portada
 
-La landing sigue con mucho aire vertical en móvil y desktop: cada sección tiene su propio `py-8 sm:py-14` + `border-t` + encabezado centrado con subtítulo + grid con `gap` grande. Son 7 bloques apilados (Hero, Cómo funciona, Características, Para quién, Planes, FAQ, CTA, Footer) — mucho scroll para poca información.
+Objetivo: el administrador general podrá apagar todo el contenido institucional de la portada pública, dejando la web como si el servicio fuera solo individual. El acceso y funcionamiento del perfil UTP no cambia: los usuarios UTP siguen iniciando sesión y usando su panel con total normalidad.
 
-## Cambios en `src/pages/Landing.tsx`
+## Qué se agrega
 
-**1. Reducir padding vertical de todas las secciones**
-- `py-8 sm:py-14` → `py-6 sm:py-10` en Cómo funciona, Características, Para quién, Planes, FAQ.
-- Hero: `pt-8 pb-10 sm:pt-16 sm:pb-20` → `pt-6 pb-8 sm:pt-12 sm:pb-14`.
-- CTA final: `py-8 sm:py-12` → `py-6 sm:py-10`.
-- Encabezados de sección: `mb-6 sm:mb-8` → `mb-4 sm:mb-6`.
+1. Nuevo ajuste global `Mostrar módulo institucional (UTP) en la portada` (activado por defecto), en Admin > Ajustes Globales, junto a "Pagos habilitados", "Modo mantenimiento" y "Generación con IA".
+2. La portada (`/` y `/landing`) reacciona al ajuste. Con el switch apagado se oculta:
+   - La tarjeta de característica "Panel UTP".
+   - El bloque "Colegios y equipos UTP" en la sección "Para quién" (la tarjeta de docentes autónomos pasa a ancho completo).
+   - La pregunta del FAQ "¿Sirve para colegios completos?".
+   - La mención a "equipos UTP" en el texto del hero (queda enfocado en docentes).
+   - El plan institucional en la sección de planes (se ocultan planes institucionales).
+3. Mientras carga el ajuste, la portada no muestra parpadeo: el contenido institucional solo aparece cuando el ajuste confirma que está activo.
 
-**2. Hero más denso**
-- Quitar el badge "Alineado al currículum MINEDUC" (redundante con lo que dice el título/features).
-- `space-y-4 sm:space-y-6` → `space-y-3 sm:space-y-4`.
-- Quitar el `<p>` "Sin tarjeta de crédito…" (ya se ve en Planes).
+## Detalles técnicos
 
-**3. Fusionar "Cómo funciona" + "Características" en una sola sección**
-- Un solo encabezado ("Cómo funciona"), 3 pasos arriba como fila compacta (icono + texto en una línea, sin Card), y debajo la grilla de features 2 col móvil / 3 col desktop. Elimina un `border-t`, un encabezado y un bloque de padding completo.
-
-**4. "Para quién": convertir a 2 tarjetas horizontales compactas**
-- Quitar botones internos (el CTA final ya cumple esa función).
-- `p-5 space-y-2` → `p-4 space-y-1.5`, icono `h-10 w-10` → `h-8 w-8`.
-
-**5. Planes más compactos**
-- Card padding `p-5 sm:p-6` → `p-4 sm:p-5`, `space-y-4` → `space-y-3`.
-- Precio `text-2xl sm:text-3xl` → `text-xl sm:text-2xl`.
-- Lista de features: máximo 4 items visibles (truncar el resto con "y más").
-
-**6. Fusionar CTA final + Footer**
-- Eliminar la sección CTA final independiente. Mover un botón compacto "Comenzar gratis" al Footer, en la fila derecha junto a los links.
-
-**7. Ancho máximo unificado**
-- Pasar todas las secciones a `max-w-5xl` (hoy mezcla `max-w-3xl`, `max-w-5xl`, `max-w-6xl`) — visualmente más consistente y evita "columnas vacías" en desktop.
-
-## Fuera de alcance
-- No cambia contenido textual (features, FAQ, planes, precios).
-- No toca `/auth`, `usePlans`, ni rutas.
-- No cambia paleta, tipografía ni tokens.
-
-## Resultado esperado
-Landing con ~30-40% menos alto total, una sección menos (fusión Cómo funciona + Características), sin CTA final duplicado. Móvil: casi todo entra en 2 scrolls. Desktop: sin franjas vacías laterales.
+- Migración: agregar columna `show_institutional_landing boolean not null default true` a `global_settings`. Debe ser legible públicamente (rol `anon`) porque la portada es pública; se expone únicamente esa columna a `anon` mediante la política/consulta existente, sin abrir columnas sensibles como `default_free_credits`.
+- `src/lib/global-settings.ts`: añadir el campo a `GlobalSettings`, `DEFAULT_GLOBAL_SETTINGS` y al `select` de `loadGlobalSettings`. Añadir un lector liviano público (`loadPublicLandingSettings`) que solo consulte `show_institutional_landing` para usar en la portada sin requerir sesión.
+- `src/pages/AdminDashboard.tsx`: nuevo `Switch` en la pestaña de ajustes; se guarda con el botón "Guardar ajustes" existente (ya envía el objeto completo a `updateGlobalSettings`).
+- `src/pages/Landing.tsx`: estado local `showUtp` cargado en `useEffect`; se filtran `FEATURES` (por título "Panel UTP"), `FAQ` (pregunta de colegios) y los planes cuyo `id` sea `institucional` (o cuyo `label` contenga "Institucional"); condicional para la tarjeta de colegios y variante del texto del hero.
+- No se toca ninguna ruta, guard, rol ni política de acceso: `/auth`, `AuthGuard`, `resolveDestination` y el panel UTP quedan intactos.
