@@ -89,12 +89,75 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="min-h-screen bg-gradient-subtle">
       <PlanExpirationBanner />
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="container flex h-16 items-center justify-between gap-4">
-          <NavLink to="/" className="flex items-center gap-2.5">
-            <BrandLogo size="md" />
+        <div className="container flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-4">
+          <NavLink to="/" className="flex min-w-0 items-center gap-2.5 shrink-0">
+            <BrandLogo size="md" textClassName="hidden xs:inline" />
           </NavLink>
 
-          <nav className="flex items-center gap-1">
+          {/* Navegación móvil: menú compacto */}
+          <div className="flex items-center gap-1 md:hidden">
+            {user && !usageLoading && profileLoaded && (shouldHideCredits || isInstitutional) && (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] font-medium gap-1 max-w-[7rem] truncate">
+                <Building2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{colegioNombre ?? "Institucional"}</span>
+              </Badge>
+            )}
+            {user && !usageLoading && profileLoaded && !shouldHideCredits && !isInstitutional && (
+              <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                <Sparkles className="h-3 w-3" /> {creditsAvailable}
+              </Badge>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full" title="Menú">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => navigate("/")} className="gap-2">
+                  <Home className="h-4 w-4" /> Inicio
+                </DropdownMenuItem>
+                {!isAdminOnly && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate("/crear-prueba")} className="gap-2">
+                      <FilePlus2 className="h-4 w-4" /> Crear prueba
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/banco-preguntas")} className="gap-2">
+                      <Library className="h-4 w-4" /> Banco de preguntas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/pruebas")} className="gap-2">
+                      <FileText className="h-4 w-4" /> Mis pruebas
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {isStaff && (
+                  <DropdownMenuItem onClick={() => navigate("/configuracion")} className="gap-2">
+                    <Settings className="h-4 w-4" /> Configuración
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate("/admin/dashboard")} className="gap-2">
+                    <Shield className="h-4 w-4" /> Admin
+                  </DropdownMenuItem>
+                )}
+                {isEmbedded && (
+                  <DropdownMenuItem onClick={() => openInNewTab(window.location.pathname)} className="gap-2">
+                    <ExternalLink className="h-4 w-4" /> Pantalla completa
+                  </DropdownMenuItem>
+                )}
+                {user && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setHelpOpen(true)} className="gap-2">
+                      <HelpCircle className="h-4 w-4" /> Centro de Ayuda
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <nav className="hidden md:flex items-center gap-1">
             <NavItem to="/" label="Inicio" icon={Home} />
             {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} dataTour="crear-btn" />}
             {!isAdminOnly && <NavItem to="/banco-preguntas" label="Banco" icon={Library} />}
@@ -136,6 +199,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <HelpCircle className="h-5 w-5 text-muted-foreground" />
               </Button>
             )}
+
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
