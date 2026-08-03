@@ -118,7 +118,8 @@ export default function Precios() {
           </RadioGroup>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className={`grid gap-6 ${showInstitutional ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+
           {/* Free */}
           <Card>
             <CardHeader>
