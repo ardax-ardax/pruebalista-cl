@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createSupportTicket, type TicketCategory } from "@/lib/support-tickets";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface FeedbackFormProps {
