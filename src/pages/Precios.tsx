@@ -173,51 +173,53 @@ export default function Precios() {
             </CardFooter>
           </Card>
 
-          {/* Institucional */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Institucional</CardTitle>
-              <CardDescription>Colegios y equipos UTP.</CardDescription>
-              <div className="pt-2">
-                <div className="text-3xl font-bold">{formatCLP(institutionalPrice)}</div>
-                <div className="text-xs text-muted-foreground">
-                  {seats} docentes · {cycle === "monthly" ? "por mes" : "por año (10 meses)"}
+          {showInstitutional && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Institucional</CardTitle>
+                <CardDescription>Colegios y equipos UTP.</CardDescription>
+                <div className="pt-2">
+                  <div className="text-3xl font-bold">{formatCLP(institutionalPrice)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {seats} docentes · {cycle === "monthly" ? "por mes" : "por año (10 meses)"}
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="seats" className="text-xs">Cantidad de docentes</Label>
-                <Input
-                  id="seats"
-                  type="number"
-                  min={1}
-                  value={seats}
-                  onChange={(e) => setSeats(Math.max(1, parseInt(e.target.value || "1", 10)))}
-                />
-                <div className="text-[10px] text-muted-foreground">
-                  Tramos: 1–10 $4.990 · 11–30 $3.990 · 31+ $2.990 por docente/mes
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="seats" className="text-xs">Cantidad de docentes</Label>
+                  <Input
+                    id="seats"
+                    type="number"
+                    min={1}
+                    value={seats}
+                    onChange={(e) => setSeats(Math.max(1, parseInt(e.target.value || "1", 10)))}
+                  />
+                  <div className="text-[10px] text-muted-foreground">
+                    Tramos: 1–10 $4.990 · 11–30 $3.990 · 31+ $2.990 por docente/mes
+                  </div>
                 </div>
-              </div>
-              <Feats items={[
-                "Evaluaciones ilimitadas",
-                "Todas las funciones Pro",
-                "Branding del colegio",
-                "Gestión centralizada por UTP",
-              ]} />
-            </CardContent>
-            <CardFooter className="flex-col gap-2 items-stretch">
-              <Button variant="secondary" className="w-full" onClick={handlePayInst} disabled={loadingInst || !isUtp}>
-                {loadingInst ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {isUtp ? "Contratar para mi colegio" : "Solo UTP puede contratar"}
-              </Button>
-              {!isUtp && (
-                <p className="text-[10px] text-muted-foreground text-center">
-                  ¿Representas a un colegio? Contáctanos para crear tu cuenta UTP.
-                </p>
-              )}
-            </CardFooter>
-          </Card>
+                <Feats items={[
+                  "Evaluaciones ilimitadas",
+                  "Todas las funciones Pro",
+                  "Branding del colegio",
+                  "Gestión centralizada por UTP",
+                ]} />
+              </CardContent>
+              <CardFooter className="flex-col gap-2 items-stretch">
+                <Button variant="secondary" className="w-full" onClick={handlePayInst} disabled={loadingInst || !isUtp}>
+                  {loadingInst ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isUtp ? "Contratar para mi colegio" : "Solo UTP puede contratar"}
+                </Button>
+                {!isUtp && (
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    ¿Representas a un colegio? Contáctanos para crear tu cuenta UTP.
+                  </p>
+                )}
+              </CardFooter>
+            </Card>
+          )}
+
         </div>
       </div>
     </AppLayout>
