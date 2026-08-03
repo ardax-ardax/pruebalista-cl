@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { usePlans, type Plan } from "@/hooks/usePlans";
 import { resolveDestination } from "@/lib/resolve-destination";
+import { loadPublicLandingSettings } from "@/lib/global-settings";
+
 import {
   BookOpen,
   CheckCircle2,
