@@ -151,11 +151,12 @@ export default function Landing() {
   if (loading || (user && redirecting)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <BrandIcon size="lg" className="animate-pulse" />
         <p className="text-muted-foreground font-medium">Conectando…</p>
       </div>
     );
   }
+
 
   const goAuth = (tab?: "signup") =>
     navigate(tab === "signup" ? "/auth?tab=signup" : "/auth");
