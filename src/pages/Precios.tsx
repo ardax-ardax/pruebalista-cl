@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
 import { usePlans } from "@/hooks/usePlans";
 import { getMyProfile } from "@/lib/profiles";
+import { loadPublicLandingSettings } from "@/lib/global-settings";
 import {
   createFlowPayment,
   loadInstitutionalTiers,
@@ -20,6 +21,7 @@ import {
   type InstitutionalTier,
   type BillingCycle,
 } from "@/lib/flow-payments";
+
 
 export default function Precios() {
   const { user, role } = useAuth();
