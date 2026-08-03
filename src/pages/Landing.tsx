@@ -244,7 +244,7 @@ export default function Landing() {
           </div>
 
           <div id="caracteristicas" className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-            {FEATURES.map((f) => (
+            {features.map((f) => (
               <Card key={f.title} className="border-border shadow-sm">
                 <CardContent className="p-3 sm:p-4 space-y-1.5">
                   <div className="flex items-center gap-2">
