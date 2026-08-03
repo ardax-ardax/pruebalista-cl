@@ -45,6 +45,7 @@ export function FeedbackForm({ onSubmitted, showTitle = true }: FeedbackFormProp
       category,
       page_url: typeof window !== "undefined" ? window.location.href : null,
       user_agent: typeof window !== "undefined" ? navigator.userAgent : null,
+      role: role ?? null,
     });
     setLoading(false);
     if (res.ok) {
