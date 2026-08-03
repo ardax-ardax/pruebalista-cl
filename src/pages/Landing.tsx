@@ -379,7 +379,7 @@ export default function Landing() {
             Preguntas frecuentes
           </h2>
           <Accordion type="single" collapsible className="w-full">
-            {FAQ.map((f, i) => (
+            {faqItems.map((f, i) => (
               <AccordionItem key={f.q} value={`item-${i}`}>
                 <AccordionTrigger className="py-3 text-left text-sm font-semibold text-foreground">
                   {f.q}
