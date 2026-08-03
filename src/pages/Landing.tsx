@@ -195,12 +195,13 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.04]" />
+        <div className="absolute inset-0 bg-gradient-brand opacity-[0.06]" />
         <div className="relative max-w-5xl mx-auto px-4 pt-6 pb-8 sm:pt-12 sm:pb-14 text-center space-y-3 sm:space-y-4">
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-[1.15]">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-brand-purple leading-[1.15]">
             Evaluaciones profesionales,{" "}
             <span className="text-primary">generadas con IA en minutos.</span>
           </h1>
+
           <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
             {institutional
               ? "PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar evaluaciones alineadas al currículum vigente del MINEDUC."
