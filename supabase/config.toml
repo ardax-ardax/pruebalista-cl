@@ -2,3 +2,7 @@ project_id = "ddhrrgsejpebblarzmsj"
 
 [functions.flow-webhook]
 verify_jwt = false
+
+[functions.flow-diagnose]
+verify_jwt = false
+
