@@ -6,6 +6,7 @@ export interface GlobalSettings {
   maintenance_mode: boolean;
   ai_enabled: boolean;
   ai_disabled_reason: string;
+  show_institutional_landing: boolean;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -14,12 +15,13 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   maintenance_mode: false,
   ai_enabled: true,
   ai_disabled_reason: "",
+  show_institutional_landing: true,
 };
 
 export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
   const { data, error } = await supabase
     .from("global_settings")
-    .select("enable_payments, default_free_credits, maintenance_mode, ai_enabled, ai_disabled_reason")
+    .select("enable_payments, default_free_credits, maintenance_mode, ai_enabled, ai_disabled_reason, show_institutional_landing")
     .eq("id", true)
     .maybeSingle();
   if (error || !data) {
@@ -32,8 +34,24 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
     maintenance_mode: data.maintenance_mode,
     ai_enabled: data.ai_enabled ?? true,
     ai_disabled_reason: data.ai_disabled_reason ?? "",
+    show_institutional_landing: data.show_institutional_landing ?? true,
   };
 };
+
+/**
+ * Lectura pública y liviana para la portada: solo el flag institucional.
+ * No requiere sesión (accesible por el rol anon).
+ */
+export const loadPublicLandingSettings = async (): Promise<{ show_institutional_landing: boolean }> => {
+  const { data, error } = await supabase
+    .from("global_settings")
+    .select("show_institutional_landing")
+    .eq("id", true)
+    .maybeSingle();
+  if (error || !data) return { show_institutional_landing: true };
+  return { show_institutional_landing: data.show_institutional_landing ?? true };
+};
+
 
 export const updateGlobalSettings = async (
   updates: Partial<GlobalSettings>,
