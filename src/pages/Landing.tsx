@@ -263,7 +263,7 @@ export default function Landing() {
 
       {/* Para quién */}
       <section className="border-t border-border">
-        <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+        <div className={`max-w-5xl mx-auto px-4 py-6 sm:py-10 grid grid-cols-1 gap-2 sm:gap-4 ${institutional ? "md:grid-cols-2" : ""}`}>
           <Card className="border-border shadow-sm">
             <CardContent className="p-4 space-y-1.5">
               <div className="flex items-center gap-2">
@@ -277,19 +277,22 @@ export default function Landing() {
               </p>
             </CardContent>
           </Card>
-          <Card className="border-border shadow-sm">
-            <CardContent className="p-4 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <Building2 className="h-4 w-4" />
+          {institutional && (
+            <Card className="border-border shadow-sm">
+              <CardContent className="p-4 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-base font-semibold">Colegios y equipos UTP</h3>
                 </div>
-                <h3 className="text-base font-semibold">Colegios y equipos UTP</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
-                Gestiona docentes, cursos y revisa evaluaciones antes de aplicarlas. Branding institucional en cada PDF.
-              </p>
-            </CardContent>
-          </Card>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
+                  Gestiona docentes, cursos y revisa evaluaciones antes de aplicarlas. Branding institucional en cada PDF.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
       </section>
 
