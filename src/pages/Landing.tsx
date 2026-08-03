@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { usePlans, type Plan } from "@/hooks/usePlans";
 import { resolveDestination } from "@/lib/resolve-destination";
+import { loadPublicLandingSettings } from "@/lib/global-settings";
+
 import {
   BookOpen,
   CheckCircle2,
@@ -130,6 +132,13 @@ export default function Landing() {
   const { plans, loading: plansLoading } = usePlans();
   const navigate = useNavigate();
   const [redirecting, setRedirecting] = useState(false);
+  const [showUtp, setShowUtp] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    loadPublicLandingSettings()
+      .then((s) => setShowUtp(s.show_institutional_landing))
+      .catch(() => setShowUtp(true));
+  }, []);
 
   useEffect(() => {
     if (loading || !user || redirecting) return;
@@ -149,7 +158,17 @@ export default function Landing() {
   const goAuth = (tab?: "signup") =>
     navigate(tab === "signup" ? "/auth?tab=signup" : "/auth");
 
-  const visiblePlans = plans.length ? plans : ([] as Plan[]);
+  const institutional = showUtp === true;
+  const features = institutional
+    ? FEATURES
+    : FEATURES.filter((f) => f.title !== "Panel UTP");
+  const faqItems = institutional
+    ? FAQ
+    : FAQ.filter((f) => f.q !== "¿Sirve para colegios completos?");
+  const isInstitutionalPlan = (p: Plan) =>
+    p.id === "institucional" || /institucional/i.test(p.label);
+  const visiblePlans = institutional ? plans : plans.filter((p) => !isInstitutionalPlan(p));
+
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -185,9 +204,11 @@ export default function Landing() {
             <span className="text-primary">generadas con IA en minutos.</span>
           </h1>
           <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
-            PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar
-            evaluaciones alineadas al currículum vigente del MINEDUC.
+            {institutional
+              ? "PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar evaluaciones alineadas al currículum vigente del MINEDUC."
+              : "PruebaLista ayuda a docentes de Chile a crear y aplicar evaluaciones alineadas al currículum vigente del MINEDUC."}
           </p>
+
           <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
             <Button onClick={() => goAuth("signup")}>
               Comenzar gratis
@@ -223,7 +244,7 @@ export default function Landing() {
           </div>
 
           <div id="caracteristicas" className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-            {FEATURES.map((f) => (
+            {features.map((f) => (
               <Card key={f.title} className="border-border shadow-sm">
                 <CardContent className="p-3 sm:p-4 space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -242,7 +263,7 @@ export default function Landing() {
 
       {/* Para quién */}
       <section className="border-t border-border">
-        <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+        <div className={`max-w-5xl mx-auto px-4 py-6 sm:py-10 grid grid-cols-1 gap-2 sm:gap-4 ${institutional ? "md:grid-cols-2" : ""}`}>
           <Card className="border-border shadow-sm">
             <CardContent className="p-4 space-y-1.5">
               <div className="flex items-center gap-2">
@@ -256,19 +277,22 @@ export default function Landing() {
               </p>
             </CardContent>
           </Card>
-          <Card className="border-border shadow-sm">
-            <CardContent className="p-4 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <Building2 className="h-4 w-4" />
+          {institutional && (
+            <Card className="border-border shadow-sm">
+              <CardContent className="p-4 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-base font-semibold">Colegios y equipos UTP</h3>
                 </div>
-                <h3 className="text-base font-semibold">Colegios y equipos UTP</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
-                Gestiona docentes, cursos y revisa evaluaciones antes de aplicarlas. Branding institucional en cada PDF.
-              </p>
-            </CardContent>
-          </Card>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
+                  Gestiona docentes, cursos y revisa evaluaciones antes de aplicarlas. Branding institucional en cada PDF.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
       </section>
 
@@ -285,7 +309,7 @@ export default function Landing() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="flex md:grid md:grid-cols-3 gap-3 md:gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0">
+            <div className={`flex md:grid gap-3 md:gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0 ${institutional ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
               {visiblePlans.map((p) => {
                 const feats = planFeatures(p);
                 const shown = feats.slice(0, 4);
@@ -355,7 +379,7 @@ export default function Landing() {
             Preguntas frecuentes
           </h2>
           <Accordion type="single" collapsible className="w-full">
-            {FAQ.map((f, i) => (
+            {faqItems.map((f, i) => (
               <AccordionItem key={f.q} value={`item-${i}`}>
                 <AccordionTrigger className="py-3 text-left text-sm font-semibold text-foreground">
                   {f.q}

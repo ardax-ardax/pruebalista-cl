@@ -262,6 +262,19 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
+                      <Label className="font-medium">Módulo institucional (UTP) en la portada</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Si lo desactivas, la portada pública se muestra como servicio individual (sin menciones a UTP/colegios ni plan institucional). Los usuarios UTP siguen ingresando con normalidad.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.show_institutional_landing}
+                      onCheckedChange={(v) => setSettings({ ...settings, show_institutional_landing: v })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
                       <Label className="font-medium flex items-center gap-2">
                         <Sparkles className="h-4 w-4" /> Generación con IA
                       </Label>
