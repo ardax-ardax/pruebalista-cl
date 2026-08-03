@@ -15,6 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { useHelpTour, type TourVariant } from "@/components/help/HelpTour";
 
 interface FaqItem {
