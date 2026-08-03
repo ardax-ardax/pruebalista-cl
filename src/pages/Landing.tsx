@@ -14,7 +14,6 @@ import { usePlans, type Plan } from "@/hooks/usePlans";
 import { resolveDestination } from "@/lib/resolve-destination";
 import {
   BookOpen,
-  Sparkles,
   CheckCircle2,
   GraduationCap,
   Building2,
@@ -324,7 +323,7 @@ export default function Landing() {
                           </li>
                         ))}
                         {rest > 0 && (
-                          <li className="text-xs text-muted-foreground pl-5.5">y {rest} más</li>
+                          <li className="text-xs text-muted-foreground pl-[1.375rem]">y {rest} más</li>
                         )}
                       </ul>
 
