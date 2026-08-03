@@ -34,9 +34,36 @@ async function probe(env: keyof typeof BASE) {
   }
 }
 
+async function probeCreate(env: keyof typeof BASE) {
+  const params: Record<string, string> = {
+    apiKey: API_KEY,
+    commerceOrder: `DIAG-${crypto.randomUUID().slice(0, 12)}`,
+    subject: "Diagnóstico PruebaLista (no pagar)",
+    currency: "CLP",
+    amount: "1000",
+    email: "diagnostico@pruebalista.cl",
+    urlConfirmation: "https://example.com/confirm",
+    urlReturn: "https://example.com/return",
+  };
+  const body = new URLSearchParams({ ...params, s: sign(params) });
+  const res = await fetch(`${BASE[env]}/payment/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const txt = await res.text();
+  return { env, status: res.status, ok: res.ok, detail: txt.slice(0, 300) };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const url = new URL(req.url);
   const results = await Promise.all([probe("sandbox"), probe("production")]);
+  const create = url.searchParams.get("create")
+    ? await probeCreate(
+        (url.searchParams.get("create") === "production" ? "production" : "sandbox") as keyof typeof BASE,
+      )
+    : null;
   return new Response(
     JSON.stringify({
       configured_env: (Deno.env.get("FLOW_ENV") ?? "sandbox").toLowerCase(),
@@ -45,7 +72,9 @@ Deno.serve(async (req) => {
       secret_key_present: SECRET_KEY.length > 0,
       secret_key_length: SECRET_KEY.length,
       results,
+      create,
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
+
