@@ -27,6 +27,7 @@ const categoryOptions: { value: TicketCategory; label: string }[] = [
 ];
 
 export function FeedbackForm({ onSubmitted, showTitle = true }: FeedbackFormProps) {
+  const { role } = useAuth();
   const [category, setCategory] = useState<TicketCategory>("bug");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
