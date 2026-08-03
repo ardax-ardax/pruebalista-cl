@@ -206,6 +206,58 @@ export default function AdminDashboard() {
     loadUsers();
   };
 
+  /* --- Support tickets --- */
+  const [tickets, setTickets] = useState<SupportTicketWithUser[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<TicketStatus | "all">("all");
+  const [ticketCategoryFilter, setTicketCategoryFilter] = useState<string>("all");
+  const [ticketSearch, setTicketSearch] = useState("");
+
+  const loadTickets = async () => {
+    setLoadingTickets(true);
+    const { tickets, error } = await listAllTickets();
+    if (error) toast.error(error);
+    setTickets(tickets);
+    setLoadingTickets(false);
+  };
+
+  useEffect(() => {
+    if (isAdmin) loadTickets();
+  }, [isAdmin]);
+
+  const handleToggleTicketStatus = async (id: string, current: TicketStatus) => {
+    const next = current === "open" ? "closed" : "open";
+    const res = await updateTicketStatus(id, next);
+    if (res.ok) {
+      toast.success(`Ticket marcado como ${next === "open" ? "abierto" : "cerrado"}`);
+      loadTickets();
+    } else {
+      toast.error(res.error ?? "No se pudo actualizar");
+    }
+  };
+
+  const filteredTickets = useMemo(() => {
+    let rows = tickets;
+    if (ticketStatusFilter !== "all") rows = rows.filter((t) => t.status === ticketStatusFilter);
+    if (ticketCategoryFilter !== "all") rows = rows.filter((t) => t.category === ticketCategoryFilter);
+    if (ticketSearch.trim()) {
+      const q = ticketSearch.toLowerCase();
+      rows = rows.filter(
+        (t) =>
+          t.message.toLowerCase().includes(q) ||
+          t.email?.toLowerCase().includes(q) ||
+          t.display_name?.toLowerCase().includes(q) ||
+          categoryLabel(t.category).toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [tickets, ticketStatusFilter, ticketCategoryFilter, ticketSearch]);
+
+  const categories = useMemo(() => {
+    const set = new Set(tickets.map((t) => t.category));
+    return ["all", ...Array.from(set)];
+  }, [tickets]);
+
   if (!isAdmin) return null;
 
   const planBadge = (planId: string) => {
