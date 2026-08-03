@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Settings, Shield, Sparkles, User } from "lucide-react";
+import { Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Menu, Settings, Shield, Sparkles, User } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 import { cn } from "@/lib/utils";
