@@ -221,10 +221,10 @@ export default function Landing() {
       </section>
 
       {/* Cómo funciona + Características */}
-      <section id="como-funciona" className="border-t border-border bg-muted/20">
+      <section id="como-funciona" className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
           <div className="text-center space-y-1 mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Cómo funciona</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-brand-purple">Cómo funciona</h2>
             <p className="text-sm text-muted-foreground">Tres pasos, una prueba lista para imprimir.</p>
           </div>
 
@@ -296,10 +296,10 @@ export default function Landing() {
       </section>
 
       {/* Planes */}
-      <section id="planes" className="border-t border-border bg-muted/20">
+      <section id="planes" className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
           <div className="text-center space-y-1 mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Planes</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-brand-purple">Planes</h2>
             <p className="text-sm text-muted-foreground">Comienza gratis y escala cuando lo necesites.</p>
           </div>
 
@@ -329,7 +329,7 @@ export default function Landing() {
                       <div className="space-y-0.5">
                         <h3 className="text-base font-semibold text-foreground">{p.label}</h3>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-xl sm:text-2xl font-bold text-foreground">
+                          <span className="text-xl sm:text-2xl font-bold text-brand-purple">
                             {formatCLP(p.price_clp_monthly)}
                           </span>
                           {p.price_clp_monthly != null && p.price_clp_monthly > 0 && (
@@ -374,7 +374,7 @@ export default function Landing() {
       {/* FAQ */}
       <section id="faq" className="border-t border-border">
         <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-brand-purple text-center mb-4 sm:mb-6">
             Preguntas frecuentes
           </h2>
           <Accordion type="single" collapsible className="w-full">
@@ -393,7 +393,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-muted/20">
+      <footer className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-primary">
