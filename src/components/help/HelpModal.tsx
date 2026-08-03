@@ -81,7 +81,7 @@ interface HelpModalProps {
 
 export function HelpModal({ open, onOpenChange }: HelpModalProps) {
   const { startTour, variant } = useHelpTour();
-  const [tab, setTab] = useState<"guia" | "faq">("guia");
+  const [tab, setTab] = useState<"guia" | "faq" | "feedback">("guia");
   const faqs = FAQ_BY_VARIANT[variant];
 
   const handleStartTour = () => {
@@ -103,10 +103,11 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "guia" | "faq")} className="mt-2">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "guia" | "faq" | "feedback")} className="mt-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="guia">Guía Rápida</TabsTrigger>
             <TabsTrigger value="faq">Preguntas Frecuentes</TabsTrigger>
+            <TabsTrigger value="feedback">Reportar</TabsTrigger>
           </TabsList>
 
           <TabsContent value="guia" className="space-y-4 pt-4">
@@ -139,9 +140,13 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
             <div className="mt-6 flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <span>
-                <strong className="text-foreground">Próximamente:</strong> Sistema de soporte por tickets para mayor trazabilidad.
+                <strong className="text-foreground">¿Necesitas más ayuda?</strong> Usa la pestaña "Reportar" para enviarnos un mensaje directo.
               </span>
             </div>
+          </TabsContent>
+
+          <TabsContent value="feedback" className="pt-4">
+            <FeedbackForm onSubmitted={() => onOpenChange(false)} showTitle={false} />
           </TabsContent>
         </Tabs>
       </DialogContent>
