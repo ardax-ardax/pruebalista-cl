@@ -403,6 +403,7 @@ export type Database = {
           enable_payments: boolean
           id: boolean
           maintenance_mode: boolean
+          show_institutional_landing: boolean
           updated_at: string
         }
         Insert: {
@@ -412,6 +413,7 @@ export type Database = {
           enable_payments?: boolean
           id?: boolean
           maintenance_mode?: boolean
+          show_institutional_landing?: boolean
           updated_at?: string
         }
         Update: {
@@ -421,6 +423,7 @@ export type Database = {
           enable_payments?: boolean
           id?: boolean
           maintenance_mode?: boolean
+          show_institutional_landing?: boolean
           updated_at?: string
         }
         Relationships: []
