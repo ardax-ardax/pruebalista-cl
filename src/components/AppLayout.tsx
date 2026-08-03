@@ -151,8 +151,15 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <DropdownMenuItem onClick={() => setHelpOpen(true)} className="gap-2">
                       <HelpCircle className="h-4 w-4" /> Centro de Ayuda
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/perfil")} className="gap-2">
+                      <User className="h-4 w-4" /> Mi Perfil
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut} className="gap-2 text-destructive focus:text-destructive">
+                      <LogOut className="h-4 w-4" /> Cerrar sesión
+                    </DropdownMenuItem>
                   </>
                 )}
+
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
