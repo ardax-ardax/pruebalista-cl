@@ -75,8 +75,10 @@ export default {
       },
       backgroundImage: {
         "gradient-primary": "var(--gradient-primary)",
+        "gradient-brand": "var(--gradient-brand)",
         "gradient-subtle": "var(--gradient-subtle)",
       },
+
       boxShadow: {
         card: "var(--shadow-card)",
         elevated: "var(--shadow-elevated)",
