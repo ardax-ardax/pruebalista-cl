@@ -20,6 +20,8 @@ import { resolveDestination } from "@/lib/resolve-destination";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/BrandLogo";
+
 
 function translateAuthError(msg: string): string {
   const m = msg.toLowerCase();

@@ -1,6 +1,8 @@
 import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandIcon } from "@/components/BrandLogo";
+
 
 interface Props {
   children: React.ReactNode;
