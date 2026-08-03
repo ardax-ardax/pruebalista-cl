@@ -30,16 +30,18 @@ export const BrandIcon = ({ size = "md", className }: { size?: Size; className?:
 export const BrandLogo = ({
   size = "md",
   className,
+  textClassName,
   showText = true,
 }: {
   size?: Size;
   className?: string;
+  textClassName?: string;
   showText?: boolean;
 }) => (
   <span className={cn("flex items-center gap-2", className)}>
     <BrandIcon size={size} />
     {showText && (
-      <span className={cn("font-bold tracking-tight text-brand-purple", TEXT_SIZE[size])}>
+      <span className={cn("font-bold tracking-tight text-brand-purple", TEXT_SIZE[size], textClassName)}>
         PruebaLista<span className="text-primary">.cl</span>
       </span>
     )}

@@ -11,8 +11,8 @@ export const FLOW_BASE_URL =
 export const FLOW_CHECKOUT_URL_BASE =
   FLOW_ENV === "production" ? "https://www.flow.cl/app/web/pay.php" : "https://sandbox.flow.cl/app/web/pay.php";
 
-const FLOW_API_KEY = Deno.env.get("FLOW_API_KEY") ?? "";
-const FLOW_SECRET_KEY = Deno.env.get("FLOW_SECRET_KEY") ?? "";
+const FLOW_API_KEY = (Deno.env.get("FLOW_API_KEY") ?? "").trim();
+const FLOW_SECRET_KEY = (Deno.env.get("FLOW_SECRET_KEY") ?? "").trim();
 
 /** Firma Flow: concatenar pares key+value en orden alfabético y HMAC-SHA256 con secretKey. */
 export function signParams(params: Record<string, string | number>): string {
@@ -23,10 +23,37 @@ export function signParams(params: Record<string, string | number>): string {
 
 /** Agrega apiKey + firma s a los parámetros. */
 function withAuth(params: Record<string, string | number>) {
+  if (!FLOW_API_KEY || !FLOW_SECRET_KEY) {
+    throw new Error(
+      "Faltan credenciales de Flow (FLOW_API_KEY / FLOW_SECRET_KEY). Agrégalas en Configuración del proyecto → Secrets.",
+    );
+  }
   const withKey = { ...params, apiKey: FLOW_API_KEY };
   const s = signParams(withKey);
   return { ...withKey, s };
 }
+
+/** Traduce errores de Flow a mensajes accionables. */
+function flowError(action: string, status: number, txt: string): Error {
+  let msg = `Flow ${action} failed ${status}: ${txt}`;
+  if (/apiKey not found/i.test(txt)) {
+    msg =
+      `Flow rechazó las credenciales en el ambiente "${FLOW_ENV}" (apiKey not found). ` +
+      `Las credenciales de sandbox y producción son distintas: si tus llaves son de ` +
+      `www.flow.cl usa FLOW_ENV=production; si son de sandbox.flow.cl usa FLOW_ENV=sandbox.`;
+  }
+  console.error("flow_error", {
+    action,
+    status,
+    env: FLOW_ENV,
+    baseUrl: FLOW_BASE_URL,
+    apiKeyLength: FLOW_API_KEY.length,
+    secretKeyLength: FLOW_SECRET_KEY.length,
+    body: txt,
+  });
+  return new Error(msg);
+}
+
 
 export async function flowCreatePayment(input: {
   commerceOrder: string;
@@ -59,7 +86,7 @@ export async function flowCreatePayment(input: {
     body,
   });
   const txt = await res.text();
-  if (!res.ok) throw new Error(`Flow create failed ${res.status}: ${txt}`);
+  if (!res.ok) throw flowError("create", res.status, txt);
   const data = JSON.parse(txt);
   return { url: data.url, token: data.token, flowOrder: data.flowOrder };
 }
@@ -79,7 +106,7 @@ export async function flowGetStatus(token: string): Promise<{
   );
   const res = await fetch(`${FLOW_BASE_URL}/payment/getStatus?${qs.toString()}`);
   const txt = await res.text();
-  if (!res.ok) throw new Error(`Flow getStatus failed ${res.status}: ${txt}`);
+  if (!res.ok) throw flowError("getStatus", res.status, txt);
   return JSON.parse(txt);
 }
 
