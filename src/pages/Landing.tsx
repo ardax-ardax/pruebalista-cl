@@ -14,7 +14,6 @@ import { usePlans, type Plan } from "@/hooks/usePlans";
 import { resolveDestination } from "@/lib/resolve-destination";
 import {
   BookOpen,
-  Sparkles,
   CheckCircle2,
   GraduationCap,
   Building2,
@@ -180,75 +179,60 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[var(--gradient-primary)] opacity-[0.04]" />
-        <div className="relative max-w-5xl mx-auto px-4 pt-8 pb-10 sm:pt-16 sm:pb-20 text-center space-y-4 sm:space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Alineado al currículum MINEDUC
-          </div>
-          <h1 className="text-2xl sm:text-5xl font-bold tracking-tight text-foreground leading-[1.15]">
+        <div className="relative max-w-5xl mx-auto px-4 pt-6 pb-8 sm:pt-12 sm:pb-14 text-center space-y-3 sm:space-y-4">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-[1.15]">
             Evaluaciones profesionales,{" "}
             <span className="text-primary">generadas con IA en minutos.</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-sm sm:text-lg text-muted-foreground leading-relaxed">
+          <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
             PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar
-            evaluaciones alineadas al currículum vigente.
+            evaluaciones alineadas al currículum vigente del MINEDUC.
           </p>
-          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3 pt-1">
-            <Button size="default" className="sm:h-11 sm:px-6" onClick={() => goAuth("signup")}>
+          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
+            <Button onClick={() => goAuth("signup")}>
               Comenzar gratis
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
-            <Button size="default" variant="outline" className="sm:h-11 sm:px-6" onClick={() => goAuth()}>
+            <Button variant="outline" onClick={() => goAuth()}>
               Ya tengo cuenta
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Sin tarjeta de crédito · Créditos IA incluidos
-          </p>
         </div>
       </section>
 
-      {/* Cómo funciona */}
+      {/* Cómo funciona + Características */}
       <section id="como-funciona" className="border-t border-border bg-muted/20">
-        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-14">
-          <div className="text-center space-y-1 mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Cómo funciona</h2>
-            <p className="text-sm sm:text-base text-muted-foreground">Tres pasos, una prueba lista para imprimir.</p>
+        <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
+          <div className="text-center space-y-1 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Cómo funciona</h2>
+            <p className="text-sm text-muted-foreground">Tres pasos, una prueba lista para imprimir.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-5">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
             {HOW_STEPS.map((s) => (
-              <Card key={s.n} className="border-border shadow-sm">
-                <CardContent className="p-4 sm:p-6 flex md:block items-start gap-3 md:space-y-2">
-                  <div className="h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-                    {s.n}
-                  </div>
-                  <div className="space-y-1 md:space-y-2">
-                    <h3 className="text-base sm:text-lg font-semibold text-foreground">{s.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={s.n} className="flex items-start gap-2.5">
+                <div className="h-7 w-7 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
+                  {s.n}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground leading-tight">{s.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-snug">{s.desc}</p>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* Características */}
-      <section id="caracteristicas" className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-4 py-8 sm:py-14">
-          <div className="text-center space-y-1 mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Todo lo que necesitas</h2>
-            <p className="text-sm sm:text-base text-muted-foreground">Del OA a la impresión, en una plataforma.</p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div id="caracteristicas" className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
             {FEATURES.map((f) => (
-              <Card key={f.title} className="border-border shadow-sm hover:shadow-elevated transition-shadow">
-                <CardContent className="p-3 sm:p-5 space-y-2">
-                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <f.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Card key={f.title} className="border-border shadow-sm">
+                <CardContent className="p-3 sm:p-4 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <f.icon className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground leading-tight">{f.title}</h3>
                   </div>
-                  <h3 className="text-sm sm:text-base font-semibold text-foreground">{f.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+                  <p className="text-xs text-muted-foreground leading-snug">{f.desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -257,116 +241,123 @@ export default function Landing() {
       </section>
 
       {/* Para quién */}
-      <section className="border-t border-border bg-muted/20">
-        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-14 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-5">
+      <section className="border-t border-border">
+        <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
           <Card className="border-border shadow-sm">
-            <CardContent className="p-5 space-y-2">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <GraduationCap className="h-5 w-5" />
+            <CardContent className="p-4 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+                <h3 className="text-base font-semibold">Docentes autónomos</h3>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold">Docentes autónomos</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
                 Crea pruebas para tus cursos, guarda tu banco personal y exporta PDF listos para imprimir.
               </p>
-              <Button variant="outline" size="sm" onClick={() => goAuth("signup")}>
-                Crear cuenta docente
-              </Button>
             </CardContent>
           </Card>
           <Card className="border-border shadow-sm">
-            <CardContent className="p-5 space-y-2">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Building2 className="h-5 w-5" />
+            <CardContent className="p-4 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <h3 className="text-base font-semibold">Colegios y equipos UTP</h3>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold">Colegios y equipos UTP</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
                 Gestiona docentes, cursos y revisa evaluaciones antes de aplicarlas. Branding institucional en cada PDF.
               </p>
-              <Button variant="outline" size="sm" onClick={() => goAuth()}>
-                Hablar con nosotros
-              </Button>
             </CardContent>
           </Card>
         </div>
       </section>
 
       {/* Planes */}
-      <section id="planes" className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-4 py-8 sm:py-14">
-          <div className="text-center space-y-1 mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Planes</h2>
-            <p className="text-sm sm:text-base text-muted-foreground">Comienza gratis y escala cuando lo necesites.</p>
+      <section id="planes" className="border-t border-border bg-muted/20">
+        <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
+          <div className="text-center space-y-1 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Planes</h2>
+            <p className="text-sm text-muted-foreground">Comienza gratis y escala cuando lo necesites.</p>
           </div>
 
           {plansLoading ? (
-            <div className="flex justify-center py-10">
+            <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-5 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0">
-              {visiblePlans.map((p) => (
-                <Card
-                  key={p.id}
-                  className={`border-border shadow-sm relative flex flex-col shrink-0 w-[80%] sm:w-[60%] md:w-auto snap-center ${
-                    p.is_default ? "border-primary/40 shadow-elevated" : ""
-                  }`}
-                >
-                  {p.is_default && (
-                    <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                      Recomendado
-                    </Badge>
-                  )}
-                  <CardContent className="p-5 sm:p-6 flex-1 flex flex-col space-y-4">
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-semibold text-foreground">{p.label}</h3>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl sm:text-3xl font-bold text-foreground">
-                          {formatCLP(p.price_clp_monthly)}
-                        </span>
-                        {p.price_clp_monthly != null && p.price_clp_monthly > 0 && (
-                          <span className="text-sm text-muted-foreground">/mes</span>
-                        )}
+            <div className="flex md:grid md:grid-cols-3 gap-3 md:gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0">
+              {visiblePlans.map((p) => {
+                const feats = planFeatures(p);
+                const shown = feats.slice(0, 4);
+                const rest = feats.length - shown.length;
+                return (
+                  <Card
+                    key={p.id}
+                    className={`border-border shadow-sm relative flex flex-col shrink-0 w-[80%] sm:w-[55%] md:w-auto snap-center ${
+                      p.is_default ? "border-primary/40 shadow-elevated" : ""
+                    }`}
+                  >
+                    {p.is_default && (
+                      <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                        Recomendado
+                      </Badge>
+                    )}
+                    <CardContent className="p-4 sm:p-5 flex-1 flex flex-col space-y-3">
+                      <div className="space-y-0.5">
+                        <h3 className="text-base font-semibold text-foreground">{p.label}</h3>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-xl sm:text-2xl font-bold text-foreground">
+                            {formatCLP(p.price_clp_monthly)}
+                          </span>
+                          {p.price_clp_monthly != null && p.price_clp_monthly > 0 && (
+                            <span className="text-xs text-muted-foreground">/mes</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <ul className="space-y-1.5 text-sm text-foreground flex-1">
-                      {planFeatures(p).map((f) => (
-                        <li key={f} className="flex items-start gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
-                          <span className="text-muted-foreground">{f}</span>
-                        </li>
-                      ))}
-                    </ul>
+                      <ul className="space-y-1 text-sm flex-1">
+                        {shown.map((f) => (
+                          <li key={f} className="flex items-start gap-2">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" />
+                            <span className="text-xs sm:text-sm text-muted-foreground leading-snug">{f}</span>
+                          </li>
+                        ))}
+                        {rest > 0 && (
+                          <li className="text-xs text-muted-foreground pl-[1.375rem]">y {rest} más</li>
+                        )}
+                      </ul>
 
-                    <Button
-                      className="w-full"
-                      variant={p.is_default ? "default" : "outline"}
-                      onClick={() => goAuth("signup")}
-                    >
-                      {p.price_clp_monthly === 0
-                        ? "Comenzar gratis"
-                        : p.price_clp_monthly == null
-                          ? "Contactar ventas"
-                          : "Empezar ahora"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        variant={p.is_default ? "default" : "outline"}
+                        onClick={() => goAuth("signup")}
+                      >
+                        {p.price_clp_monthly === 0
+                          ? "Comenzar gratis"
+                          : p.price_clp_monthly == null
+                            ? "Contactar ventas"
+                            : "Empezar ahora"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="border-t border-border bg-muted/20">
-        <div className="max-w-3xl mx-auto px-4 py-8 sm:py-14">
-          <div className="text-center space-y-1 mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Preguntas frecuentes</h2>
-          </div>
+      <section id="faq" className="border-t border-border">
+        <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-4 sm:mb-6">
+            Preguntas frecuentes
+          </h2>
           <Accordion type="single" collapsible className="w-full">
             {FAQ.map((f, i) => (
               <AccordionItem key={f.q} value={`item-${i}`}>
-                <AccordionTrigger className="text-left text-sm sm:text-base font-semibold text-foreground">
+                <AccordionTrigger className="py-3 text-left text-sm font-semibold text-foreground">
                   {f.q}
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
@@ -378,40 +369,23 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA final */}
-      <section className="border-t border-border">
-        <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 text-center space-y-3">
-          <h2 className="text-lg sm:text-2xl font-bold text-foreground">
-            Tu próxima prueba, lista hoy.
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-            Crea tu cuenta en menos de un minuto y genera tu primera evaluación con IA.
-          </p>
-          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
-            <Button onClick={() => goAuth("signup")}>Comenzar gratis</Button>
-            <Button variant="outline" onClick={() => goAuth()}>Iniciar sesión</Button>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
-      <footer className="border-t border-border bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+      <footer className="border-t border-border bg-muted/20">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-primary">
               <BookOpen className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
             <span className="font-medium text-foreground">PruebaLista.cl</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <a href="#planes" className="hover:text-foreground transition">Planes</a>
             <a href="#faq" className="hover:text-foreground transition">FAQ</a>
-            <button onClick={() => goAuth()} className="hover:text-foreground transition">
-              Ingresar
-            </button>
+            <Button size="sm" onClick={() => goAuth("signup")}>Comenzar gratis</Button>
           </div>
         </div>
       </footer>
+
     </main>
   );
 }
