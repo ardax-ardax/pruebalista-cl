@@ -309,7 +309,7 @@ export default function Landing() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="flex md:grid md:grid-cols-3 gap-3 md:gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0">
+            <div className={`flex md:grid gap-3 md:gap-4 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0 ${institutional ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
               {visiblePlans.map((p) => {
                 const feats = planFeatures(p);
                 const shown = feats.slice(0, 4);
