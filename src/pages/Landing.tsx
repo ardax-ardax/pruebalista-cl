@@ -130,6 +130,13 @@ export default function Landing() {
   const { plans, loading: plansLoading } = usePlans();
   const navigate = useNavigate();
   const [redirecting, setRedirecting] = useState(false);
+  const [showUtp, setShowUtp] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    loadPublicLandingSettings()
+      .then((s) => setShowUtp(s.show_institutional_landing))
+      .catch(() => setShowUtp(true));
+  }, []);
 
   useEffect(() => {
     if (loading || !user || redirecting) return;
@@ -149,7 +156,17 @@ export default function Landing() {
   const goAuth = (tab?: "signup") =>
     navigate(tab === "signup" ? "/auth?tab=signup" : "/auth");
 
-  const visiblePlans = plans.length ? plans : ([] as Plan[]);
+  const institutional = showUtp === true;
+  const features = institutional
+    ? FEATURES
+    : FEATURES.filter((f) => f.title !== "Panel UTP");
+  const faqItems = institutional
+    ? FAQ
+    : FAQ.filter((f) => f.q !== "¿Sirve para colegios completos?");
+  const isInstitutionalPlan = (p: Plan) =>
+    p.id === "institucional" || /institucional/i.test(p.label);
+  const visiblePlans = institutional ? plans : plans.filter((p) => !isInstitutionalPlan(p));
+
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
