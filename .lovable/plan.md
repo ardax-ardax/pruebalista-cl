@@ -1,40 +1,42 @@
-# Compactar la landing page
+## Problema
 
-La landing actual usa mucho padding vertical (`py-14 sm:py-20`), tarjetas grandes y secciones apiladas de ancho completo. En móvil eso obliga a mucho scroll. Propuesta: reducir aire, densificar tarjetas y colapsar contenido secundario en móvil — sin cambiar el contenido ni el diseño visual base.
+La landing sigue con mucho aire vertical en móvil y desktop: cada sección tiene su propio `py-8 sm:py-14` + `border-t` + encabezado centrado con subtítulo + grid con `gap` grande. Son 7 bloques apilados (Hero, Cómo funciona, Características, Para quién, Planes, FAQ, CTA, Footer) — mucho scroll para poca información.
 
-## Cambios propuestos en `src/pages/Landing.tsx`
+## Cambios en `src/pages/Landing.tsx`
 
-**1. Reducir padding vertical global**
-- Secciones: `py-14 sm:py-20` → `py-8 sm:py-14`.
-- Hero: `pt-14 pb-16 sm:pt-20 sm:pb-24` → `pt-8 pb-10 sm:pt-16 sm:pb-20`.
-- Encabezados de sección: margen inferior `mb-10` → `mb-6 sm:mb-8`.
+**1. Reducir padding vertical de todas las secciones**
+- `py-8 sm:py-14` → `py-6 sm:py-10` en Cómo funciona, Características, Para quién, Planes, FAQ.
+- Hero: `pt-8 pb-10 sm:pt-16 sm:pb-20` → `pt-6 pb-8 sm:pt-12 sm:pb-14`.
+- CTA final: `py-8 sm:py-12` → `py-6 sm:py-10`.
+- Encabezados de sección: `mb-6 sm:mb-8` → `mb-4 sm:mb-6`.
 
-**2. Hero más compacto en móvil**
-- Título `text-3xl sm:text-5xl` → `text-2xl sm:text-5xl`, quitar `<br/>` en móvil (una sola línea fluida).
-- Bajar tamaño del párrafo en móvil (`text-sm sm:text-lg`).
-- Botones en fila desde móvil (`flex-row`, tamaño `default` en móvil, `lg` en desktop).
+**2. Hero más denso**
+- Quitar el badge "Alineado al currículum MINEDUC" (redundante con lo que dice el título/features).
+- `space-y-4 sm:space-y-6` → `space-y-3 sm:space-y-4`.
+- Quitar el `<p>` "Sin tarjeta de crédito…" (ya se ve en Planes).
 
-**3. Densificar tarjetas**
-- Features grid: pasar a 2 columnas en móvil (`grid-cols-2 lg:grid-cols-3`), padding `p-5` → `p-4`, icono más chico.
-- Cómo funciona: en móvil, layout horizontal (icono/número a la izquierda, texto a la derecha) en lugar de tarjetas apiladas grandes.
-- "Para quién": `p-6` → `p-5`, gap reducido.
+**3. Fusionar "Cómo funciona" + "Características" en una sola sección**
+- Un solo encabezado ("Cómo funciona"), 3 pasos arriba como fila compacta (icono + texto en una línea, sin Card), y debajo la grilla de features 2 col móvil / 3 col desktop. Elimina un `border-t`, un encabezado y un bloque de padding completo.
 
-**4. Planes: carrusel horizontal en móvil**
-- En móvil, mostrar los 3 planes en scroll horizontal con snap (`flex overflow-x-auto snap-x`) en lugar de apilados verticalmente. En desktop se mantiene el grid de 3 columnas.
+**4. "Para quién": convertir a 2 tarjetas horizontales compactas**
+- Quitar botones internos (el CTA final ya cumple esa función).
+- `p-5 space-y-2` → `p-4 space-y-1.5`, icono `h-10 w-10` → `h-8 w-8`.
 
-**5. FAQ colapsable**
-- Reemplazar las tarjetas expandidas por un `<Accordion>` de shadcn — solo se ve la pregunta, se abre al tocar. Reduce muchísimo el scroll en móvil.
+**5. Planes más compactos**
+- Card padding `p-5 sm:p-6` → `p-4 sm:p-5`, `space-y-4` → `space-y-3`.
+- Precio `text-2xl sm:text-3xl` → `text-xl sm:text-2xl`.
+- Lista de features: máximo 4 items visibles (truncar el resto con "y más").
 
-**6. CTA final más discreto**
-- Quitar el ícono grande, reducir a un bloque compacto de ~1/3 del tamaño actual.
+**6. Fusionar CTA final + Footer**
+- Eliminar la sección CTA final independiente. Mover un botón compacto "Comenzar gratis" al Footer, en la fila derecha junto a los links.
 
-**7. Header más apretado**
-- Altura `h-14` → `h-12` en móvil.
+**7. Ancho máximo unificado**
+- Pasar todas las secciones a `max-w-5xl` (hoy mezcla `max-w-3xl`, `max-w-5xl`, `max-w-6xl`) — visualmente más consistente y evita "columnas vacías" en desktop.
 
 ## Fuera de alcance
-- No cambio contenido (textos, features, FAQ, planes).
-- No cambio la paleta ni tipografía.
-- No toco `/auth` ni otras rutas.
+- No cambia contenido textual (features, FAQ, planes, precios).
+- No toca `/auth`, `usePlans`, ni rutas.
+- No cambia paleta, tipografía ni tokens.
 
 ## Resultado esperado
-Landing con ~40% menos scroll vertical en móvil, misma información, misma jerarquía visual. Desktop prácticamente igual (los ajustes se concentran en breakpoints `< sm`).
+Landing con ~30-40% menos alto total, una sección menos (fusión Cómo funciona + Características), sin CTA final duplicado. Móvil: casi todo entra en 2 scrolls. Desktop: sin franjas vacías laterales.
