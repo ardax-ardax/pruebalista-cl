@@ -33,6 +33,7 @@ export default function Precios() {
   const [colegioId, setColegioId] = useState<string | null>(null);
   const [loadingPro, setLoadingPro] = useState(false);
   const [loadingInst, setLoadingInst] = useState(false);
+  const [showInstitutional, setShowInstitutional] = useState(true);
 
   const isUtp = role === "utp_head";
   const proPlan = plans.find((p) => p.id === "pro");
@@ -40,7 +41,9 @@ export default function Precios() {
   useEffect(() => {
     loadInstitutionalTiers().then(setTiers);
     if (user) getMyProfile().then((p) => setColegioId(p?.colegioId ?? null));
+    loadPublicLandingSettings().then((s) => setShowInstitutional(s.show_institutional_landing));
   }, [user?.id]);
+
 
   const proPrice = useMemo(() => {
     if (!proPlan) return 0;
