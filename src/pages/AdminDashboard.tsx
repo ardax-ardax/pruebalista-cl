@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlans } from "@/hooks/usePlans";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
+import { categoryLabel, listAllTickets, updateTicketStatus, type SupportTicketWithUser, type TicketStatus } from "@/lib/support-tickets";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -20,7 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, CalendarIcon, CreditCard, FileUp, GraduationCap, Loader2, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { BookOpen, CalendarIcon, CreditCard, FileUp, GraduationCap, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
