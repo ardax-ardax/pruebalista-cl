@@ -396,11 +396,10 @@ export default function Landing() {
       <footer className="border-t border-border bg-brand-lavender/60">
         <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-primary">
-              <BookOpen className="h-3.5 w-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-medium text-foreground">PruebaLista.cl</span>
+            <BrandIcon size="sm" />
+            <span className="font-medium text-brand-purple">PruebaLista.cl</span>
           </div>
+
           <div className="flex items-center gap-3 sm:gap-4">
             <a href="#planes" className="hover:text-foreground transition">Planes</a>
             <a href="#faq" className="hover:text-foreground transition">FAQ</a>
