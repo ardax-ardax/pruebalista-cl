@@ -11,6 +11,8 @@ import { HelpTourProvider } from "@/components/help/HelpTour";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminGuard } from "@/components/AdminGuard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { BrandIcon } from "@/components/BrandLogo";
+
 
 // Carga inmediata para landing/auth/dashboard inicial (rutas críticas).
 import DashboardDocente from "./pages/DashboardDocente.tsx";
