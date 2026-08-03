@@ -129,10 +129,24 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-weight: 400;
+  }
+
+  h1 {
+    @apply text-brand-purple font-bold tracking-tight;
+  }
+
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-brand-purple font-semibold;
   }
 }
+
 
 /* === HelpTour (driver.js) — branded styles === */
 .driver-popover.pl-tour {
