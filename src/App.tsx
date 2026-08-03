@@ -33,10 +33,12 @@ const Precios = lazy(() => import("./pages/Precios.tsx"));
 const queryClient = new QueryClient();
 
 const RouteFallback = () => (
-  <div className="min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground">
+  <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+    <BrandIcon size="lg" className="animate-pulse" />
     Cargando…
   </div>
 );
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
