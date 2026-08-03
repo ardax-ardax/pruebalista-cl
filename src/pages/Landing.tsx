@@ -204,9 +204,11 @@ export default function Landing() {
             <span className="text-primary">generadas con IA en minutos.</span>
           </h1>
           <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
-            PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar
-            evaluaciones alineadas al currículum vigente del MINEDUC.
+            {institutional
+              ? "PruebaLista ayuda a docentes y equipos UTP de Chile a crear, revisar y aplicar evaluaciones alineadas al currículum vigente del MINEDUC."
+              : "PruebaLista ayuda a docentes de Chile a crear y aplicar evaluaciones alineadas al currículum vigente del MINEDUC."}
           </p>
+
           <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
             <Button onClick={() => goAuth("signup")}>
               Comenzar gratis
