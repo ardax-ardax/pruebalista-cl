@@ -86,7 +86,7 @@ export async function flowCreatePayment(input: {
     body,
   });
   const txt = await res.text();
-  if (!res.ok) throw new Error(`Flow create failed ${res.status}: ${txt}`);
+  if (!res.ok) throw flowError("create", res.status, txt);
   const data = JSON.parse(txt);
   return { url: data.url, token: data.token, flowOrder: data.flowOrder };
 }
@@ -106,7 +106,7 @@ export async function flowGetStatus(token: string): Promise<{
   );
   const res = await fetch(`${FLOW_BASE_URL}/payment/getStatus?${qs.toString()}`);
   const txt = await res.text();
-  if (!res.ok) throw new Error(`Flow getStatus failed ${res.status}: ${txt}`);
+  if (!res.ok) throw flowError("getStatus", res.status, txt);
   return JSON.parse(txt);
 }
 
