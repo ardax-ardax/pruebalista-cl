@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
-import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
 import { categoryLabel, listAllTickets, updateTicketStatus, type SupportTicketWithUser, type TicketStatus } from "@/lib/support-tickets";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -17,32 +16,16 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, CalendarIcon, CreditCard, FileUp, GraduationCap, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles, Users, X } from "lucide-react";
+import { BookOpen, FileUp, GraduationCap, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
 import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
 import CurriculumBulkImporter from "@/components/admin/CurriculumBulkImporter";
 
-/* ───────── Types ───────── */
-interface UserRow {
-  user_id: string;
-  email: string | null;
-  display_name: string | null;
-  plan_type: string;
-  credits_available: number;
-  plan_expires_at: string | null;
-  colegio_id: string | null;
-  role: string | null;
-}
-
 /* ───────── Component ───────── */
 export default function AdminDashboard() {
   const { isAdmin } = useAuth();
-  const { plans, getPlan } = usePlans();
 
   /* --- Global settings --- */
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
@@ -59,152 +42,6 @@ export default function AdminDashboard() {
     setSavingSettings(false);
     if (res.ok) toast.success("Ajustes globales guardados");
     else toast.error(res.error ?? "Error al guardar");
-  };
-
-  /* --- Users --- */
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [search, setSearch] = useState("");
-
-  const loadUsers = async () => {
-    setLoadingUsers(true);
-    // Persist downgrades de planes vencidos antes de listar
-    await supabase.rpc("sync_all_expired_plans");
-    const [{ data: profiles }, { data: usages }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("id, email, display_name, colegio_id"),
-      supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at"),
-      supabase.from("user_roles").select("user_id, role"),
-    ]);
-
-    if (profiles && usages) {
-      const usageMap = new Map(usages.map((u) => [u.user_id, u]));
-      const roleMap = new Map((roles ?? []).map((r) => [r.user_id, r.role as string]));
-      const merged: UserRow[] = profiles
-        .map((p) => {
-          const u = usageMap.get(p.id);
-          const r = roleMap.get(p.id) ?? null;
-          const cId = (p as Record<string, unknown>).colegio_id as string | null;
-          return {
-            user_id: p.id,
-            email: p.email,
-            display_name: p.display_name,
-            plan_type: u?.plan_type ?? "free",
-            credits_available: u?.credits_available ?? 0,
-            plan_expires_at: u?.plan_expires_at ?? null,
-            colegio_id: cId,
-            role: r,
-          };
-        })
-        // Filter: show only autonomous docentes (colegio_id = NULL) and utp_head users
-        .filter((u) => u.role === 'utp_head' || u.role === 'admin' || !u.colegio_id);
-      setUsers(merged);
-    }
-    setLoadingUsers(false);
-  };
-
-  useEffect(() => {
-    if (isAdmin) loadUsers();
-  }, [isAdmin]);
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return users;
-    const q = search.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.email?.toLowerCase().includes(q) ||
-        u.display_name?.toLowerCase().includes(q) ||
-        u.plan_type.includes(q),
-    );
-  }, [users, search]);
-
-  /* --- Recharge dialog --- */
-  const [rechargeUser, setRechargeUser] = useState<UserRow | null>(null);
-  const [rechargeAmount, setRechargeAmount] = useState(20);
-  const [recharging, setRecharging] = useState(false);
-
-  const handleRecharge = async () => {
-    if (!rechargeUser) return;
-    setRecharging(true);
-    const { error } = await supabase
-      .from("user_usage")
-      .update({ credits_available: rechargeUser.credits_available + rechargeAmount })
-      .eq("user_id", rechargeUser.user_id);
-    setRecharging(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`+${rechargeAmount} créditos para ${rechargeUser.email}`);
-    setRechargeUser(null);
-    loadUsers();
-  };
-
-  /* --- Inline plan change --- */
-  const handlePlanChange = async (userId: string, newPlan: string) => {
-    const planConfig = getPlan(newPlan);
-    const defaultPlan = plans.find((p) => p.is_default);
-    const isDefault = newPlan === defaultPlan?.id;
-    // If non-default plan, set expiry to 1 month from now; if default, clear expiry
-    const expiresAt = isDefault ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { error } = await supabase
-      .from("user_usage")
-      .update({ plan_type: newPlan, credits_available: planConfig.default_credits, plan_expires_at: expiresAt })
-      .eq("user_id", userId);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`Plan actualizado a ${planConfig.label} (${planConfig.default_credits} créditos)`);
-    loadUsers();
-  };
-
-  /* --- Expiry date --- */
-  const [expiryUser, setExpiryUser] = useState<UserRow | null>(null);
-  const [expiryDate, setExpiryDate] = useState<Date | undefined>();
-
-  const handleSetExpiry = async () => {
-    if (!expiryUser) return;
-    const { error } = await supabase
-      .from("user_usage")
-      .update({ plan_expires_at: expiryDate ? expiryDate.toISOString() : null })
-      .eq("user_id", expiryUser.user_id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(expiryDate ? "Fecha de expiración establecida" : "Expiración removida");
-    setExpiryUser(null);
-    loadUsers();
-  };
-
-  /* --- Bulk plan assign --- */
-  const [bulkPlan, setBulkPlan] = useState("institucional");
-  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
-
-  const toggleSelect = (uid: string) => {
-    setSelectedUsers((prev) => {
-      const next = new Set(prev);
-      if (next.has(uid)) next.delete(uid); else next.add(uid);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (selectedUsers.size === filtered.length) {
-      setSelectedUsers(new Set());
-    } else {
-      setSelectedUsers(new Set(filtered.map((u) => u.user_id)));
-    }
-  };
-
-  const handleBulkPlanAssign = async () => {
-    if (selectedUsers.size === 0) return;
-    setBulkLoading(true);
-    const ids = Array.from(selectedUsers);
-    const planConfig = getPlan(bulkPlan);
-    const defaultPlan = plans.find((p) => p.is_default);
-    const isDefault = bulkPlan === defaultPlan?.id;
-    const expiresAt = isDefault ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const promises = ids.map((uid) =>
-      supabase.from("user_usage").update({ plan_type: bulkPlan, credits_available: planConfig.default_credits, plan_expires_at: expiresAt }).eq("user_id", uid),
-    );
-    await Promise.all(promises);
-    setBulkLoading(false);
-    toast.success(`${ids.length} usuario(s) actualizados a ${planConfig.label} (${planConfig.default_credits} créditos)`);
-    setSelectedUsers(new Set());
-    loadUsers();
   };
 
   /* --- Support tickets --- */
@@ -260,11 +97,6 @@ export default function AdminDashboard() {
   }, [tickets]);
 
   if (!isAdmin) return null;
-
-  const planBadge = (planId: string) => {
-    const p = getPlan(planId);
-    return <Badge variant="outline" className="text-[10px]">{p.label}</Badge>;
-  };
 
   return (
     <AppLayout>
