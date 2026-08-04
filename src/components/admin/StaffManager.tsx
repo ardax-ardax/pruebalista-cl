@@ -34,6 +34,8 @@ import {
   type SubjectOption,
 } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
+import { UserAdminPanel } from "@/components/admin/UserAdminPanel";
+
 
 type AppRole = "admin" | "utp_head" | "docente";
 
