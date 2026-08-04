@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -401,9 +401,11 @@ export default function Landing() {
             <span className="font-medium text-brand-purple">PruebaLista.cl</span>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
             <a href="#planes" className="hover:text-foreground transition">Planes</a>
             <a href="#faq" className="hover:text-foreground transition">FAQ</a>
+            <Link to="/privacidad" className="hover:text-foreground transition">Privacidad</Link>
+            <Link to="/terminos" className="hover:text-foreground transition">Términos</Link>
             <Button size="sm" onClick={() => goAuth("signup")}>Comenzar gratis</Button>
           </div>
         </div>

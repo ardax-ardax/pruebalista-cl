@@ -31,6 +31,8 @@ const Perfil = lazy(() => import("./pages/Perfil.tsx"));
 const BancoPreguntas = lazy(() => import("./pages/BancoPreguntas.tsx"));
 const DocenteDashboardInstitucional = lazy(() => import("./pages/DocenteDashboardInstitucional.tsx"));
 const Precios = lazy(() => import("./pages/Precios.tsx"));
+const Privacidad = lazy(() => import("./pages/Privacidad.tsx"));
+const Terminos = lazy(() => import("./pages/Terminos.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -59,6 +61,8 @@ const App = () => (
               <Route path="/landing" element={<Landing />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/privacidad" element={<Privacidad />} />
+              <Route path="/terminos" element={<Terminos />} />
               <Route path="/dashboard" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
               <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
               <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />

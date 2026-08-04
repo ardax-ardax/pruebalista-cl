@@ -273,8 +273,12 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <main className="container py-8">{children}</main>
       {!isEmbedded && (
         <footer className="border-t border-border py-6 mt-12">
-          <div className="container text-center text-xs text-muted-foreground">
-            Procesamiento 100% en el navegador. Tus documentos no se suben a ningún servidor.
+          <div className="container flex flex-col items-center gap-2 text-center text-xs text-muted-foreground">
+            <div>Procesamiento 100% en el navegador. Tus documentos no se suben a ningún servidor.</div>
+            <div className="flex items-center gap-4">
+              <NavLink to="/privacidad" className="hover:text-foreground transition-smooth">Política de Privacidad</NavLink>
+              <NavLink to="/terminos" className="hover:text-foreground transition-smooth">Términos de Servicio</NavLink>
+            </div>
           </div>
         </footer>
       )}
