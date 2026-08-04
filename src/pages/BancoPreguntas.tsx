@@ -32,13 +32,13 @@ const SOURCES = [
 ];
 
 function QuestionDetails({ question }: { question: Question | null }) {
-  if (!question) return null;
+  if (!question || typeof question !== "object") return null;
 
-  if (question.type === "multiple-choice" && question.options) {
+  if (question.type === "multiple-choice" && Array.isArray(question.options)) {
     const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
     return (
       <div className="mt-2 space-y-1">
-        {question.options.map((opt, i) => (
+        {question.options.filter((opt) => opt && typeof opt === "object").map((opt, i) => (
           <div
             key={opt.id}
             className={`flex items-start gap-2 text-sm rounded px-2 py-0.5 ${
@@ -56,10 +56,10 @@ function QuestionDetails({ question }: { question: Question | null }) {
     );
   }
 
-  if (question.type === "true-false" && question.statements) {
+  if (question.type === "true-false" && Array.isArray(question.statements)) {
     return (
       <div className="mt-2 space-y-1">
-        {question.statements.map((st) => (
+        {question.statements.filter((st) => st && typeof st === "object").map((st) => (
           <div key={st.id} className="flex items-start gap-2 text-sm">
             <Badge
               variant="outline"
@@ -169,7 +169,7 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
       getBankSummary().then(setSummary).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isStaff]);
 
   const applyFilters = () => {
     const f: BankFilters = { ...filters };
@@ -219,13 +219,14 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
     }
   };
 
-  const getAuthorName = (userId: string) => {
+  const getAuthorName = (userId: string | null) => {
+    if (!userId) return "Usuario eliminado";
     const p = profiles.find((pr) => pr.id === userId);
     return profileLabel(p, userId);
   };
 
   const canDelete = (row: QuestionBankRow) =>
-    isAdmin || row.user_id === user?.id;
+    isAdmin || (!!row.user_id && row.user_id === user?.id);
 
   return (
     <PageShell embedded={embedded}>

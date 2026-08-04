@@ -9,14 +9,24 @@ import { saveQuestionsToBank } from "./question-bank";
 const KEY_DRAFT = "estandarizador.assessment.draft.v1";
 const KEY_LOCAL_LIB = "estandarizador.assessment.library.v1";
 
-const migrate = (a: Assessment, dbStatus?: string, dbFeedback?: string | null): Assessment => ({
-  ...a,
-  id: isUuid(a.id) ? a.id : newAssessmentId(),
-  status: (dbStatus as Assessment["status"]) ?? a.status ?? "borrador",
-  utpFeedback: dbFeedback ?? a.utpFeedback ?? null,
-  meta: { ...a.meta, linkedOA: a.meta?.linkedOA ?? [] },
-  questions: (a.questions ?? []).map(migrateQuestion),
-});
+const migrate = (value: Assessment | null | undefined, dbStatus?: string, dbFeedback?: string | null): Assessment => {
+  const a = value && typeof value === "object" ? value : ({} as Assessment);
+  const meta = a.meta && typeof a.meta === "object" ? a.meta : ({} as Assessment["meta"]);
+  const questions = Array.isArray(a.questions)
+    ? a.questions.filter((q) => q && typeof q === "object").map(migrateQuestion)
+    : [];
+
+  return {
+    ...a,
+    id: isUuid(a.id) ? a.id : newAssessmentId(),
+    createdAt: Number.isFinite(a.createdAt) ? a.createdAt : Date.now(),
+    updatedAt: Number.isFinite(a.updatedAt) ? a.updatedAt : Date.now(),
+    status: (dbStatus as Assessment["status"]) ?? a.status ?? "borrador",
+    utpFeedback: dbFeedback ?? a.utpFeedback ?? null,
+    meta: { ...meta, linkedOA: Array.isArray(meta.linkedOA) ? meta.linkedOA : [] },
+    questions,
+  };
+};
 
 // ============ Borrador (local) ============
 let draftCache: Assessment | null = null;
@@ -127,7 +137,9 @@ export const listAssessmentsWithOwnerPaged = async (
     console.error("listAssessmentsWithOwnerPaged", error);
     return { items: [], total: 0, hasMore: false };
   }
-  const items = (data as unknown as Row[]).map((r) => ({ assessment: rowToAssessment(r), userId: r.user_id }));
+  const items = (data as unknown as Row[])
+    .filter((r) => r && typeof r === "object")
+    .map((r) => ({ assessment: rowToAssessment(r), userId: r.user_id ?? null }));
   const total = count ?? items.length;
   return { items, total, hasMore: from + items.length < total };
 };

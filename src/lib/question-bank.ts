@@ -3,8 +3,8 @@ import type { Question, AssessmentMeta } from "./assessment-schema";
 
 export interface QuestionBankRow {
   id: string;
-  user_id: string;
-  question_data: Question;
+  user_id: string | null;
+  question_data: Question | null;
   question_type: string;
   subject_value: string | null;
   grade_value: string | null;
