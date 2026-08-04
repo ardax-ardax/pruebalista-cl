@@ -231,8 +231,50 @@ export default function BancoPreguntas() {
         <div className="flex items-center gap-3">
           <Library className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Banco de Preguntas</h1>
-          <Badge variant="outline" className="ml-auto">{rows.length} preguntas</Badge>
+          <Badge variant="outline" className="ml-auto">{total} preguntas</Badge>
         </div>
+
+        {/* Resumen agrupado (admin/staff) */}
+        {isStaff && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Resumen del banco</span>
+                <Badge variant="secondary" className="text-[10px]">{summary?.total ?? 0} en total</Badge>
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setShowSummary((v) => !v)}>
+                  {showSummary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {showSummary ? "Ocultar" : "Ver detalle"}
+                </Button>
+              </div>
+              {showSummary && (
+                <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                  <SummaryGroup
+                    title="Por asignatura"
+                    items={(summary?.bySubject ?? []).map((s) => ({
+                      label: subjects.find((x) => x.value === s.key)?.label ?? s.key,
+                      count: s.count,
+                    }))}
+                  />
+                  <SummaryGroup
+                    title="Por curso"
+                    items={(summary?.byGrade ?? []).map((g) => ({
+                      label: grades.find((x) => x.value === g.key)?.label ?? g.key,
+                      count: g.count,
+                    }))}
+                  />
+                  <SummaryGroup
+                    title="Por origen"
+                    items={(summary?.bySource ?? []).map((s) => ({
+                      label: s.key === "ai" ? "IA" : s.key === "manual" ? "Manual" : s.key,
+                      count: s.count,
+                    }))}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filtros */}
         <Card>
