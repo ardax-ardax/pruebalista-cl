@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
+import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,7 +52,7 @@ const loadSavedFilters = (): SavedFilters => {
   }
 };
 
-const MisPruebas = () => {
+const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
   const saved = useState(loadSavedFilters)[0];
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
@@ -62,7 +62,7 @@ const MisPruebas = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subjects] = useState(() => loadSubjects());
   const { grades } = useAdminCourses();
-  const [showAll, setShowAll] = useState(saved.showAll);
+  const [showAll, setShowAll] = useState(embedded ? true : saved.showAll);
   const [teacherFilter, setTeacherFilter] = useState<string>(saved.teacherFilter);
   const [subjectFilter, setSubjectFilter] = useState<string>(saved.subjectFilter);
   const [statusFilter, setStatusFilter] = useState<string>(saved.statusFilter);
@@ -193,7 +193,7 @@ const MisPruebas = () => {
 
 
   return (
-    <AppLayout>
+    <PageShell embedded={embedded}>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -354,7 +354,7 @@ const MisPruebas = () => {
           </div>
         )}
       </div>
-    </AppLayout>
+    </PageShell>
   );
 };
 

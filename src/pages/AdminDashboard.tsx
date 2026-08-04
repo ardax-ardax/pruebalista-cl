@@ -15,12 +15,14 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, FileUp, GraduationCap, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles } from "lucide-react";
+import { BookOpen, FileStack, FileUp, GraduationCap, Library, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
 import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
 import CurriculumBulkImporter from "@/components/admin/CurriculumBulkImporter";
+import BancoPreguntas from "@/pages/BancoPreguntas";
+import MisPruebas from "@/pages/MisPruebas";
 
 /* ───────── Component ───────── */
 export default function AdminDashboard() {
@@ -106,14 +108,17 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="settings">
-          <TabsList>
+          <TabsList className="flex h-auto flex-wrap justify-start gap-1">
             <TabsTrigger value="settings" className="gap-2"><Settings2 className="h-4 w-4" /> Ajustes</TabsTrigger>
             <TabsTrigger value="plans" className="gap-2"><Package className="h-4 w-4" /> Planes</TabsTrigger>
             <TabsTrigger value="subjects" className="gap-2"><BookOpen className="h-4 w-4" /> Asignaturas</TabsTrigger>
             <TabsTrigger value="courses" className="gap-2"><GraduationCap className="h-4 w-4" /> Cursos</TabsTrigger>
             <TabsTrigger value="curriculum-import" className="gap-2"><FileUp className="h-4 w-4" /> Importar Currículum</TabsTrigger>
+            <TabsTrigger value="bank" className="gap-2"><Library className="h-4 w-4" /> Banco de Preguntas</TabsTrigger>
+            <TabsTrigger value="assessments" className="gap-2"><FileStack className="h-4 w-4" /> Todas las Pruebas</TabsTrigger>
             <TabsTrigger value="support" className="gap-2"><MessageSquare className="h-4 w-4" /> Soporte</TabsTrigger>
           </TabsList>
+
 
           {/* ──── Settings Tab ──── */}
           <TabsContent value="settings" className="space-y-4">
@@ -219,6 +224,18 @@ export default function AdminDashboard() {
           <TabsContent value="curriculum-import" className="space-y-4">
             <CurriculumBulkImporter />
           </TabsContent>
+
+          {/* ──── Banco de Preguntas Tab ──── */}
+          <TabsContent value="bank" className="space-y-4">
+            <BancoPreguntas embedded />
+          </TabsContent>
+
+          {/* ──── Todas las Pruebas Tab ──── */}
+          <TabsContent value="assessments" className="space-y-4">
+            <MisPruebas embedded />
+          </TabsContent>
+
+
 
           {/* ──── Support Tab ──── */}
           <TabsContent value="support" className="space-y-4">
