@@ -128,6 +128,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <DropdownMenuItem onClick={() => navigate("/pruebas")} className="gap-2">
                       <FileText className="h-4 w-4" /> Mis pruebas
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/corregir")} className="gap-2">
+                      <ScanLine className="h-4 w-4" /> Corregir por foto
+                    </DropdownMenuItem>
                   </>
                 )}
                 {isStaff && (
