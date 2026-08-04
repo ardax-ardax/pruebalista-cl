@@ -418,3 +418,23 @@ function FilterSelect({ label, value, onChange, options }: {
     </div>
   );
 }
+
+function SummaryGroup({ title, items }: { title: string; items: { label: string; count: number }[] }) {
+  return (
+    <div className="rounded-md border p-3">
+      <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Sin datos</p>
+      ) : (
+        <ul className="space-y-1">
+          {items.slice(0, 8).map((it) => (
+            <li key={it.label} className="flex items-center justify-between gap-2 text-xs">
+              <span className="truncate">{it.label}</span>
+              <Badge variant="secondary" className="text-[10px] shrink-0">{it.count}</Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
