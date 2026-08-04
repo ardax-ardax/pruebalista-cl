@@ -58,7 +58,7 @@ export function QuestionBankDialog({ open, onOpenChange, onImport }: Props) {
     }
     const data = tab === "institution"
       ? await searchInstitutionalBank(f)
-      : await searchBank(f);
+      : (await searchBank(f, 0, 200)).rows;
     setRows(data);
     setLoading(false);
   };
