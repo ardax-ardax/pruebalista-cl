@@ -661,58 +661,7 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* ──── Recharge Dialog ──── */}
-      <Dialog open={!!rechargeUser} onOpenChange={() => setRechargeUser(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Recargar Créditos IA</DialogTitle>
-            <DialogDescription>
-              {rechargeUser?.email} — Saldo actual: {rechargeUser?.credits_available}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label>Cantidad a agregar</Label>
-            <Input type="number" min={1} value={rechargeAmount} onChange={(e) => setRechargeAmount(Number(e.target.value))} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRechargeUser(null)}>Cancelar</Button>
-            <Button onClick={handleRecharge} disabled={recharging} className="gap-2">
-              {recharging && <Loader2 className="h-4 w-4 animate-spin" />}
-              Recargar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ──── Expiry Dialog ──── */}
-      <Dialog open={!!expiryUser} onOpenChange={() => setExpiryUser(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Fecha de Expiración del Plan</DialogTitle>
-            <DialogDescription>{expiryUser?.email}</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-2">
-            <Calendar
-              mode="single"
-              selected={expiryDate}
-              onSelect={setExpiryDate}
-              className={cn("p-3 pointer-events-auto")}
-            />
-            {expiryDate && (
-              <Button variant="ghost" size="sm" onClick={() => setExpiryDate(undefined)} className="gap-1">
-                <X className="h-3 w-3" /> Quitar fecha
-              </Button>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExpiryUser(null)}>Cancelar</Button>
-            <Button onClick={handleSetExpiry}>
-              {expiryDate ? "Establecer" : "Quitar expiración"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppLayout>
+
   );
 }
