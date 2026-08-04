@@ -347,7 +347,7 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
                           )}
                         </div>
                         <p className="text-sm font-medium">
-                          {qData.prompt || row.title || row.prompt_preview || "(sin enunciado)"}
+                          {qData?.prompt || row.title || row.prompt_preview || "(sin enunciado)"}
                         </p>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {row.subject_value && <span>{subjects.find((s) => s.value === row.subject_value)?.label ?? row.subject_value}</span>}
