@@ -92,17 +92,39 @@ function QuestionDetails({ question }: { question: Question }) {
   return null;
 }
 
+const FILTERS_KEY = "pruebalista.bancoPreguntas.filters.v1";
+
+function loadSavedFilters(): { filters: BankFilters; search: string } {
+  try {
+    const raw = localStorage.getItem(FILTERS_KEY);
+    if (!raw) return { filters: {}, search: "" };
+    const parsed = JSON.parse(raw) as BankFilters;
+    const { search, ...rest } = parsed ?? {};
+    return { filters: parsed ?? {}, search: search ?? "" };
+  } catch {
+    return { filters: {}, search: "" };
+  }
+}
+
 export default function BancoPreguntas() {
   const { isAdmin, isStaff, user } = useAuth();
   const subjects = loadSubjects();
   const { grades } = useAdminCourses();
 
+  const saved = useState(() => loadSavedFilters())[0];
+
   const [rows, setRows] = useState<QuestionBankRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filters, setFilters] = useState<BankFilters>({});
-  const [searchText, setSearchText] = useState("");
+  const [filters, setFilters] = useState<BankFilters>(saved.filters);
+  const [searchText, setSearchText] = useState(saved.search);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [summary, setSummary] = useState<BankSummary | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -113,17 +135,36 @@ export default function BancoPreguntas() {
     });
   };
 
+  const persist = (f: BankFilters) => {
+    try { localStorage.setItem(FILTERS_KEY, JSON.stringify(f)); } catch { /* ignore */ }
+  };
+
   const load = async (f: BankFilters = filters) => {
     setLoading(true);
-    const data = await searchBank(f);
-    setRows(data);
+    setPage(0);
+    const res = await searchBank(f, 0, BANK_PAGE_SIZE);
+    setRows(res.rows);
+    setTotal(res.total);
+    setHasMore(res.hasMore);
     setLoading(false);
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const res = await searchBank(filters, nextPage, BANK_PAGE_SIZE);
+    setRows((prev) => [...prev, ...res.rows]);
+    setTotal(res.total);
+    setHasMore(res.hasMore);
+    setPage(nextPage);
+    setLoadingMore(false);
   };
 
   useEffect(() => {
     load();
     if (isStaff) {
       listProfiles().then((r) => setProfiles(r.profiles));
+      getBankSummary().then(setSummary).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -133,6 +174,7 @@ export default function BancoPreguntas() {
     if (searchText.trim()) f.search = searchText.trim();
     else delete f.search;
     setFilters(f);
+    persist(f);
     load(f);
   };
 
@@ -141,8 +183,17 @@ export default function BancoPreguntas() {
     if (val === "__all__") delete next[key];
     else next[key] = val;
     setFilters(next);
+    persist(next);
     load(next);
   };
+
+  const clearFilters = () => {
+    setFilters({});
+    setSearchText("");
+    persist({});
+    load({});
+  };
+
 
   const handleDelete = async (id: string) => {
     if (isAdmin) {
