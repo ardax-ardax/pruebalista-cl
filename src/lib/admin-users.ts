@@ -106,3 +106,97 @@ const invokeDeleteUser = async (userId: string, dryRun: boolean) => {
 
 export const previewDeleteUser = (userId: string) => invokeDeleteUser(userId, true);
 export const deleteUserAccount = (userId: string) => invokeDeleteUser(userId, false);
+
+// ---- Métricas y actividad por usuario (solo admin) ----
+
+export interface AuthInfoRow {
+  fullName: string | null;
+  createdAt: string | null;
+  lastSignInAt: string | null;
+}
+
+/** Datos de auth.users (nombre, registro, último acceso) vía edge function admin. */
+export const listAuthInfo = async (): Promise<Map<string, AuthInfoRow>> => {
+  const map = new Map<string, AuthInfoRow>();
+  const { data, error } = await supabase.functions.invoke("admin-user-auth-info", { body: {} });
+  if (error || data?.error) {
+    console.error("listAuthInfo", error ?? data.error);
+    return map;
+  }
+  const users = (data?.users ?? {}) as Record<
+    string,
+    { full_name: string | null; created_at: string | null; last_sign_in_at: string | null }
+  >;
+  for (const [id, u] of Object.entries(users)) {
+    map.set(id, {
+      fullName: u.full_name,
+      createdAt: u.created_at,
+      lastSignInAt: u.last_sign_in_at,
+    });
+  }
+  return map;
+};
+
+export interface UserContentCounts {
+  assessments: number;
+  questions: number;
+}
+
+/** Conteo de pruebas y preguntas por usuario (agregado en cliente). */
+export const listContentCounts = async (): Promise<Map<string, UserContentCounts>> => {
+  const map = new Map<string, UserContentCounts>();
+  const bump = (id: string | null, key: keyof UserContentCounts) => {
+    if (!id) return;
+    const cur = map.get(id) ?? { assessments: 0, questions: 0 };
+    cur[key] += 1;
+    map.set(id, cur);
+  };
+  const [a, q] = await Promise.all([
+    supabase.from("assessments").select("user_id"),
+    supabase.from("question_bank").select("user_id"),
+  ]);
+  if (a.error) console.error("listContentCounts assessments", a.error);
+  if (q.error) console.error("listContentCounts questions", q.error);
+  for (const r of a.data ?? []) bump(r.user_id, "assessments");
+  for (const r of q.data ?? []) bump(r.user_id, "questions");
+  return map;
+};
+
+export interface UserAssessmentHistoryItem {
+  id: string;
+  title: string;
+  createdAt: string;
+  status: string;
+  gradeLabel: string | null;
+  subjectLabel: string | null;
+}
+
+/** Últimas pruebas creadas por un usuario, para el panel de historial. */
+export const listUserAssessmentHistory = async (
+  userId: string,
+  limit = 25,
+): Promise<UserAssessmentHistoryItem[]> => {
+  const { data, error } = await supabase
+    .from("assessments")
+    .select("id, title, created_at, status, data")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("listUserAssessmentHistory", error);
+    return [];
+  }
+  return (data ?? []).map((r) => {
+    const meta = ((r.data as Record<string, unknown> | null)?.meta ?? {}) as Record<string, unknown>;
+    return {
+      id: r.id,
+      title: r.title,
+      createdAt: r.created_at,
+      status: r.status,
+      gradeLabel:
+        (meta.gradeLabel as string) ?? (meta.gradeValue as string) ?? null,
+      subjectLabel:
+        (meta.subjectLabel as string) ?? (meta.subjectValue as string) ?? null,
+    };
+  });
+};

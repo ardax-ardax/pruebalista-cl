@@ -12,15 +12,19 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Coins, Save, Settings2, Trash2 } from "lucide-react";
+import { AlertTriangle, Coins, History, Save, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePlans } from "@/hooks/usePlans";
+import { useAuth } from "@/hooks/useAuth";
 import { profileLabel, type Profile } from "@/lib/profiles";
 import {
-  deleteUserAccount, listAllUsage, listColegios, previewDeleteUser, setUserColegio,
+  deleteUserAccount, listAllUsage, listAuthInfo, listColegios, listContentCounts,
+  listUserAssessmentHistory, previewDeleteUser, setUserColegio,
   setUserCredits, setUserPlan, syncAllExpiredPlans,
-  type ColegioOption, type DeleteUserCounts, type UserUsageRow,
+  type AuthInfoRow, type ColegioOption, type DeleteUserCounts, type UserAssessmentHistoryItem,
+  type UserContentCounts, type UserUsageRow,
 } from "@/lib/admin-users";
+
 
 const NO_COLEGIO = "__none__";
 
@@ -32,10 +36,19 @@ interface Props {
 
 export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
   const { plans } = usePlans();
+  const { isAdmin } = useAuth();
   const [usage, setUsage] = useState<Map<string, UserUsageRow>>(new Map());
   const [colegios, setColegios] = useState<ColegioOption[]>([]);
   const [creditDraft, setCreditDraft] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Métricas (solo admin)
+  const [authInfo, setAuthInfo] = useState<Map<string, AuthInfoRow>>(new Map());
+  const [contentCounts, setContentCounts] = useState<Map<string, UserContentCounts>>(new Map());
+
+  // Historial de actividad
+  const [historyUser, setHistoryUser] = useState<Profile | null>(null);
+  const [history, setHistory] = useState<UserAssessmentHistoryItem[] | null>(null);
 
   // Confirmación de baja de UTP
   const [utpWarn, setUtpWarn] = useState<{ userId: string; label: string } | null>(null);
@@ -61,6 +74,28 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
     listColegios().then(setColegios);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    listAuthInfo().then(setAuthInfo);
+    listContentCounts().then(setContentCounts);
+  }, [isAdmin]);
+
+  const openHistory = async (p: Profile) => {
+    setHistoryUser(p);
+    setHistory(null);
+    setHistory(await listUserAssessmentHistory(p.id));
+  };
+
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+  const fmtDateTime = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("es-CL", {
+          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+        })
+      : "—";
+
 
   const handlePlanChange = async (userId: string, planId: string) => {
     setBusyId(userId);
@@ -192,12 +227,18 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
           <thead className="sticky top-0 bg-muted/60 backdrop-blur text-xs text-muted-foreground">
             <tr>
               <th className="text-left font-medium px-3 py-2">Usuario</th>
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[170px]">Nombre completo</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[110px]">Registro</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[140px]">Último acceso</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[90px]">Pruebas</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[90px]">Preguntas</th>}
               <th className="text-left font-medium px-3 py-2 w-[150px]">Plan</th>
               <th className="text-left font-medium px-3 py-2 w-[150px]">Vence</th>
               <th className="text-left font-medium px-3 py-2 w-[150px]">Créditos IA</th>
               <th className="text-left font-medium px-3 py-2 w-[180px]">Colegio</th>
-              <th className="px-3 py-2 w-[48px]" />
+              <th className="px-3 py-2 w-[88px]" />
             </tr>
+
           </thead>
           <tbody>
             {profiles.map((p) => {
@@ -206,12 +247,34 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               const isPaid = plan !== defaultPlan;
               const draft = creditDraft[p.id];
               const disabled = busyId === p.id;
+              const info = authInfo.get(p.id);
+              const cc = contentCounts.get(p.id);
               return (
                 <tr key={p.id} className="border-t border-border align-top">
                   <td className="px-3 py-1.5">
                     <div className="font-medium truncate max-w-[180px]">{profileLabel(p, p.id)}</div>
                     <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{p.email}</div>
                   </td>
+                  {isAdmin && (
+                    <td className="px-3 py-1.5">
+                      <span className="text-xs truncate block max-w-[170px]">
+                        {info?.fullName ?? p.displayName ?? "—"}
+                      </span>
+                    </td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">{fmtDate(info?.createdAt ?? null)}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">{fmtDateTime(info?.lastSignInAt ?? null)}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs tabular-nums">{cc?.assessments ?? 0}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs tabular-nums">{cc?.questions ?? 0}</td>
+                  )}
+
                   <td className="px-3 py-1.5">
                     <Select value={plan} onValueChange={(v) => handlePlanChange(p.id, v)} disabled={disabled}>
                       <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
@@ -275,7 +338,18 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="px-3 py-1.5 text-right">
+                  <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    {isAdmin && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        title="Ver historial"
+                        onClick={() => openHistory(p)}
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
@@ -286,6 +360,7 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </td>
+
                 </tr>
               );
             })}
@@ -293,7 +368,48 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
         </table>
       </div>
 
+      {/* Historial de actividad (solo admin) */}
+      <Dialog open={!!historyUser} onOpenChange={(o) => !o && setHistoryUser(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-4 w-4" /> Historial de {historyUser ? profileLabel(historyUser, historyUser.id) : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Últimas pruebas creadas por este usuario, de la más reciente a la más antigua.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[360px] overflow-auto rounded-md border border-border divide-y divide-border">
+            {history === null ? (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">Cargando historial…</div>
+            ) : history.length === 0 ? (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Este usuario aún no ha creado pruebas.
+              </div>
+            ) : (
+              history.map((h) => (
+                <div key={h.id} className="px-3 py-2 text-xs space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium truncate">{h.title || "Sin título"}</span>
+                    <Badge variant="secondary" className="text-[10px] shrink-0">{h.status}</Badge>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {fmtDateTime(h.createdAt)}
+                    {(h.gradeLabel || h.subjectLabel) && " · "}
+                    {[h.gradeLabel, h.subjectLabel].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryUser(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Advertencia al desasociar un Jefe UTP */}
+
       <Dialog open={!!utpWarn} onOpenChange={(o) => !o && setUtpWarn(null)}>
         <DialogContent>
           <DialogHeader>
