@@ -18,7 +18,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserUsage } from "@/hooks/useUserUsage";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Item { assessment: Assessment; userId: string; }
+interface Item { assessment: Assessment; userId: string | null; }
+
+const DELETED_USER = "__deleted__";
+const DELETED_USER_LABEL = "Usuario eliminado";
 
 const ALL = "__all__";
 
@@ -72,9 +75,12 @@ const MisPruebas = () => {
 
   const teacherOptions = useMemo(() => {
     if (!isStaff) return [];
-    const ids = Array.from(new Set(items.map((i) => i.userId)));
+    const ids = Array.from(new Set(items.map((i) => i.userId ?? DELETED_USER)));
     return ids
-      .map((id) => ({ id, label: profileLabel(profileById.get(id), id) }))
+      .map((id) => ({
+        id,
+        label: id === DELETED_USER ? DELETED_USER_LABEL : profileLabel(profileById.get(id), id),
+      }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [items, profileById, isStaff]);
 
@@ -136,7 +142,7 @@ const MisPruebas = () => {
       return list;
     }
     let list = items;
-    if (teacherFilter !== ALL) list = list.filter((i) => i.userId === teacherFilter);
+    if (teacherFilter !== ALL) list = list.filter((i) => (i.userId ?? DELETED_USER) === teacherFilter);
     if (subjectFilter !== ALL) list = list.filter((i) => i.assessment.meta.subjectValue === subjectFilter);
     if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
     return list;
@@ -228,7 +234,7 @@ const MisPruebas = () => {
               const isOwn = userId === user?.id;
               const isBlocked = blockedAssessmentIds.has(a.id);
               const authorLabel = isStaff && !isOwn
-                ? profileLabel(profileById.get(userId), userId)
+                ? (userId ? profileLabel(profileById.get(userId), userId) : DELETED_USER_LABEL)
                 : null;
               const statusBadge = (() => {
                 const s = a.status ?? "borrador";
