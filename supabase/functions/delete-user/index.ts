@@ -58,9 +58,10 @@ Deno.serve(async (req) => {
     if (dryRun) return json({ ok: true, dry_run: true, counts });
 
     // Tablas SIN cascade a auth.users: borrado explícito en orden seguro.
+    // assessments y question_bank NO se borran: su user_id queda en NULL (ON DELETE SET NULL)
+    // y siguen visibles para el admin en la base general de pruebas.
     for (const [table, column] of [
       ["ai_generation_log", "user_id"],
-      ["question_bank", "user_id"],
       ["teacher_assignments", "teacher_user_id"],
       ["user_usage", "user_id"],
     ] as const) {

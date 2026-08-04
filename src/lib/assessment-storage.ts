@@ -57,7 +57,7 @@ export const clearDraft = () => {
 // ============ Biblioteca (cloud) ============
 type Row = {
   id: string;
-  user_id: string;
+  user_id: string | null;
   title: string;
   data: Assessment;
   status: string;
@@ -80,7 +80,7 @@ export const listAssessments = async (): Promise<Assessment[]> => {
   return (data as unknown as Row[]).map(rowToAssessment);
 };
 
-export const listAssessmentsWithOwner = async (): Promise<Array<{ assessment: Assessment; userId: string }>> => {
+export const listAssessmentsWithOwner = async (): Promise<Array<{ assessment: Assessment; userId: string | null }>> => {
   const { data, error } = await supabase
     .from("assessments")
     .select("*")
