@@ -57,6 +57,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
             Tuvimos un problema al cargar esta sección. Puedes reintentar o
             recargar la página. Si el error persiste, contáctanos.
           </p>
+          {this.state.error?.message && (
+            <p className="text-xs font-mono text-muted-foreground/80 break-words border rounded-md p-2 bg-muted/40">
+              {this.state.error.message}
+            </p>
+          )}
+
           <div className="flex justify-center gap-2">
             <Button variant="outline" size="sm" onClick={this.handleRetry}>
               <RefreshCw className="h-4 w-4" /> Reintentar

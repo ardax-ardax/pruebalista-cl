@@ -31,7 +31,9 @@ const SOURCES = [
   { value: "manual", label: "Manual" },
 ];
 
-function QuestionDetails({ question }: { question: Question }) {
+function QuestionDetails({ question }: { question: Question | null }) {
+  if (!question) return null;
+
   if (question.type === "multiple-choice" && question.options) {
     const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
     return (
@@ -323,7 +325,7 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
         ) : (
           <div className="space-y-2">
             {rows.map((row) => {
-              const qData = row.question_data as Question;
+              const qData = (row.question_data ?? null) as Question | null;
               const isExpanded = expandedIds.has(row.id);
               return (
                 <Card key={row.id} className="shadow-sm">
@@ -345,7 +347,7 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
                           )}
                         </div>
                         <p className="text-sm font-medium">
-                          {qData.prompt || row.title || row.prompt_preview || "(sin enunciado)"}
+                          {qData?.prompt || row.title || row.prompt_preview || "(sin enunciado)"}
                         </p>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {row.subject_value && <span>{subjects.find((s) => s.value === row.subject_value)?.label ?? row.subject_value}</span>}
