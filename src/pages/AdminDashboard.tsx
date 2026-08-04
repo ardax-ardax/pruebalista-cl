@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { usePlans } from "@/hooks/usePlans";
-import { supabase } from "@/integrations/supabase/client";
+import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
 import { loadGlobalSettings, updateGlobalSettings, type GlobalSettings } from "@/lib/global-settings";
 import { categoryLabel, listAllTickets, updateTicketStatus, type SupportTicketWithUser, type TicketStatus } from "@/lib/support-tickets";
 import { toast } from "sonner";
