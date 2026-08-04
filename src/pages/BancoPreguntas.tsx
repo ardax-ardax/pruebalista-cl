@@ -31,7 +31,9 @@ const SOURCES = [
   { value: "manual", label: "Manual" },
 ];
 
-function QuestionDetails({ question }: { question: Question }) {
+function QuestionDetails({ question }: { question: Question | null }) {
+  if (!question) return null;
+
   if (question.type === "multiple-choice" && question.options) {
     const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
     return (
