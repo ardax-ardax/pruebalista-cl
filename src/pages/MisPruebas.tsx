@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, FilePlus2, Library, Lock, Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
+import { deleteAssessment, listAssessmentsWithOwnerPaged, upsertAssessment, ASSESSMENTS_PAGE_SIZE, type AssessmentListFilters } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadSubjects } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
@@ -25,18 +25,47 @@ const DELETED_USER_LABEL = "Usuario eliminado";
 
 const ALL = "__all__";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = ASSESSMENTS_PAGE_SIZE;
+
+const FILTERS_KEY = "pruebalista.misPruebas.filters.v1";
+
+interface SavedFilters {
+  showAll: boolean;
+  teacherFilter: string;
+  subjectFilter: string;
+  statusFilter: string;
+}
+
+const loadSavedFilters = (): SavedFilters => {
+  try {
+    const raw = localStorage.getItem(FILTERS_KEY);
+    if (!raw) throw new Error("empty");
+    const p = JSON.parse(raw) as Partial<SavedFilters>;
+    return {
+      showAll: !!p.showAll,
+      teacherFilter: p.teacherFilter ?? ALL,
+      subjectFilter: p.subjectFilter ?? ALL,
+      statusFilter: p.statusFilter ?? ALL,
+    };
+  } catch {
+    return { showAll: false, teacherFilter: ALL, subjectFilter: ALL, statusFilter: ALL };
+  }
+};
 
 const MisPruebas = () => {
+  const saved = useState(loadSavedFilters)[0];
   const [items, setItems] = useState<Item[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subjects] = useState(() => loadSubjects());
   const { grades } = useAdminCourses();
-  const [showAll, setShowAll] = useState(false);
-  const [teacherFilter, setTeacherFilter] = useState<string>(ALL);
-  const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
-  const [statusFilter, setStatusFilter] = useState<string>(ALL);
-  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const [showAll, setShowAll] = useState(saved.showAll);
+  const [teacherFilter, setTeacherFilter] = useState<string>(saved.teacherFilter);
+  const [subjectFilter, setSubjectFilter] = useState<string>(saved.subjectFilter);
+  const [statusFilter, setStatusFilter] = useState<string>(saved.statusFilter);
   const navigate = useNavigate();
   const { user, isStaff, isUtpHead } = useAuth();
   const { maxAssessments } = useUserUsage();
@@ -55,12 +84,43 @@ const MisPruebas = () => {
       });
   }, [user?.id, isStaff]);
 
-  const refresh = async () => {
-    const all = await listAssessmentsWithOwner();
-    setItems(all);
+  const currentFilters = useMemo<AssessmentListFilters>(() => {
+    const f: AssessmentListFilters = {};
+    if (!isStaff || !showAll) {
+      f.userId = user?.id;
+    } else if (teacherFilter !== ALL) {
+      f.userId = teacherFilter === DELETED_USER ? null : teacherFilter;
+    }
+    if (isStaff && showAll && subjectFilter !== ALL) f.subjectValue = subjectFilter;
+    if (statusFilter !== ALL) f.status = statusFilter;
+    return f;
+  }, [isStaff, showAll, teacherFilter, subjectFilter, statusFilter, user?.id]);
+
+  const fetchPage = async (p: number, append: boolean) => {
+    const res = await listAssessmentsWithOwnerPaged(currentFilters, p, PAGE_SIZE);
+    setItems((prev) => (append ? [...prev, ...res.items] : res.items));
+    setTotal(res.total);
+    setHasMore(res.hasMore);
+    setPage(p);
   };
 
-  useEffect(() => { refresh(); }, []);
+  const refresh = async () => { await fetchPage(0, false); };
+
+  // Persistir filtros y recargar desde la primera página al cambiarlos.
+  useEffect(() => {
+    if (!user) return;
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({ showAll, teacherFilter, subjectFilter, statusFilter }));
+    } catch { /* ignore */ }
+    fetchPage(0, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, currentFilters]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    await fetchPage(page + 1, true);
+    setLoadingMore(false);
+  };
 
   useEffect(() => {
     if (!isStaff) { setProfiles([]); return; }
@@ -75,14 +135,10 @@ const MisPruebas = () => {
 
   const teacherOptions = useMemo(() => {
     if (!isStaff) return [];
-    const ids = Array.from(new Set(items.map((i) => i.userId ?? DELETED_USER)));
-    return ids
-      .map((id) => ({
-        id,
-        label: id === DELETED_USER ? DELETED_USER_LABEL : profileLabel(profileById.get(id), id),
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [items, profileById, isStaff]);
+    const opts = profiles.map((p) => ({ id: p.id, label: profileLabel(p, p.id) }));
+    opts.sort((a, b) => a.label.localeCompare(b.label));
+    return [...opts, { id: DELETED_USER, label: DELETED_USER_LABEL }];
+  }, [profiles, isStaff]);
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`¿Eliminar la prueba "${title || "Sin título"}"?`)) return;
@@ -119,11 +175,8 @@ const MisPruebas = () => {
 
   const subjectOptions = useMemo(() => {
     if (!isStaff) return [];
-    const values = Array.from(new Set(items.map((i) => i.assessment.meta.subjectValue).filter(Boolean)));
-    return values
-      .map((v) => ({ value: v, label: subjects.find((s) => s.value === v)?.label ?? v }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [items, subjects, isStaff]);
+    return [...subjects].sort((a, b) => a.label.localeCompare(b.label));
+  }, [subjects, isStaff]);
 
   // Compute which of the user's own assessments are "active" (not blocked by plan limit).
   // Blocked = beyond the last N (by updatedAt) when maxAssessments is set.
@@ -135,26 +188,9 @@ const MisPruebas = () => {
     return new Set(sorted.slice(maxAssessments).map((i) => i.assessment.id));
   }, [items, maxAssessments, isStaff, user?.id]);
 
-  const visible = (() => {
-    if (!isStaff || !showAll) {
-      let list = items.filter((i) => i.userId === user?.id);
-      if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
-      return list;
-    }
-    let list = items;
-    if (teacherFilter !== ALL) list = list.filter((i) => (i.userId ?? DELETED_USER) === teacherFilter);
-    if (subjectFilter !== ALL) list = list.filter((i) => i.assessment.meta.subjectValue === subjectFilter);
-    if (statusFilter !== ALL) list = list.filter((i) => i.assessment.status === statusFilter);
-    return list;
-  })();
+  const visible = items;
+  const paged = items;
 
-  // Reset paginación cuando cambian filtros para no quedar viendo "más" de un set viejo.
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [showAll, teacherFilter, subjectFilter, statusFilter]);
-
-  const paged = visible.slice(0, visibleCount);
-  const hasMore = visible.length > paged.length;
 
   return (
     <AppLayout>
@@ -305,13 +341,15 @@ const MisPruebas = () => {
           </div>
         )}
 
-        {hasMore && (
+        {items.length > 0 && (
           <div className="flex flex-col items-center gap-1 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
-              Cargar más ({visible.length - paged.length} restantes)
-            </Button>
+            {hasMore && (
+              <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Cargando…" : `Cargar más (${total - items.length} restantes)`}
+              </Button>
+            )}
             <span className="text-xs text-muted-foreground">
-              Mostrando {paged.length} de {visible.length}
+              Mostrando {items.length} de {total}
             </span>
           </div>
         )}

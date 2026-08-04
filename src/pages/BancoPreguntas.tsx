@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2, BarChart3, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { searchBank, deleteFromBank, hideFromBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
+import { searchBank, deleteFromBank, hideFromBank, getBankSummary, BANK_PAGE_SIZE, type QuestionBankRow, type BankFilters, type BankSummary } from "@/lib/question-bank";
 import { loadSubjects } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { QUESTION_TYPE_LABEL, type QuestionType, type Question } from "@/lib/assessment-schema";
@@ -92,17 +92,39 @@ function QuestionDetails({ question }: { question: Question }) {
   return null;
 }
 
+const FILTERS_KEY = "pruebalista.bancoPreguntas.filters.v1";
+
+function loadSavedFilters(): { filters: BankFilters; search: string } {
+  try {
+    const raw = localStorage.getItem(FILTERS_KEY);
+    if (!raw) return { filters: {}, search: "" };
+    const parsed = JSON.parse(raw) as BankFilters;
+    const { search, ...rest } = parsed ?? {};
+    return { filters: parsed ?? {}, search: search ?? "" };
+  } catch {
+    return { filters: {}, search: "" };
+  }
+}
+
 export default function BancoPreguntas() {
   const { isAdmin, isStaff, user } = useAuth();
   const subjects = loadSubjects();
   const { grades } = useAdminCourses();
 
+  const saved = useState(() => loadSavedFilters())[0];
+
   const [rows, setRows] = useState<QuestionBankRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filters, setFilters] = useState<BankFilters>({});
-  const [searchText, setSearchText] = useState("");
+  const [filters, setFilters] = useState<BankFilters>(saved.filters);
+  const [searchText, setSearchText] = useState(saved.search);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [summary, setSummary] = useState<BankSummary | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -113,17 +135,36 @@ export default function BancoPreguntas() {
     });
   };
 
+  const persist = (f: BankFilters) => {
+    try { localStorage.setItem(FILTERS_KEY, JSON.stringify(f)); } catch { /* ignore */ }
+  };
+
   const load = async (f: BankFilters = filters) => {
     setLoading(true);
-    const data = await searchBank(f);
-    setRows(data);
+    setPage(0);
+    const res = await searchBank(f, 0, BANK_PAGE_SIZE);
+    setRows(res.rows);
+    setTotal(res.total);
+    setHasMore(res.hasMore);
     setLoading(false);
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const res = await searchBank(filters, nextPage, BANK_PAGE_SIZE);
+    setRows((prev) => [...prev, ...res.rows]);
+    setTotal(res.total);
+    setHasMore(res.hasMore);
+    setPage(nextPage);
+    setLoadingMore(false);
   };
 
   useEffect(() => {
     load();
     if (isStaff) {
       listProfiles().then((r) => setProfiles(r.profiles));
+      getBankSummary().then(setSummary).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -133,6 +174,7 @@ export default function BancoPreguntas() {
     if (searchText.trim()) f.search = searchText.trim();
     else delete f.search;
     setFilters(f);
+    persist(f);
     load(f);
   };
 
@@ -141,8 +183,17 @@ export default function BancoPreguntas() {
     if (val === "__all__") delete next[key];
     else next[key] = val;
     setFilters(next);
+    persist(next);
     load(next);
   };
+
+  const clearFilters = () => {
+    setFilters({});
+    setSearchText("");
+    persist({});
+    load({});
+  };
+
 
   const handleDelete = async (id: string) => {
     if (isAdmin) {
@@ -180,8 +231,50 @@ export default function BancoPreguntas() {
         <div className="flex items-center gap-3">
           <Library className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Banco de Preguntas</h1>
-          <Badge variant="outline" className="ml-auto">{rows.length} preguntas</Badge>
+          <Badge variant="outline" className="ml-auto">{total} preguntas</Badge>
         </div>
+
+        {/* Resumen agrupado (admin/staff) */}
+        {isStaff && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Resumen del banco</span>
+                <Badge variant="secondary" className="text-[10px]">{summary?.total ?? 0} en total</Badge>
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setShowSummary((v) => !v)}>
+                  {showSummary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {showSummary ? "Ocultar" : "Ver detalle"}
+                </Button>
+              </div>
+              {showSummary && (
+                <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                  <SummaryGroup
+                    title="Por asignatura"
+                    items={(summary?.bySubject ?? []).map((s) => ({
+                      label: subjects.find((x) => x.value === s.key)?.label ?? s.key,
+                      count: s.count,
+                    }))}
+                  />
+                  <SummaryGroup
+                    title="Por curso"
+                    items={(summary?.byGrade ?? []).map((g) => ({
+                      label: grades.find((x) => x.value === g.key)?.label ?? g.key,
+                      count: g.count,
+                    }))}
+                  />
+                  <SummaryGroup
+                    title="Por origen"
+                    items={(summary?.bySource ?? []).map((s) => ({
+                      label: s.key === "ai" ? "IA" : s.key === "manual" ? "Manual" : s.key,
+                      count: s.count,
+                    }))}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filtros */}
         <Card>
@@ -210,6 +303,9 @@ export default function BancoPreguntas() {
             <FilterSelect label="Origen" value={filters.source} onChange={(v) => setFilter("source", v)}
               options={SOURCES} />
             <Button size="sm" onClick={applyFilters}>Buscar</Button>
+            <Button size="sm" variant="ghost" onClick={clearFilters}>
+              <X className="h-4 w-4" /> Limpiar
+            </Button>
           </CardContent>
         </Card>
 
@@ -281,6 +377,19 @@ export default function BancoPreguntas() {
             })}
           </div>
         )}
+
+        {!loading && rows.length > 0 && (
+          <div className="flex flex-col items-center gap-1 pt-2">
+            {hasMore && (
+              <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Cargando…" : `Cargar más (${total - rows.length} restantes)`}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              Mostrando {rows.length} de {total}
+            </span>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
@@ -306,6 +415,26 @@ function FilterSelect({ label, value, onChange, options }: {
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+function SummaryGroup({ title, items }: { title: string; items: { label: string; count: number }[] }) {
+  return (
+    <div className="rounded-md border p-3">
+      <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Sin datos</p>
+      ) : (
+        <ul className="space-y-1">
+          {items.slice(0, 8).map((it) => (
+            <li key={it.label} className="flex items-center justify-between gap-2 text-xs">
+              <span className="truncate">{it.label}</span>
+              <Badge variant="secondary" className="text-[10px] shrink-0">{it.count}</Badge>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
