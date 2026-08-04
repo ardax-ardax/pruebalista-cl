@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, FilePlus2, Library, Lock, Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { deleteAssessment, listAssessmentsWithOwner, upsertAssessment } from "@/lib/assessment-storage";
+import { deleteAssessment, listAssessmentsWithOwnerPaged, upsertAssessment, ASSESSMENTS_PAGE_SIZE, type AssessmentListFilters } from "@/lib/assessment-storage";
 import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
 import { loadSubjects } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
