@@ -169,6 +169,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} dataTour="crear-btn" />}
             {!isAdminOnly && <NavItem to="/banco-preguntas" label="Banco" icon={Library} />}
             {!isAdminOnly && <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />}
+            {!isAdminOnly && <NavItem to="/corregir" label="Corregir" icon={ScanLine} />}
             
             {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} dataTour="configuracion" />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}

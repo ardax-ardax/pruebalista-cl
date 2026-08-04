@@ -24,6 +24,7 @@ import NotFound from "./pages/NotFound.tsx";
 // Lazy-load para módulos pesados (editor, PDF, dashboards, banco).
 const CrearPrueba = lazy(() => import("./pages/CrearPrueba.tsx"));
 const MisPruebas = lazy(() => import("./pages/MisPruebas.tsx"));
+const CorregirPruebas = lazy(() => import("./pages/CorregirPruebas.tsx"));
 const Configuracion = lazy(() => import("./pages/Configuracion.tsx"));
 
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/dashboard" element={<AuthGuard><DashboardDocente /></AuthGuard>} />
               <Route path="/crear-prueba" element={<AuthGuard><CrearPrueba /></AuthGuard>} />
               <Route path="/pruebas" element={<AuthGuard><MisPruebas /></AuthGuard>} />
+              <Route path="/corregir" element={<AuthGuard><CorregirPruebas /></AuthGuard>} />
               
               <Route path="/configuracion" element={<AuthGuard><AdminGuard><Configuracion /></AdminGuard></AuthGuard>} />
               <Route path="/admin/dashboard" element={<AuthGuard><AdminGuard><AdminDashboard /></AdminGuard></AuthGuard>} />
