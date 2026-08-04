@@ -80,28 +80,103 @@ export async function saveQuestionsToBank(
   if (error) console.warn("saveQuestionsToBank", error.message);
 }
 
-export async function searchBank(filters: BankFilters = {}): Promise<QuestionBankRow[]> {
+export const BANK_PAGE_SIZE = 50;
+
+export interface PagedResult<T> {
+  rows: T[];
+  total: number;
+  hasMore: boolean;
+}
+
+function applyBankFilters<T>(query: T, filters: BankFilters): T {
+  let q = query as never as ReturnType<typeof supabase.from>["select"] extends never ? never : any;
+  q = query;
+  if (filters.question_type) q = q.eq("question_type", filters.question_type);
+  if (filters.subject_value) q = q.eq("subject_value", filters.subject_value);
+  if (filters.grade_value) q = q.eq("grade_value", filters.grade_value);
+  if (filters.oa_code) q = q.eq("oa_code", filters.oa_code);
+  if (filters.difficulty) q = q.eq("difficulty", filters.difficulty);
+  if (filters.source) q = q.eq("source", filters.source);
+  if (filters.search) q = q.ilike("prompt_preview", `%${filters.search}%`);
+  return q as T;
+}
+
+/**
+ * Búsqueda paginada real en el banco (usa range + count exacto).
+ */
+export async function searchBank(
+  filters: BankFilters = {},
+  page = 0,
+  pageSize = BANK_PAGE_SIZE,
+): Promise<PagedResult<QuestionBankRow>> {
+  const from = page * pageSize;
   let query = supabase
     .from("question_bank")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(from, from + pageSize - 1);
 
-  if (filters.question_type) query = query.eq("question_type", filters.question_type);
-  if (filters.subject_value) query = query.eq("subject_value", filters.subject_value);
-  if (filters.grade_value) query = query.eq("grade_value", filters.grade_value);
-  if (filters.oa_code) query = query.eq("oa_code", filters.oa_code);
-  if (filters.difficulty) query = query.eq("difficulty", filters.difficulty);
-  if (filters.source) query = query.eq("source", filters.source);
-  if (filters.search) query = query.ilike("prompt_preview", `%${filters.search}%`);
+  query = applyBankFilters(query, filters);
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error("searchBank", error);
-    return [];
+    return { rows: [], total: 0, hasMore: false };
   }
-  return (data ?? []) as unknown as QuestionBankRow[];
+  const rows = (data ?? []) as unknown as QuestionBankRow[];
+  const total = count ?? rows.length;
+  return { rows, total, hasMore: from + rows.length < total };
 }
+
+export interface BankSummary {
+  total: number;
+  bySubject: { key: string; count: number }[];
+  byGrade: { key: string; count: number }[];
+  bySource: { key: string; count: number }[];
+}
+
+/**
+ * Conteos agrupados del banco (asignatura, nivel, origen). Solo para admin/staff.
+ * Se calcula con queries de count por grupo (head: true, sin traer filas).
+ */
+export async function getBankSummary(): Promise<BankSummary> {
+  const countFor = async (col: "subject_value" | "grade_value" | "source", value: string | null) => {
+    let q = supabase.from("question_bank").select("id", { count: "exact", head: true });
+    q = value === null ? q.is(col, null) : q.eq(col, value);
+    const { count } = await q;
+    return count ?? 0;
+  };
+
+  // Obtener los valores distintos presentes (una sola lectura liviana de columnas).
+  const { data, count } = await supabase
+    .from("question_bank")
+    .select("subject_value, grade_value, source", { count: "exact" })
+    .limit(5000);
+
+  const rows = (data ?? []) as { subject_value: string | null; grade_value: string | null; source: string | null }[];
+  const distinct = (col: keyof typeof rows[number]) =>
+    Array.from(new Set(rows.map((r) => r[col] ?? "__null__")));
+
+  const build = async (col: "subject_value" | "grade_value" | "source") => {
+    const keys = distinct(col);
+    const out = await Promise.all(
+      keys.map(async (k) => ({
+        key: k === "__null__" ? "Sin definir" : k,
+        count: await countFor(col, k === "__null__" ? null : k),
+      })),
+    );
+    return out.sort((a, b) => b.count - a.count);
+  };
+
+  const [bySubject, byGrade, bySource] = await Promise.all([
+    build("subject_value"),
+    build("grade_value"),
+    build("source"),
+  ]);
+
+  return { total: count ?? rows.length, bySubject, byGrade, bySource };
+}
+
 
 export async function deleteFromBank(id: string): Promise<boolean> {
   const { error } = await supabase.from("question_bank").delete().eq("id", id);
