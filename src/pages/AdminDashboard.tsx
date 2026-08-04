@@ -108,7 +108,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="settings">
-          <TabsList>
+          <TabsList className="flex h-auto flex-wrap justify-start gap-1">
             <TabsTrigger value="settings" className="gap-2"><Settings2 className="h-4 w-4" /> Ajustes</TabsTrigger>
             <TabsTrigger value="plans" className="gap-2"><Package className="h-4 w-4" /> Planes</TabsTrigger>
             <TabsTrigger value="subjects" className="gap-2"><BookOpen className="h-4 w-4" /> Asignaturas</TabsTrigger>
