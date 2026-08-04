@@ -247,12 +247,34 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               const isPaid = plan !== defaultPlan;
               const draft = creditDraft[p.id];
               const disabled = busyId === p.id;
+              const info = authInfo.get(p.id);
+              const cc = contentCounts.get(p.id);
               return (
                 <tr key={p.id} className="border-t border-border align-top">
                   <td className="px-3 py-1.5">
                     <div className="font-medium truncate max-w-[180px]">{profileLabel(p, p.id)}</div>
                     <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{p.email}</div>
                   </td>
+                  {isAdmin && (
+                    <td className="px-3 py-1.5">
+                      <span className="text-xs truncate block max-w-[170px]">
+                        {info?.fullName ?? p.displayName ?? "—"}
+                      </span>
+                    </td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">{fmtDate(info?.createdAt ?? null)}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">{fmtDateTime(info?.lastSignInAt ?? null)}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs tabular-nums">{cc?.assessments ?? 0}</td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-3 py-1.5 text-xs tabular-nums">{cc?.questions ?? 0}</td>
+                  )}
+
                   <td className="px-3 py-1.5">
                     <Select value={plan} onValueChange={(v) => handlePlanChange(p.id, v)} disabled={disabled}>
                       <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
