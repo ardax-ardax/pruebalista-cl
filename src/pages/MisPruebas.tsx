@@ -160,7 +160,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
         status: "borrador",
         utpFeedback: null,
         updatedAt: Date.now(),
-        meta: { ...a.meta, title: `Copia de ${meta.title || "Sin título"}` },
+        meta: { ...a.meta, title: `Copia de ${a.meta?.title || "Sin título"}` },
       };
       await upsertAssessment(copy);
       toast.success("Prueba duplicada");
