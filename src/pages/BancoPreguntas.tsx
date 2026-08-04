@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppLayout } from "@/components/AppLayout";
+import { PageShell } from "@/components/PageShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +106,7 @@ function loadSavedFilters(): { filters: BankFilters; search: string } {
   }
 }
 
-export default function BancoPreguntas() {
+export default function BancoPreguntas({ embedded = false }: { embedded?: boolean }) {
   const { isAdmin, isStaff, user } = useAuth();
   const subjects = loadSubjects();
   const { grades } = useAdminCourses();
@@ -226,7 +226,7 @@ export default function BancoPreguntas() {
     isAdmin || row.user_id === user?.id;
 
   return (
-    <AppLayout>
+    <PageShell embedded={embedded}>
       <div className="space-y-6 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <Library className="h-6 w-6 text-primary" />
@@ -391,7 +391,7 @@ export default function BancoPreguntas() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </PageShell>
   );
 }
 
