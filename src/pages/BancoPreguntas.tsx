@@ -303,6 +303,9 @@ export default function BancoPreguntas() {
             <FilterSelect label="Origen" value={filters.source} onChange={(v) => setFilter("source", v)}
               options={SOURCES} />
             <Button size="sm" onClick={applyFilters}>Buscar</Button>
+            <Button size="sm" variant="ghost" onClick={clearFilters}>
+              <X className="h-4 w-4" /> Limpiar
+            </Button>
           </CardContent>
         </Card>
 
