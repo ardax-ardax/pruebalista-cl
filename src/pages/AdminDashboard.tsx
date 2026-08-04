@@ -227,13 +227,18 @@ export default function AdminDashboard() {
 
           {/* ──── Banco de Preguntas Tab ──── */}
           <TabsContent value="bank" className="space-y-4">
-            <BancoPreguntas embedded />
+            <ErrorBoundary fallbackTitle="No pudimos cargar el banco de preguntas">
+              <BancoPreguntas embedded />
+            </ErrorBoundary>
           </TabsContent>
 
           {/* ──── Todas las Pruebas Tab ──── */}
           <TabsContent value="assessments" className="space-y-4">
-            <MisPruebas embedded />
+            <ErrorBoundary fallbackTitle="No pudimos cargar las pruebas">
+              <MisPruebas embedded />
+            </ErrorBoundary>
           </TabsContent>
+
 
 
 
