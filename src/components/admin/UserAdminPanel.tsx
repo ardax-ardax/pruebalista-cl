@@ -170,6 +170,59 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
     await reloadUsage();
   };
 
+  // Recarga: suma la cantidad indicada al saldo actual del usuario.
+  const handleRecharge = async () => {
+    if (!rechargeUser) return;
+    const current = usage.get(rechargeUser.id)?.creditsAvailable ?? 0;
+    setRecharging(true);
+    const res = await setUserCredits(rechargeUser.id, current + rechargeAmount);
+    setRecharging(false);
+    if (!res.ok) {
+      toast.error("No se pudo recargar: " + res.error);
+      return;
+    }
+    toast.success(`+${rechargeAmount} créditos para ${rechargeUser.email ?? profileLabel(rechargeUser, rechargeUser.id)}`);
+    setRechargeUser(null);
+    await reloadUsage();
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((prev) =>
+      prev.size === profiles.length ? new Set() : new Set(profiles.map((p) => p.id)),
+    );
+
+  // Asignación masiva de plan (misma regla que el cambio individual).
+  const handleBulkPlanAssign = async () => {
+    if (selected.size === 0 || !bulkPlan) return;
+    setBulkLoading(true);
+    let expires: string | null = null;
+    if (bulkPlan !== defaultPlan) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      expires = d.toISOString();
+    }
+    const ids = Array.from(selected);
+    const results = await Promise.all(ids.map((id) => setUserPlan(id, bulkPlan, expires)));
+    setBulkLoading(false);
+    const failed = results.filter((r) => !r.ok).length;
+    if (failed > 0) toast.error(`${failed} usuario(s) no se pudieron actualizar`);
+    if (failed < ids.length) {
+      const label = plans.find((p) => p.id === bulkPlan)?.label ?? bulkPlan;
+      toast.success(`${ids.length - failed} usuario(s) asignados a ${label}`);
+    }
+    setSelected(new Set());
+    await reloadUsage();
+  };
+
+
+
   const applyColegio = async (userId: string, colegioId: string | null) => {
     setBusyId(userId);
     const res = await setUserColegio(userId, colegioId);
