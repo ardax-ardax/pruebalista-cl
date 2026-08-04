@@ -329,7 +329,9 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               <AlertTriangle className="h-4 w-4 text-destructive" /> Eliminar usuario
             </DialogTitle>
             <DialogDescription>
-              Esta acción es irreversible. Se eliminará la cuenta y todo su contenido asociado.
+              Esta acción es irreversible. Se elimina al usuario y su acceso a la plataforma.
+              Sus pruebas y preguntas <strong>se conservarán</strong> en la base general, visibles
+              para el administrador como “Usuario eliminado”.
             </DialogDescription>
           </DialogHeader>
 
@@ -337,9 +339,9 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs space-y-1">
               {counts ? (
                 <>
-                  <div>Pruebas / evaluaciones creadas: <strong>{counts.assessments}</strong></div>
-                  <div>Preguntas en banco: <strong>{counts.questions}</strong></div>
-                  <div>Asignaciones curso/asignatura: <strong>{counts.assignments}</strong></div>
+                  <div>Pruebas / evaluaciones creadas: <strong>{counts.assessments}</strong> (se conservan)</div>
+                  <div>Preguntas en banco: <strong>{counts.questions}</strong> (se conservan)</div>
+                  <div>Asignaciones curso/asignatura: <strong>{counts.assignments}</strong> (se eliminan)</div>
                   <div>Tickets de soporte: <strong>{counts.tickets}</strong></div>
                 </>
               ) : (
