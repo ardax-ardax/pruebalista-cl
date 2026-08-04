@@ -89,7 +89,8 @@ export const syncProfilesFromAuth = async (): Promise<{ ok: boolean; total?: num
   return { ok: true, total: data?.total, synced: data?.synced };
 };
 
-export const profileLabel = (p: Profile | undefined, fallbackId: string): string => {
-  if (!p) return fallbackId.slice(0, 8);
-  return p.displayName || p.email || fallbackId.slice(0, 8);
+export const profileLabel = (p: Profile | undefined, fallbackId: string | null | undefined): string => {
+  const shortId = fallbackId?.slice(0, 8) ?? "Usuario eliminado";
+  if (!p) return shortId;
+  return p.displayName || p.email || shortId;
 };
