@@ -450,6 +450,15 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                     </Select>
                   </td>
                   <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="Recargar créditos"
+                      onClick={() => { setRechargeUser(p); setRechargeAmount(20); }}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                     {isAdmin && (
                       <Button
                         size="icon"
@@ -461,6 +470,7 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                         <History className="h-4 w-4" />
                       </Button>
                     )}
+
                     <Button
                       size="icon"
                       variant="ghost"
