@@ -178,6 +178,8 @@ Deno.serve(async (req) => {
 
     // --- Verificar créditos con service role ---
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    // Persistir downgrade si el plan pagado ya venció (fuente de verdad en DB)
+    await adminClient.rpc("sync_expired_plan", { _user_id: user.id });
     const { data: usageRow } = await adminClient
       .from("user_usage")
       .select("credits_available, plan_type, plan_expires_at, monthly_quota")

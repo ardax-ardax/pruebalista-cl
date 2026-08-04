@@ -76,6 +76,8 @@ export function UserUsageProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (!user) return;
+    // Persist any expired plan downgrade server-side before reading
+    await supabase.rpc("sync_expired_plan", { _user_id: user.id });
     const { data } = await supabase
       .from("user_usage")
       .select("credits_available, plan_type, last_reset, plan_expires_at, monthly_quota")
