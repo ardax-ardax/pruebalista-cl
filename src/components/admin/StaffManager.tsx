@@ -323,6 +323,11 @@ export const StaffManager = () => {
           </div>
         </section>
 
+        {/* Planes, créditos, colegio y eliminación */}
+        <UserAdminPanel profiles={profiles} rolesByUser={rolesByUser} onChanged={refresh} />
+
+
+
         {/* Asignaciones */}
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">Asignaciones docente · curso · asignatura</h3>
