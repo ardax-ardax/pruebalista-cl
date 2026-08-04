@@ -338,7 +338,18 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="px-3 py-1.5 text-right">
+                  <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    {isAdmin && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        title="Ver historial"
+                        onClick={() => openHistory(p)}
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
@@ -349,6 +360,7 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </td>
+
                 </tr>
               );
             })}
