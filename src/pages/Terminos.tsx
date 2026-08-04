@@ -80,7 +80,7 @@ export default function Terminos() {
           <h2 className="text-xl font-semibold">6. Eliminación de cuenta</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             El usuario puede solicitar la eliminación de su cuenta escribiendo a{" "}
-            <a href="mailto:soporte@cnlc.cl" className="text-primary underline">soporte@cnlc.cl</a>. Al
+            <a href="mailto:contacto@pruebalista.cl" className="text-primary underline">contacto@pruebalista.cl</a>. Al
             eliminar una cuenta se eliminan sus datos de identificación, mientras que las evaluaciones y
             preguntas del banco se conservan de forma anonimizada, sin vínculo con el usuario eliminado,
             para preservar la continuidad del trabajo institucional y del contenido compartido.

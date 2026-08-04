@@ -27,7 +27,7 @@ export default function Privacidad() {
             El responsable del tratamiento de los datos personales es <strong>Michel Castillo</strong>,
             persona natural con inicio de actividades en Chile, quien opera la plataforma PruebaLista.
             Para cualquier consulta relacionada con privacidad o datos personales, el canal de contacto es{" "}
-            <a href="mailto:soporte@cnlc.cl" className="text-primary underline">soporte@cnlc.cl</a>.
+            <a href="mailto:contacto@pruebalista.cl" className="text-primary underline">contacto@pruebalista.cl</a>.
           </p>
         </section>
 
@@ -74,7 +74,7 @@ export default function Privacidad() {
           <h2 className="text-xl font-semibold">5. Derechos ARCO</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición escribiendo a{" "}
-            <a href="mailto:soporte@cnlc.cl" className="text-primary underline">soporte@cnlc.cl</a>{" "}
+            <a href="mailto:contacto@pruebalista.cl" className="text-primary underline">contacto@pruebalista.cl</a>{" "}
             desde el correo asociado a tu cuenta. En el caso de datos de estudiantes, las solicitudes se
             canalizan a través del colegio responsable de su carga.
           </p>
