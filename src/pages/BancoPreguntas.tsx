@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2, BarChart3, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { searchBank, deleteFromBank, hideFromBank, getBankSummary, BANK_PAGE_SIZE, type QuestionBankRow, type BankFilters, type BankSummary } from "@/lib/question-bank";
