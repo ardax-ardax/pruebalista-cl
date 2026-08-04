@@ -337,7 +337,7 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               <th className="text-left font-medium px-3 py-2 w-[150px]">Vence</th>
               <th className="text-left font-medium px-3 py-2 w-[150px]">Créditos IA</th>
               <th className="text-left font-medium px-3 py-2 w-[180px]">Colegio</th>
-              <th className="px-3 py-2 w-[88px]" />
+              <th className="px-3 py-2 w-[124px]" />
             </tr>
 
           </thead>
@@ -352,7 +352,17 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               const cc = contentCounts.get(p.id);
               return (
                 <tr key={p.id} className="border-t border-border align-top">
+                  {isAdmin && (
+                    <td className="px-3 py-1.5">
+                      <Checkbox
+                        checked={selected.has(p.id)}
+                        onCheckedChange={() => toggleSelect(p.id)}
+                        aria-label={`Seleccionar ${p.email ?? p.id}`}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-1.5">
+
                     <div className="font-medium truncate max-w-[180px]">{profileLabel(p, p.id)}</div>
                     <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{p.email}</div>
                   </td>
