@@ -374,6 +374,19 @@ export default function BancoPreguntas() {
             })}
           </div>
         )}
+
+        {!loading && rows.length > 0 && (
+          <div className="flex flex-col items-center gap-1 pt-2">
+            {hasMore && (
+              <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Cargando…" : `Cargar más (${total - rows.length} restantes)`}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              Mostrando {rows.length} de {total}
+            </span>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
