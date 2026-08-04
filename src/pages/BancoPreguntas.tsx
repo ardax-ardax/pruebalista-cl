@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Search, Library, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { searchBank, deleteFromBank, hideFromBank, type QuestionBankRow, type BankFilters } from "@/lib/question-bank";
+import { searchBank, deleteFromBank, hideFromBank, getBankSummary, BANK_PAGE_SIZE, type QuestionBankRow, type BankFilters, type BankSummary } from "@/lib/question-bank";
 import { loadSubjects } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
 import { QUESTION_TYPE_LABEL, type QuestionType, type Question } from "@/lib/assessment-schema";
