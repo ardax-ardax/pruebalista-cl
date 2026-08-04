@@ -60,6 +60,16 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
   const [confirmEmail, setConfirmEmail] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  // Recarga de créditos (suma al saldo actual)
+  const [rechargeUser, setRechargeUser] = useState<Profile | null>(null);
+  const [rechargeAmount, setRechargeAmount] = useState(20);
+  const [recharging, setRecharging] = useState(false);
+
+  // Asignación masiva de plan
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkPlan, setBulkPlan] = useState<string>("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   const defaultPlan = useMemo(
     () => plans.find((p) => p.is_default)?.id ?? "free",
     [plans],
