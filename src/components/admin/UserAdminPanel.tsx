@@ -489,9 +489,41 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
         </table>
       </div>
 
+      {/* Recarga de créditos */}
+      <Dialog open={!!rechargeUser} onOpenChange={(o) => !o && setRechargeUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coins className="h-4 w-4" /> Recargar créditos IA
+            </DialogTitle>
+            <DialogDescription>
+              {rechargeUser?.email} — Saldo actual: {usage.get(rechargeUser?.id ?? "")?.creditsAvailable ?? 0}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label className="text-xs">Cantidad a agregar</Label>
+            <Input
+              type="number"
+              min={1}
+              value={rechargeAmount}
+              onChange={(e) => setRechargeAmount(Number(e.target.value))}
+              className="h-9"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRechargeUser(null)}>Cancelar</Button>
+            <Button onClick={handleRecharge} disabled={recharging || rechargeAmount < 1} className="gap-2">
+              {recharging && <Loader2 className="h-4 w-4 animate-spin" />}
+              Recargar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Historial de actividad (solo admin) */}
       <Dialog open={!!historyUser} onOpenChange={(o) => !o && setHistoryUser(null)}>
         <DialogContent className="max-w-lg">
+
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-4 w-4" /> Historial de {historyUser ? profileLabel(historyUser, historyUser.id) : ""}
