@@ -12,7 +12,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Coins, History, Save, Settings2, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle, Coins, History, Loader2, PlusCircle, Save, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePlans } from "@/hooks/usePlans";
 import { useAuth } from "@/hooks/useAuth";
