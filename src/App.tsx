@@ -31,6 +31,8 @@ const Perfil = lazy(() => import("./pages/Perfil.tsx"));
 const BancoPreguntas = lazy(() => import("./pages/BancoPreguntas.tsx"));
 const DocenteDashboardInstitucional = lazy(() => import("./pages/DocenteDashboardInstitucional.tsx"));
 const Precios = lazy(() => import("./pages/Precios.tsx"));
+const Privacidad = lazy(() => import("./pages/Privacidad.tsx"));
+const Terminos = lazy(() => import("./pages/Terminos.tsx"));
 
 const queryClient = new QueryClient();
 
