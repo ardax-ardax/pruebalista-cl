@@ -266,7 +266,9 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
         ) : (
           <div className="grid gap-3">
             {paged.map(({ assessment: a, userId }) => {
-              const counted = a.questions.filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
+              const meta = a.meta ?? ({} as typeof a.meta);
+              const counted = (a.questions ?? []).filter((q) => q.type !== "section-title" && q.type !== "info-block").length;
+
               const isOwn = userId === user?.id;
               const isBlocked = blockedAssessmentIds.has(a.id);
               const authorLabel = isStaff && !isOwn
