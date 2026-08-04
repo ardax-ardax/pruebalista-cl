@@ -225,6 +225,18 @@ export default function AdminDashboard() {
             <CurriculumBulkImporter />
           </TabsContent>
 
+          {/* ──── Banco de Preguntas Tab ──── */}
+          <TabsContent value="bank" className="space-y-4">
+            <BancoPreguntas embedded />
+          </TabsContent>
+
+          {/* ──── Todas las Pruebas Tab ──── */}
+          <TabsContent value="assessments" className="space-y-4">
+            <MisPruebas embedded />
+          </TabsContent>
+
+
+
           {/* ──── Support Tab ──── */}
           <TabsContent value="support" className="space-y-4">
             <Card>
