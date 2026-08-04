@@ -88,9 +88,9 @@ export interface PagedResult<T> {
   hasMore: boolean;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function applyBankFilters<T>(query: T, filters: BankFilters): T {
-  let q = query as never as ReturnType<typeof supabase.from>["select"] extends never ? never : any;
-  q = query;
+  let q: any = query;
   if (filters.question_type) q = q.eq("question_type", filters.question_type);
   if (filters.subject_value) q = q.eq("subject_value", filters.subject_value);
   if (filters.grade_value) q = q.eq("grade_value", filters.grade_value);
