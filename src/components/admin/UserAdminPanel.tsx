@@ -227,12 +227,18 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
           <thead className="sticky top-0 bg-muted/60 backdrop-blur text-xs text-muted-foreground">
             <tr>
               <th className="text-left font-medium px-3 py-2">Usuario</th>
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[170px]">Nombre completo</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[110px]">Registro</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[140px]">Último acceso</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[90px]">Pruebas</th>}
+              {isAdmin && <th className="text-left font-medium px-3 py-2 w-[90px]">Preguntas</th>}
               <th className="text-left font-medium px-3 py-2 w-[150px]">Plan</th>
               <th className="text-left font-medium px-3 py-2 w-[150px]">Vence</th>
               <th className="text-left font-medium px-3 py-2 w-[150px]">Créditos IA</th>
               <th className="text-left font-medium px-3 py-2 w-[180px]">Colegio</th>
-              <th className="px-3 py-2 w-[48px]" />
+              <th className="px-3 py-2 w-[88px]" />
             </tr>
+
           </thead>
           <tbody>
             {profiles.map((p) => {
