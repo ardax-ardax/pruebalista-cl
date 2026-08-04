@@ -9,7 +9,7 @@ import { Copy, FilePlus2, Library, Lock, Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { deleteAssessment, listAssessmentsWithOwnerPaged, upsertAssessment, ASSESSMENTS_PAGE_SIZE, type AssessmentListFilters } from "@/lib/assessment-storage";
-import { listProfiles, profileLabel, getMyProfile, type Profile } from "@/lib/profiles";
+import { listProfiles, profileLabel, type Profile } from "@/lib/profiles";
 import { loadSubjects } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
 import type { Assessment, AssessmentStatus } from "@/lib/assessment-schema";
@@ -62,7 +62,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [subjects] = useState(() => loadSubjects());
   const { grades } = useAdminCourses();
-  const [showAll, setShowAll] = useState(embedded ? true : saved.showAll);
+  const [showAll, setShowAll] = useState(embedded || saved.showAll);
   const [teacherFilter, setTeacherFilter] = useState<string>(saved.teacherFilter);
   const [subjectFilter, setSubjectFilter] = useState<string>(saved.subjectFilter);
   const [statusFilter, setStatusFilter] = useState<string>(saved.statusFilter);
@@ -74,19 +74,27 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
   // Check if user is autonomous (no colegio_id)
   useEffect(() => {
     if (!user || isStaff) { setIsAutonomous(!isStaff); return; }
-    supabase
-      .from("profiles")
-      .select("colegio_id")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
-      });
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("colegio_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!cancelled) {
+          setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
+        }
+      } catch {
+        if (!cancelled) setIsAutonomous(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [user?.id, isStaff]);
 
   const currentFilters = useMemo<AssessmentListFilters>(() => {
     const f: AssessmentListFilters = {};
-    if (!isStaff || !showAll) {
+    if (!isStaff || (!embedded && !showAll)) {
       f.userId = user?.id;
     } else if (teacherFilter !== ALL) {
       f.userId = teacherFilter === DELETED_USER ? null : teacherFilter;
@@ -94,7 +102,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
     if (isStaff && showAll && subjectFilter !== ALL) f.subjectValue = subjectFilter;
     if (statusFilter !== ALL) f.status = statusFilter;
     return f;
-  }, [isStaff, showAll, teacherFilter, subjectFilter, statusFilter, user?.id]);
+  }, [embedded, isStaff, showAll, teacherFilter, subjectFilter, statusFilter, user?.id]);
 
   const fetchPage = async (p: number, append: boolean) => {
     const res = await listAssessmentsWithOwnerPaged(currentFilters, p, PAGE_SIZE);
@@ -205,7 +213,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isStaff && (
+            {isStaff && !embedded && (
               <Button variant="outline" size="sm" onClick={() => { setShowAll((v) => !v); setTeacherFilter(ALL); setSubjectFilter(ALL); setStatusFilter(ALL); }}>
                 {showAll ? "Ver solo mías" : "Ver todas"}
               </Button>
