@@ -297,7 +297,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
                             <TooltipContent>Excede el límite de tu plan. Solo lectura.</TooltipContent>
                           </Tooltip>
                         )}
-                        {a.meta.title || "Sin título"}
+                        {meta.title || "Sin título"}
                         {(!isAutonomous || isStaff) && (
                           <Badge className={`text-[10px] px-1.5 py-0 font-medium ${statusBadge.cls}`}>{statusBadge.label}</Badge>
                         )}
