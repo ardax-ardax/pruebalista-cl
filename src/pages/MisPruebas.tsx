@@ -75,19 +75,20 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
   useEffect(() => {
     if (!user || isStaff) { setIsAutonomous(!isStaff); return; }
     let cancelled = false;
-    supabase
-      .from("profiles")
-      .select("colegio_id")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("colegio_id")
+          .eq("id", user.id)
+          .maybeSingle();
         if (!cancelled) {
           setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setIsAutonomous(true);
-      });
+      }
+    })();
     return () => { cancelled = true; };
   }, [user?.id, isStaff]);
 
