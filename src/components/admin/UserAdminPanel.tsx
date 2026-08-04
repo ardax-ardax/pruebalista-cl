@@ -368,7 +368,48 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
         </table>
       </div>
 
+      {/* Historial de actividad (solo admin) */}
+      <Dialog open={!!historyUser} onOpenChange={(o) => !o && setHistoryUser(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-4 w-4" /> Historial de {historyUser ? profileLabel(historyUser, historyUser.id) : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Últimas pruebas creadas por este usuario, de la más reciente a la más antigua.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[360px] overflow-auto rounded-md border border-border divide-y divide-border">
+            {history === null ? (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">Cargando historial…</div>
+            ) : history.length === 0 ? (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Este usuario aún no ha creado pruebas.
+              </div>
+            ) : (
+              history.map((h) => (
+                <div key={h.id} className="px-3 py-2 text-xs space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium truncate">{h.title || "Sin título"}</span>
+                    <Badge variant="secondary" className="text-[10px] shrink-0">{h.status}</Badge>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {fmtDateTime(h.createdAt)}
+                    {(h.gradeLabel || h.subjectLabel) && " · "}
+                    {[h.gradeLabel, h.subjectLabel].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryUser(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Advertencia al desasociar un Jefe UTP */}
+
       <Dialog open={!!utpWarn} onOpenChange={(o) => !o && setUtpWarn(null)}>
         <DialogContent>
           <DialogHeader>
