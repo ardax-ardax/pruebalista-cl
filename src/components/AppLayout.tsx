@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Menu, Settings, Shield, Sparkles, User } from "lucide-react";
+import { Building2, ExternalLink, FilePlus2, FileText, HelpCircle, Home, Library, LogOut, Menu, ScanLine, Settings, Shield, Sparkles, User } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 import { cn } from "@/lib/utils";
@@ -128,6 +128,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <DropdownMenuItem onClick={() => navigate("/pruebas")} className="gap-2">
                       <FileText className="h-4 w-4" /> Mis pruebas
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/corregir")} className="gap-2">
+                      <ScanLine className="h-4 w-4" /> Corregir por foto
+                    </DropdownMenuItem>
                   </>
                 )}
                 {isStaff && (
@@ -169,6 +172,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             {!isAdminOnly && <NavItem to="/crear-prueba" label="Crear prueba" icon={FilePlus2} dataTour="crear-btn" />}
             {!isAdminOnly && <NavItem to="/banco-preguntas" label="Banco" icon={Library} />}
             {!isAdminOnly && <NavItem to="/pruebas" label="Mis pruebas" icon={Library} />}
+            {!isAdminOnly && <NavItem to="/corregir" label="Corregir" icon={ScanLine} />}
             
             {isStaff && <NavItem to="/configuracion" label="Configuración" icon={Settings} dataTour="configuracion" />}
             {isAdmin && <NavItem to="/admin/dashboard" label="Admin" icon={Shield} />}
