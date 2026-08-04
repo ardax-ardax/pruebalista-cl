@@ -69,6 +69,8 @@ export default function AdminDashboard() {
 
   const loadUsers = async () => {
     setLoadingUsers(true);
+    // Persist downgrades de planes vencidos antes de listar
+    await supabase.rpc("sync_all_expired_plans");
     const [{ data: profiles }, { data: usages }, { data: roles }] = await Promise.all([
       supabase.from("profiles").select("id, email, display_name, colegio_id"),
       supabase.from("user_usage").select("user_id, plan_type, credits_available, plan_expires_at"),

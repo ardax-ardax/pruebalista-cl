@@ -912,6 +912,8 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      sync_all_expired_plans: { Args: never; Returns: number }
+      sync_expired_plan: { Args: { _user_id?: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "utp_head" | "docente"
