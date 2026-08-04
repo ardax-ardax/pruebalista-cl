@@ -23,6 +23,8 @@ import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
 import CurriculumBulkImporter from "@/components/admin/CurriculumBulkImporter";
 import BancoPreguntas from "@/pages/BancoPreguntas";
 import MisPruebas from "@/pages/MisPruebas";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 
 /* ───────── Component ───────── */
 export default function AdminDashboard() {
