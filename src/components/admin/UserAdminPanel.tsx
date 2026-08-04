@@ -36,10 +36,19 @@ interface Props {
 
 export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
   const { plans } = usePlans();
+  const { isAdmin } = useAuth();
   const [usage, setUsage] = useState<Map<string, UserUsageRow>>(new Map());
   const [colegios, setColegios] = useState<ColegioOption[]>([]);
   const [creditDraft, setCreditDraft] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Métricas (solo admin)
+  const [authInfo, setAuthInfo] = useState<Map<string, AuthInfoRow>>(new Map());
+  const [contentCounts, setContentCounts] = useState<Map<string, UserContentCounts>>(new Map());
+
+  // Historial de actividad
+  const [historyUser, setHistoryUser] = useState<Profile | null>(null);
+  const [history, setHistory] = useState<UserAssessmentHistoryItem[] | null>(null);
 
   // Confirmación de baja de UTP
   const [utpWarn, setUtpWarn] = useState<{ userId: string; label: string } | null>(null);
@@ -65,6 +74,28 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
     listColegios().then(setColegios);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    listAuthInfo().then(setAuthInfo);
+    listContentCounts().then(setContentCounts);
+  }, [isAdmin]);
+
+  const openHistory = async (p: Profile) => {
+    setHistoryUser(p);
+    setHistory(null);
+    setHistory(await listUserAssessmentHistory(p.id));
+  };
+
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+  const fmtDateTime = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("es-CL", {
+          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+        })
+      : "—";
+
 
   const handlePlanChange = async (userId: string, planId: string) => {
     setBusyId(userId);
