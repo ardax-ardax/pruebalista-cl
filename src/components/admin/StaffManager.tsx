@@ -34,6 +34,8 @@ import {
   type SubjectOption,
 } from "@/lib/catalog";
 import { useAdminCourses } from "@/hooks/useAdminCourses";
+import { UserAdminPanel } from "@/components/admin/UserAdminPanel";
+
 
 type AppRole = "admin" | "utp_head" | "docente";
 
@@ -322,6 +324,11 @@ export const StaffManager = () => {
             )}
           </div>
         </section>
+
+        {/* Planes, créditos, colegio y eliminación */}
+        <UserAdminPanel profiles={profiles} rolesByUser={rolesByUser} onChanged={refresh} />
+
+
 
         {/* Asignaciones */}
         <section className="space-y-2">
