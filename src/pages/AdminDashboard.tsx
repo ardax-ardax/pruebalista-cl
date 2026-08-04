@@ -15,7 +15,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BookOpen, FileUp, GraduationCap, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
