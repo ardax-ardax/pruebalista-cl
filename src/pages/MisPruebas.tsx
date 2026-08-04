@@ -74,14 +74,21 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
   // Check if user is autonomous (no colegio_id)
   useEffect(() => {
     if (!user || isStaff) { setIsAutonomous(!isStaff); return; }
+    let cancelled = false;
     supabase
       .from("profiles")
       .select("colegio_id")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
+        if (!cancelled) {
+          setIsAutonomous(!(data as { colegio_id: string | null } | null)?.colegio_id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsAutonomous(true);
       });
+    return () => { cancelled = true; };
   }, [user?.id, isStaff]);
 
   const currentFilters = useMemo<AssessmentListFilters>(() => {

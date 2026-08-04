@@ -209,7 +209,11 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
       }
     } else {
       if (!confirm("¿Eliminar esta pregunta del banco?")) return;
-      const ok = await hideFromBank(id, user!.id);
+      if (!user) {
+        toast.error("Tu sesión expiró. Vuelve a iniciar sesión.");
+        return;
+      }
+      const ok = await hideFromBank(id, user.id);
       if (ok) {
         setRows((prev) => prev.filter((r) => r.id !== id));
         toast.success("Pregunta eliminada");
