@@ -160,7 +160,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
         status: "borrador",
         utpFeedback: null,
         updatedAt: Date.now(),
-        meta: { ...a.meta, title: `Copia de ${a.meta.title || "Sin título"}` },
+        meta: { ...a.meta, title: `Copia de ${meta.title || "Sin título"}` },
       };
       await upsertAssessment(copy);
       toast.success("Prueba duplicada");
@@ -303,9 +303,9 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                        <span>{labelOf(subjects, a.meta.subjectValue)}</span>
+                        <span>{labelOf(subjects, meta.subjectValue)}</span>
                         <span>·</span>
-                        <span>{labelOf(grades, a.meta.gradeValue)}</span>
+                        <span>{labelOf(grades, meta.gradeValue)}</span>
                         <span>·</span>
                         <span>{counted} pregunta{counted === 1 ? "" : "s"}</span>
                         <span>·</span>
@@ -325,7 +325,7 @@ const MisPruebas = ({ embedded = false }: { embedded?: boolean }) => {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span>
-                              <Button size="sm" variant="ghost" disabled={isBlocked || !canDelete} onClick={() => handleDelete(a.id, a.meta.title)}>
+                              <Button size="sm" variant="ghost" disabled={isBlocked || !canDelete} onClick={() => handleDelete(a.id, meta.title)}>
                                 <Trash2 className="h-4 w-4" /> Eliminar
                               </Button>
                             </span>
