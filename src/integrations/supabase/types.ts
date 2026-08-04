@@ -172,6 +172,115 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_grading_answers: {
+        Row: {
+          ambiguous: boolean
+          expected: string | null
+          grading_id: string
+          id: string
+          is_correct: boolean
+          marked: string | null
+          slot_num: number
+        }
+        Insert: {
+          ambiguous?: boolean
+          expected?: string | null
+          grading_id: string
+          id?: string
+          is_correct?: boolean
+          marked?: string | null
+          slot_num: number
+        }
+        Update: {
+          ambiguous?: boolean
+          expected?: string | null
+          grading_id?: string
+          id?: string
+          is_correct?: boolean
+          marked?: string | null
+          slot_num?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_grading_answers_grading_id_fkey"
+            columns: ["grading_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_gradings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_gradings: {
+        Row: {
+          assessment_id: string | null
+          assessment_title: string | null
+          blank_count: number
+          correct_count: number
+          course_label: string | null
+          created_at: string
+          grade: number
+          id: string
+          incorrect_count: number
+          max_grade: number
+          min_grade: number
+          passing_percent: number
+          scan_confidence: number | null
+          score_percent: number
+          student_name: string | null
+          student_rut: string | null
+          total_slots: number
+          user_id: string
+        }
+        Insert: {
+          assessment_id?: string | null
+          assessment_title?: string | null
+          blank_count?: number
+          correct_count?: number
+          course_label?: string | null
+          created_at?: string
+          grade?: number
+          id?: string
+          incorrect_count?: number
+          max_grade?: number
+          min_grade?: number
+          passing_percent?: number
+          scan_confidence?: number | null
+          score_percent?: number
+          student_name?: string | null
+          student_rut?: string | null
+          total_slots?: number
+          user_id?: string
+        }
+        Update: {
+          assessment_id?: string | null
+          assessment_title?: string | null
+          blank_count?: number
+          correct_count?: number
+          course_label?: string | null
+          created_at?: string
+          grade?: number
+          id?: string
+          incorrect_count?: number
+          max_grade?: number
+          min_grade?: number
+          passing_percent?: number
+          scan_confidence?: number | null
+          score_percent?: number
+          student_name?: string | null
+          student_rut?: string | null
+          total_slots?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_gradings_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessments: {
         Row: {
           created_at: string
