@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, FileUp, Loader2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileUp, Link2, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -54,16 +54,73 @@ export default function CurriculumBulkImporter() {
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<ParsedRow[] | null>(null);
   const [importing, setImporting] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [extracting, setExtracting] = useState(false);
 
-  const handleParse = () => {
-    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  const parseText = (value: string) => {
+    const lines = value.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
     if (lines.length === 0) {
       toast.error("No hay líneas para procesar");
       return;
     }
-    const parsed = lines.map((l, i) => parseLine(l, i + 1));
-    setPreview(parsed);
+    setPreview(lines.map((l, i) => parseLine(l, i + 1)));
   };
+
+  const handleParse = () => parseText(text);
+
+  const handleExtractPdf = async () => {
+    const url = pdfUrl.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      toast.error("Ingresa una URL válida que empiece con http(s)://");
+      return;
+    }
+    setExtracting(true);
+    const { data, error } = await supabase.functions.invoke("extract-curriculum-pdf", {
+      body: { url },
+    });
+    setExtracting(false);
+
+    if (error) {
+      const ctx = (error as unknown as { context?: { error?: string } }).context;
+      toast.error(ctx?.error || error.message || "Error al extraer el PDF");
+      return;
+    }
+    const res = data as {
+      error?: string;
+      curriculum_decree?: string;
+      curriculum_period?: string;
+      source_url?: string;
+      truncated?: boolean;
+      oas?: Array<{ oa_code?: string; grade_value?: string; subject_value?: string; eje?: string; oa_description?: string }>;
+    };
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+    const oas = Array.isArray(res?.oas) ? res.oas : [];
+    if (oas.length === 0) {
+      toast.error("La IA no encontró Objetivos de Aprendizaje en ese PDF");
+      return;
+    }
+
+    if (res.curriculum_decree) setDecree(res.curriculum_decree);
+    if (res.curriculum_period) setPeriod(res.curriculum_period);
+    setSourceUrl(res.source_url || url);
+
+    const generated = oas
+      .map((o) =>
+        [o.oa_code ?? "", o.grade_value ?? "", o.subject_value ?? "", o.eje ?? "", o.oa_description ?? ""]
+          .map((s) => String(s).replace(/\|/g, "/").trim())
+          .join(" | "),
+      )
+      .join("\n");
+    setText(generated);
+    parseText(generated);
+    toast.success(
+      `${oas.length} OA extraídos del PDF${res.truncated ? " (PDF muy largo: revisa si faltan OA)" : ""}. Revisa y corrige antes de importar.`,
+    );
+  };
+
 
   const stats = useMemo(() => {
     if (!preview) return { total: 0, valid: 0, invalid: 0 };
@@ -149,7 +206,31 @@ export default function CurriculumBulkImporter() {
           </Label>
         </div>
 
+        {/* Extracción desde PDF oficial */}
+        <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+          <Label className="text-xs text-muted-foreground">
+            Opción rápida: extraer desde un PDF oficial con IA
+          </Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              placeholder="https://www.curriculumnacional.cl/.../documento.pdf"
+              value={pdfUrl}
+              onChange={(e) => setPdfUrl(e.target.value)}
+              disabled={extracting}
+            />
+            <Button onClick={handleExtractPdf} disabled={extracting || !pdfUrl.trim()} className="gap-2 shrink-0">
+              {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              Extraer desde PDF
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Descarga el PDF, extrae el texto y usa IA para detectar decreto, vigencia y los OA. El resultado se carga
+            abajo en el mismo formato editable, con la URL guardada como fuente. Revisa siempre antes de importar.
+          </p>
+        </div>
+
         {/* Área de pegado */}
+
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
             Bloque de OA — un OA por línea, campos separados por "|"
