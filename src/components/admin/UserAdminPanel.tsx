@@ -12,15 +12,19 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Coins, Save, Settings2, Trash2 } from "lucide-react";
+import { AlertTriangle, Coins, History, Save, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePlans } from "@/hooks/usePlans";
+import { useAuth } from "@/hooks/useAuth";
 import { profileLabel, type Profile } from "@/lib/profiles";
 import {
-  deleteUserAccount, listAllUsage, listColegios, previewDeleteUser, setUserColegio,
+  deleteUserAccount, listAllUsage, listAuthInfo, listColegios, listContentCounts,
+  listUserAssessmentHistory, previewDeleteUser, setUserColegio,
   setUserCredits, setUserPlan, syncAllExpiredPlans,
-  type ColegioOption, type DeleteUserCounts, type UserUsageRow,
+  type AuthInfoRow, type ColegioOption, type DeleteUserCounts, type UserAssessmentHistoryItem,
+  type UserContentCounts, type UserUsageRow,
 } from "@/lib/admin-users";
+
 
 const NO_COLEGIO = "__none__";
 
