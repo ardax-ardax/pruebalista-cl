@@ -206,7 +206,31 @@ export default function CurriculumBulkImporter() {
           </Label>
         </div>
 
+        {/* Extracción desde PDF oficial */}
+        <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+          <Label className="text-xs text-muted-foreground">
+            Opción rápida: extraer desde un PDF oficial con IA
+          </Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              placeholder="https://www.curriculumnacional.cl/.../documento.pdf"
+              value={pdfUrl}
+              onChange={(e) => setPdfUrl(e.target.value)}
+              disabled={extracting}
+            />
+            <Button onClick={handleExtractPdf} disabled={extracting || !pdfUrl.trim()} className="gap-2 shrink-0">
+              {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              Extraer desde PDF
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Descarga el PDF, extrae el texto y usa IA para detectar decreto, vigencia y los OA. El resultado se carga
+            abajo en el mismo formato editable, con la URL guardada como fuente. Revisa siempre antes de importar.
+          </p>
+        </div>
+
         {/* Área de pegado */}
+
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
             Bloque de OA — un OA por línea, campos separados por "|"
