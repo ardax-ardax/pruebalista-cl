@@ -12,7 +12,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Coins, History, Save, Settings2, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle, Coins, History, Loader2, PlusCircle, Save, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePlans } from "@/hooks/usePlans";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,6 +59,16 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
   const [counts, setCounts] = useState<DeleteUserCounts | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // Recarga de créditos (suma al saldo actual)
+  const [rechargeUser, setRechargeUser] = useState<Profile | null>(null);
+  const [rechargeAmount, setRechargeAmount] = useState(20);
+  const [recharging, setRecharging] = useState(false);
+
+  // Asignación masiva de plan
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkPlan, setBulkPlan] = useState<string>("");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const defaultPlan = useMemo(
     () => plans.find((p) => p.is_default)?.id ?? "free",
@@ -159,6 +170,59 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
     await reloadUsage();
   };
 
+  // Recarga: suma la cantidad indicada al saldo actual del usuario.
+  const handleRecharge = async () => {
+    if (!rechargeUser) return;
+    const current = usage.get(rechargeUser.id)?.creditsAvailable ?? 0;
+    setRecharging(true);
+    const res = await setUserCredits(rechargeUser.id, current + rechargeAmount);
+    setRecharging(false);
+    if (!res.ok) {
+      toast.error("No se pudo recargar: " + res.error);
+      return;
+    }
+    toast.success(`+${rechargeAmount} créditos para ${rechargeUser.email ?? profileLabel(rechargeUser, rechargeUser.id)}`);
+    setRechargeUser(null);
+    await reloadUsage();
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((prev) =>
+      prev.size === profiles.length ? new Set() : new Set(profiles.map((p) => p.id)),
+    );
+
+  // Asignación masiva de plan (misma regla que el cambio individual).
+  const handleBulkPlanAssign = async () => {
+    if (selected.size === 0 || !bulkPlan) return;
+    setBulkLoading(true);
+    let expires: string | null = null;
+    if (bulkPlan !== defaultPlan) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      expires = d.toISOString();
+    }
+    const ids = Array.from(selected);
+    const results = await Promise.all(ids.map((id) => setUserPlan(id, bulkPlan, expires)));
+    setBulkLoading(false);
+    const failed = results.filter((r) => !r.ok).length;
+    if (failed > 0) toast.error(`${failed} usuario(s) no se pudieron actualizar`);
+    if (failed < ids.length) {
+      const label = plans.find((p) => p.id === bulkPlan)?.label ?? bulkPlan;
+      toast.success(`${ids.length - failed} usuario(s) asignados a ${label}`);
+    }
+    setSelected(new Set());
+    await reloadUsage();
+  };
+
+
+
   const applyColegio = async (userId: string, colegioId: string | null) => {
     setBusyId(userId);
     const res = await setUserColegio(userId, colegioId);
@@ -218,15 +282,52 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
         <Badge variant="secondary" className="text-[10px]">{profiles.length}</Badge>
       </div>
       <p className="text-xs text-muted-foreground">
-        Cambia manualmente el plan (con vencimiento), ajusta los créditos IA, vincula al colegio o elimina la cuenta.
+        Cambia manualmente el plan (con vencimiento), recarga o ajusta los créditos IA, vincula al colegio o elimina la cuenta.
         Los planes vencidos se degradan automáticamente al plan por defecto.
       </p>
+
+      {isAdmin && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+          <span className="text-xs text-muted-foreground">
+            Asignación masiva de plan — {selected.size} seleccionado(s)
+          </span>
+          <Select value={bulkPlan} onValueChange={setBulkPlan}>
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="Elegir plan" />
+            </SelectTrigger>
+            <SelectContent>
+              {plans.map((pl) => (
+                <SelectItem key={pl.id} value={pl.id}>{pl.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            className="h-8 gap-2"
+            disabled={selected.size === 0 || !bulkPlan || bulkLoading}
+            onClick={handleBulkPlanAssign}
+          >
+            {bulkLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Asignar a seleccionados
+          </Button>
+        </div>
+      )}
 
       <div className="rounded-md border border-border max-h-[420px] overflow-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-muted/60 backdrop-blur text-xs text-muted-foreground">
             <tr>
+              {isAdmin && (
+                <th className="px-3 py-2 w-8">
+                  <Checkbox
+                    checked={selected.size > 0 && selected.size === profiles.length}
+                    onCheckedChange={toggleAll}
+                    aria-label="Seleccionar todos"
+                  />
+                </th>
+              )}
               <th className="text-left font-medium px-3 py-2">Usuario</th>
+
               {isAdmin && <th className="text-left font-medium px-3 py-2 w-[170px]">Nombre completo</th>}
               {isAdmin && <th className="text-left font-medium px-3 py-2 w-[110px]">Registro</th>}
               {isAdmin && <th className="text-left font-medium px-3 py-2 w-[140px]">Último acceso</th>}
@@ -236,7 +337,7 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               <th className="text-left font-medium px-3 py-2 w-[150px]">Vence</th>
               <th className="text-left font-medium px-3 py-2 w-[150px]">Créditos IA</th>
               <th className="text-left font-medium px-3 py-2 w-[180px]">Colegio</th>
-              <th className="px-3 py-2 w-[88px]" />
+              <th className="px-3 py-2 w-[124px]" />
             </tr>
 
           </thead>
@@ -251,7 +352,17 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
               const cc = contentCounts.get(p.id);
               return (
                 <tr key={p.id} className="border-t border-border align-top">
+                  {isAdmin && (
+                    <td className="px-3 py-1.5">
+                      <Checkbox
+                        checked={selected.has(p.id)}
+                        onCheckedChange={() => toggleSelect(p.id)}
+                        aria-label={`Seleccionar ${p.email ?? p.id}`}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-1.5">
+
                     <div className="font-medium truncate max-w-[180px]">{profileLabel(p, p.id)}</div>
                     <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{p.email}</div>
                   </td>
@@ -339,6 +450,15 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                     </Select>
                   </td>
                   <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="Recargar créditos"
+                      onClick={() => { setRechargeUser(p); setRechargeAmount(20); }}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                     {isAdmin && (
                       <Button
                         size="icon"
@@ -350,6 +470,7 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
                         <History className="h-4 w-4" />
                       </Button>
                     )}
+
                     <Button
                       size="icon"
                       variant="ghost"
@@ -368,9 +489,41 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
         </table>
       </div>
 
+      {/* Recarga de créditos */}
+      <Dialog open={!!rechargeUser} onOpenChange={(o) => !o && setRechargeUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coins className="h-4 w-4" /> Recargar créditos IA
+            </DialogTitle>
+            <DialogDescription>
+              {rechargeUser?.email} — Saldo actual: {usage.get(rechargeUser?.id ?? "")?.creditsAvailable ?? 0}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label className="text-xs">Cantidad a agregar</Label>
+            <Input
+              type="number"
+              min={1}
+              value={rechargeAmount}
+              onChange={(e) => setRechargeAmount(Number(e.target.value))}
+              className="h-9"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRechargeUser(null)}>Cancelar</Button>
+            <Button onClick={handleRecharge} disabled={recharging || rechargeAmount < 1} className="gap-2">
+              {recharging && <Loader2 className="h-4 w-4 animate-spin" />}
+              Recargar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Historial de actividad (solo admin) */}
       <Dialog open={!!historyUser} onOpenChange={(o) => !o && setHistoryUser(null)}>
         <DialogContent className="max-w-lg">
+
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-4 w-4" /> Historial de {historyUser ? profileLabel(historyUser, historyUser.id) : ""}
