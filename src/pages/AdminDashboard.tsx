@@ -15,12 +15,14 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, FileUp, GraduationCap, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles } from "lucide-react";
+import { BookOpen, FileStack, FileUp, GraduationCap, Library, Loader2, MessageSquare, Package, RefreshCw, Save, Search, Settings2, Shield, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlansManager from "@/components/admin/PlansManager";
 import AdminCoursesManager from "@/components/admin/AdminCoursesManager";
 import AdminSubjectsManager from "@/components/admin/AdminSubjectsManager";
 import CurriculumBulkImporter from "@/components/admin/CurriculumBulkImporter";
+import BancoPreguntas from "@/pages/BancoPreguntas";
+import MisPruebas from "@/pages/MisPruebas";
 
 /* ───────── Component ───────── */
 export default function AdminDashboard() {
