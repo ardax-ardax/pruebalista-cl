@@ -92,6 +92,46 @@ export const listAssessmentsWithOwner = async (): Promise<Array<{ assessment: As
   return (data as unknown as Row[]).map((r) => ({ assessment: rowToAssessment(r), userId: r.user_id }));
 };
 
+export const ASSESSMENTS_PAGE_SIZE = 20;
+
+export interface AssessmentListFilters {
+  userId?: string | null; // null => sin dueño (usuario eliminado)
+  subjectValue?: string;
+  status?: string;
+}
+
+/**
+ * Listado paginado real (range + count exacto) de pruebas con su dueño.
+ * Los filtros se aplican en el servidor para que la paginación sea consistente.
+ */
+export const listAssessmentsWithOwnerPaged = async (
+  filters: AssessmentListFilters = {},
+  page = 0,
+  pageSize = ASSESSMENTS_PAGE_SIZE,
+): Promise<{ items: Array<{ assessment: Assessment; userId: string | null }>; total: number; hasMore: boolean }> => {
+  const from = page * pageSize;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = supabase
+    .from("assessments")
+    .select("*", { count: "exact" })
+    .order("updated_at", { ascending: false })
+    .range(from, from + pageSize - 1);
+
+  if (filters.userId === null) query = query.is("user_id", null);
+  else if (filters.userId) query = query.eq("user_id", filters.userId);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.subjectValue) query = query.eq("data->meta->>subjectValue", filters.subjectValue);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error("listAssessmentsWithOwnerPaged", error);
+    return { items: [], total: 0, hasMore: false };
+  }
+  const items = (data as unknown as Row[]).map((r) => ({ assessment: rowToAssessment(r), userId: r.user_id }));
+  const total = count ?? items.length;
+  return { items, total, hasMore: from + items.length < total };
+};
+
 export const getAssessment = async (id: string): Promise<Assessment | null> => {
   const { data, error } = await supabase
     .from("assessments")
