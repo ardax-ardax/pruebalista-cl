@@ -325,7 +325,7 @@ export default function BancoPreguntas({ embedded = false }: { embedded?: boolea
         ) : (
           <div className="space-y-2">
             {rows.map((row) => {
-              const qData = row.question_data as Question;
+              const qData = (row.question_data ?? null) as Question | null;
               const isExpanded = expandedIds.has(row.id);
               return (
                 <Card key={row.id} className="shadow-sm">
