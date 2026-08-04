@@ -215,7 +215,9 @@ const CorregirPruebas = () => {
         assessmentTitle: assessment.meta.title || "Evaluación",
         studentName: draft.studentName.trim() || null,
         studentRut: draft.studentRut.trim() || null,
-        courseLabel: assessment.meta.course ?? null,
+        courseLabel:
+          [assessment.meta.gradeValue, assessment.meta.sectionLetter].filter(Boolean).join(" ") ||
+          null,
         settings,
         result,
         confidence: draft.confidence,
