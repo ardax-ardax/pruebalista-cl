@@ -282,15 +282,52 @@ export const UserAdminPanel = ({ profiles, rolesByUser, onChanged }: Props) => {
         <Badge variant="secondary" className="text-[10px]">{profiles.length}</Badge>
       </div>
       <p className="text-xs text-muted-foreground">
-        Cambia manualmente el plan (con vencimiento), ajusta los créditos IA, vincula al colegio o elimina la cuenta.
+        Cambia manualmente el plan (con vencimiento), recarga o ajusta los créditos IA, vincula al colegio o elimina la cuenta.
         Los planes vencidos se degradan automáticamente al plan por defecto.
       </p>
+
+      {isAdmin && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+          <span className="text-xs text-muted-foreground">
+            Asignación masiva de plan — {selected.size} seleccionado(s)
+          </span>
+          <Select value={bulkPlan} onValueChange={setBulkPlan}>
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="Elegir plan" />
+            </SelectTrigger>
+            <SelectContent>
+              {plans.map((pl) => (
+                <SelectItem key={pl.id} value={pl.id}>{pl.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            className="h-8 gap-2"
+            disabled={selected.size === 0 || !bulkPlan || bulkLoading}
+            onClick={handleBulkPlanAssign}
+          >
+            {bulkLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Asignar a seleccionados
+          </Button>
+        </div>
+      )}
 
       <div className="rounded-md border border-border max-h-[420px] overflow-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-muted/60 backdrop-blur text-xs text-muted-foreground">
             <tr>
+              {isAdmin && (
+                <th className="px-3 py-2 w-8">
+                  <Checkbox
+                    checked={selected.size > 0 && selected.size === profiles.length}
+                    onCheckedChange={toggleAll}
+                    aria-label="Seleccionar todos"
+                  />
+                </th>
+              )}
               <th className="text-left font-medium px-3 py-2">Usuario</th>
+
               {isAdmin && <th className="text-left font-medium px-3 py-2 w-[170px]">Nombre completo</th>}
               {isAdmin && <th className="text-left font-medium px-3 py-2 w-[110px]">Registro</th>}
               {isAdmin && <th className="text-left font-medium px-3 py-2 w-[140px]">Último acceso</th>}
