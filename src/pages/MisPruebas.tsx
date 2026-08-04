@@ -341,13 +341,15 @@ const MisPruebas = () => {
           </div>
         )}
 
-        {hasMore && (
+        {items.length > 0 && (
           <div className="flex flex-col items-center gap-1 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
-              Cargar más ({visible.length - paged.length} restantes)
-            </Button>
+            {hasMore && (
+              <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Cargando…" : `Cargar más (${total - items.length} restantes)`}
+              </Button>
+            )}
             <span className="text-xs text-muted-foreground">
-              Mostrando {paged.length} de {visible.length}
+              Mostrando {items.length} de {total}
             </span>
           </div>
         )}
