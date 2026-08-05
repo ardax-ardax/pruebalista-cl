@@ -69,13 +69,34 @@ Deno.serve(async (req) => {
     const { data: isAdmin } = await userClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
     if (!isAdmin) return json({ error: "Solo administradores" }, 403);
 
-    const { url } = (await req.json()) as { url?: string };
-    if (!url || !/^https?:\/\//i.test(url)) return json({ error: "URL inválida" }, 400);
+    const body = (await req.json()) as { url?: string; file_base64?: string; file_name?: string };
+    const url = body.url;
+    const fileBase64 = body.file_base64;
 
-    // --- Descargar PDF ---
-    const pdfResp = await fetch(url);
-    if (!pdfResp.ok) return json({ error: `No se pudo descargar el PDF (${pdfResp.status})` }, 400);
-    const buf = new Uint8Array(await pdfResp.arrayBuffer());
+    let buf: Uint8Array;
+    let sourceLabel: string;
+
+    if (fileBase64) {
+      // --- PDF subido desde el computador (base64) ---
+      try {
+        const clean = fileBase64.includes(",") ? fileBase64.split(",").pop()! : fileBase64;
+        const bin = atob(clean);
+        buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      } catch {
+        return json({ error: "Archivo inválido (base64 no legible)" }, 400);
+      }
+      if (buf.length === 0) return json({ error: "El archivo está vacío" }, 400);
+      sourceLabel = body.file_name || "archivo.pdf";
+    } else {
+      if (!url || !/^https?:\/\//i.test(url)) return json({ error: "URL inválida" }, 400);
+      // --- Descargar PDF ---
+      const pdfResp = await fetch(url);
+      if (!pdfResp.ok) return json({ error: `No se pudo descargar el PDF (${pdfResp.status})` }, 400);
+      buf = new Uint8Array(await pdfResp.arrayBuffer());
+      sourceLabel = url;
+    }
+
 
     // --- Extraer texto ---
     let text = "";
