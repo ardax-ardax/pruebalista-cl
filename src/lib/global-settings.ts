@@ -39,17 +39,20 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings> => {
 };
 
 /**
- * Lectura pública y liviana para la portada: solo el flag institucional.
+ * Lectura pública y liviana para la portada: flags de visibilidad y pagos.
  * No requiere sesión (accesible por el rol anon).
  */
-export const loadPublicLandingSettings = async (): Promise<{ show_institutional_landing: boolean }> => {
+export const loadPublicLandingSettings = async (): Promise<{ show_institutional_landing: boolean; enable_payments: boolean }> => {
   const { data, error } = await supabase
     .from("global_settings")
-    .select("show_institutional_landing")
+    .select("show_institutional_landing, enable_payments")
     .eq("id", true)
     .maybeSingle();
-  if (error || !data) return { show_institutional_landing: true };
-  return { show_institutional_landing: data.show_institutional_landing ?? true };
+  if (error || !data) return { show_institutional_landing: true, enable_payments: false };
+  return {
+    show_institutional_landing: data.show_institutional_landing ?? true,
+    enable_payments: data.enable_payments ?? false,
+  };
 };
 
 
