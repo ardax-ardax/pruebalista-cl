@@ -170,9 +170,13 @@ export default function Precios() {
               ]} />
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onClick={handlePayPro} disabled={loadingPro}>
+              <Button className="w-full" onClick={handlePayPro} disabled={loadingPro || !paymentsEnabled}>
                 {loadingPro ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {effectivePlan === "pro" ? "Renovar plan" : "Suscribirme"}
+                {!paymentsEnabled
+                  ? "Pagos temporalmente no disponibles"
+                  : effectivePlan === "pro"
+                    ? "Renovar plan"
+                    : "Suscribirme"}
               </Button>
             </CardFooter>
           </Card>
@@ -211,9 +215,18 @@ export default function Precios() {
                 ]} />
               </CardContent>
               <CardFooter className="flex-col gap-2 items-stretch">
-                <Button variant="secondary" className="w-full" onClick={handlePayInst} disabled={loadingInst || !isUtp}>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={handlePayInst}
+                  disabled={loadingInst || !isUtp || !paymentsEnabled}
+                >
                   {loadingInst ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {isUtp ? "Contratar para mi colegio" : "Solo UTP puede contratar"}
+                  {!paymentsEnabled
+                    ? "Pagos temporalmente no disponibles"
+                    : isUtp
+                      ? "Contratar para mi colegio"
+                      : "Solo UTP puede contratar"}
                 </Button>
                 {!isUtp && (
                   <p className="text-[10px] text-muted-foreground text-center">
