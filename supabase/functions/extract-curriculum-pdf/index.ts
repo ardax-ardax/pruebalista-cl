@@ -132,7 +132,7 @@ Devuelve el resultado exclusivamente vía la tool 'emit_curriculum'.`;
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `URL: ${url}\n\nTexto del documento:\n\n${excerpt}` },
+          { role: "user", content: `Fuente: ${sourceLabel}\n\nTexto del documento:\n\n${excerpt}` },
         ],
         tools: [TOOL],
         tool_choice: { type: "function", function: { name: "emit_curriculum" } },
@@ -161,7 +161,7 @@ Devuelve el resultado exclusivamente vía la tool 'emit_curriculum'.`;
     return json({
       curriculum_decree: parsed.curriculum_decree ?? "",
       curriculum_period: parsed.curriculum_period ?? "",
-      source_url: url,
+      source_url: url ?? "",
       oas: Array.isArray(parsed.oas) ? parsed.oas : [],
       truncated: text.length > MAX,
     });
