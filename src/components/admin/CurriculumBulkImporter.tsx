@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, FileUp, Link2, Loader2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, FileUp, Link2, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -56,6 +56,8 @@ export default function CurriculumBulkImporter() {
   const [importing, setImporting] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
   const [extracting, setExtracting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parseText = (value: string) => {
     const lines = value.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
@@ -68,17 +70,15 @@ export default function CurriculumBulkImporter() {
 
   const handleParse = () => parseText(text);
 
-  const handleExtractPdf = async () => {
-    const url = pdfUrl.trim();
-    if (!/^https?:\/\//i.test(url)) {
-      toast.error("Ingresa una URL válida que empiece con http(s)://");
-      return;
-    }
+  const runExtraction = async (
+    payload: { url: string } | { file_base64: string; file_name: string },
+  ) => {
     setExtracting(true);
     const { data, error } = await supabase.functions.invoke("extract-curriculum-pdf", {
-      body: { url },
+      body: payload,
     });
     setExtracting(false);
+    const url = "url" in payload ? payload.url : "";
 
     if (error) {
       const ctx = (error as unknown as { context?: { error?: string } }).context;
@@ -105,7 +105,7 @@ export default function CurriculumBulkImporter() {
 
     if (res.curriculum_decree) setDecree(res.curriculum_decree);
     if (res.curriculum_period) setPeriod(res.curriculum_period);
-    setSourceUrl(res.source_url || url);
+    if (res.source_url || url) setSourceUrl(res.source_url || url);
 
     const generated = oas
       .map((o) =>
@@ -119,6 +119,40 @@ export default function CurriculumBulkImporter() {
     toast.success(
       `${oas.length} OA extraídos del PDF${res.truncated ? " (PDF muy largo: revisa si faltan OA)" : ""}. Revisa y corrige antes de importar.`,
     );
+  };
+
+  const handleExtractPdf = async () => {
+    const url = pdfUrl.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      toast.error("Ingresa una URL válida que empiece con http(s)://");
+      return;
+    }
+    await runExtraction({ url });
+  };
+
+  const MAX_PDF_BYTES = 12 * 1024 * 1024;
+
+  const handleFile = async (file: File | null | undefined) => {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
+      toast.error("El archivo debe ser un PDF");
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      toast.error("El PDF supera los 12 MB. Usa la opción de link o divide el documento.");
+      return;
+    }
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",").pop() || "");
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    }).catch(() => null);
+    if (!base64) {
+      toast.error("No se pudo leer el archivo");
+      return;
+    }
+    await runExtraction({ file_base64: base64, file_name: file.name });
   };
 
 
@@ -227,6 +261,47 @@ export default function CurriculumBulkImporter() {
             Descarga el PDF, extrae el texto y usa IA para detectar decreto, vigencia y los OA. El resultado se carga
             abajo en el mismo formato editable, con la URL guardada como fuente. Revisa siempre antes de importar.
           </p>
+        </div>
+
+        {/* Subir PDF desde el computador */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (!extracting) void handleFile(e.dataTransfer.files?.[0]);
+          }}
+          onClick={() => !extracting && fileInputRef.current?.click()}
+          className={`rounded-md border border-dashed p-4 text-center cursor-pointer transition-colors ${
+            dragOver ? "border-primary bg-primary/5" : "bg-muted/30 hover:bg-muted/50"
+          } ${extracting ? "opacity-60 pointer-events-none" : ""}`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(e) => {
+              void handleFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <div className="flex flex-col items-center gap-1">
+            {extracting ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            ) : (
+              <FileText className="h-5 w-5 text-muted-foreground" />
+            )}
+            <p className="text-sm font-medium">Subir un PDF desde tu computador</p>
+            <p className="text-[11px] text-muted-foreground">
+              Arrastra el archivo aquí o haz clic para seleccionarlo (máx. 12 MB). Se procesa con la misma IA que la
+              opción de link y el resultado cae en la vista previa de abajo.
+            </p>
+          </div>
         </div>
 
         {/* Área de pegado */}
